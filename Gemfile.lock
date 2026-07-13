@@ -1,0 +1,30 @@
+PATH
+  remote: .
+  specs:
+    dry-validation-rust (0.1.0.pre1)
+      bigdecimal (~> 3.1)
+      rb_sys (~> 0.9)
+
+GEM
+  remote: https://rubygems.org/
+  specs:
+    bigdecimal (3.1.5)
+    minitest (5.20.0)
+    mutex_m (0.2.0)
+    rake (13.1.0)
+    rake-compiler-dock (1.12.0)
+    rb_sys (0.9.128)
+      rake-compiler-dock (= 1.12.0)
+
+PLATFORMS
+  ruby
+  x86_64-linux
+
+DEPENDENCIES
+  dry-validation-rust!
+  minitest (~> 5.20)
+  mutex_m (~> 0.2)
+  rake (~> 13.1)
+
+BUNDLED WITH
+   2.5.22
