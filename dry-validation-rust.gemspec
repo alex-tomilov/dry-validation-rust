@@ -19,7 +19,7 @@ Gem::Specification.new do |spec|
     "CHANGELOG.md", "LICENSE", "NOTICE.md", "README.md",
     "docs/**/*.md", "examples/**/*.rb", "benchmark/**/*.rb",
     "lib/**/*.rb", "ext/**/*.{rb,rs,toml,lock}"
-  ]
+  ].reject { |path| path.start_with?("ext/dry_validation_rust/target/") }
   spec.require_paths = ["lib"]
   spec.extensions = ["ext/dry_validation_rust/extconf.rb"]
   spec.add_runtime_dependency "bigdecimal", "~> 3.1"

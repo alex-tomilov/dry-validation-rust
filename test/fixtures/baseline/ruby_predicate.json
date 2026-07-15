@@ -1,0 +1,13 @@
+{
+  "success": false,
+  "output": {
+    "email": "bad"
+  },
+  "errors": {
+    "email": [
+      "is in invalid format"
+    ]
+  },
+  "context": {
+  }
+}

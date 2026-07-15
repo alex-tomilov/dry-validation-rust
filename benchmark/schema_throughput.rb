@@ -17,6 +17,7 @@ INPUT = {
 ITERATIONS = Integer(ENV.fetch("N", "100000"))
 WARMUP_ITERATIONS = Integer(ENV.fetch("WARMUP", "10000"))
 ENGINE = ENV.fetch("ENGINE", "all")
+FORMAT = ENV.fetch("FORMAT", "text")
 PROJECT_LIB = File.expand_path("../lib", __dir__)
 
 def measure(contract)
@@ -155,15 +156,33 @@ def print_result(result)
 end
 
 results = requested_results
-results.each_with_index do |result, index|
-  puts if index.positive?
-  print_result(result)
-end
+if FORMAT == "json"
+  payload = {
+    "benchmark" => "schema_throughput",
+    "ruby_platform" => RUBY_PLATFORM,
+    "engines" => results
+  }
+  if results.size == 2
+    rust, upstream = results
+    payload["comparison"] = {
+      "throughput_ratio" => rust.fetch("throughput") / upstream.fetch("throughput"),
+      "allocation_ratio" => rust.fetch("allocated_objects").to_f / upstream.fetch("allocated_objects")
+    }
+  end
+  puts JSON.pretty_generate(payload)
+elsif FORMAT == "text"
+  results.each_with_index do |result, index|
+    puts if index.positive?
+    print_result(result)
+  end
 
-if results.size == 2
-  rust, upstream = results
-  puts
-  puts "comparison"
-  puts "  throughput ratio: #{(rust.fetch("throughput") / upstream.fetch("throughput")).round(2)}x"
-  puts "  allocation ratio: #{(rust.fetch("allocated_objects").to_f / upstream.fetch("allocated_objects")).round(2)}x"
+  if results.size == 2
+    rust, upstream = results
+    puts
+    puts "comparison"
+    puts "  throughput ratio: #{(rust.fetch("throughput") / upstream.fetch("throughput")).round(2)}x"
+    puts "  allocation ratio: #{(rust.fetch("allocated_objects").to_f / upstream.fetch("allocated_objects")).round(2)}x"
+  end
+else
+  abort "Unknown FORMAT=#{FORMAT.inspect}. Use text or json."
 end

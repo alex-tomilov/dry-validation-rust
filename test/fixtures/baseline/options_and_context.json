@@ -1,0 +1,15 @@
+{
+  "success": false,
+  "output": {
+    "name": "used"
+  },
+  "errors": {
+    "name": [
+      "is taken"
+    ]
+  },
+  "context": {
+    "request_id": 7,
+    "checked": true
+  }
+}

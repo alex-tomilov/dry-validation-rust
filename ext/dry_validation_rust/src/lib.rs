@@ -1,8 +1,8 @@
 use magnus::{
-    function, method,
+    Error, Float, Integer, RArray, RClass, RHash, RModule, RString, Ruby, Symbol, Value, function,
+    method,
     prelude::*,
     value::{Qfalse, Qtrue},
-    Error, Float, Integer, RArray, RClass, RHash, RModule, RString, Ruby, Symbol, Value,
 };
 use serde::Deserialize;
 use serde_json::Value as JsonValue;
@@ -103,10 +103,9 @@ fn fields_use_kind(fields: &[FieldPlan], kind: &str) -> bool {
     fields.iter().any(|field| {
         field.kind == kind
             || fields_use_kind(&field.children, kind)
-            || field
-                .member
-                .as_ref()
-                .is_some_and(|member| member.kind == kind || fields_use_kind(&member.children, kind))
+            || field.member.as_ref().is_some_and(|member| {
+                member.kind == kind || fields_use_kind(&member.children, kind)
+            })
     })
 }
 
@@ -186,7 +185,10 @@ impl Engine {
                 .iter()
                 .map(|field| {
                     1 + count(&field.children)
-                        + field.member.as_ref().map_or(0, |member| count(&member.children))
+                        + field
+                            .member
+                            .as_ref()
+                            .map_or(0, |member| count(&member.children))
                 })
                 .sum()
         }
@@ -249,11 +251,7 @@ fn process_value(
         if field.filled {
             errors.push(NativeError::new(path, "filled", "must be filled"));
         } else if !field.nullable && field.kind != "nil" && field.kind != "any" {
-            errors.push(NativeError::new(
-                path,
-                "type",
-                type_message(&field.kind),
-            ));
+            errors.push(NativeError::new(path, "type", type_message(&field.kind)));
         }
         return Ok(raw);
     }
@@ -269,11 +267,7 @@ fn process_value(
     let coerced = match coerce(ruby, classes, mode, &field.kind, raw)? {
         Some(value) => value,
         None => {
-            errors.push(NativeError::new(
-                path,
-                "type",
-                type_message(&field.kind),
-            ));
+            errors.push(NativeError::new(path, "type", type_message(&field.kind)));
             return Ok(raw);
         }
     };
@@ -285,7 +279,8 @@ fn process_value(
     let mut value = coerced;
     if field.kind == "hash" && !field.children.is_empty() {
         if let Some(hash) = RHash::from_value(coerced) {
-            value = process_hash(ruby, classes, mode, &field.children, hash, path, errors)?.as_value();
+            value =
+                process_hash(ruby, classes, mode, &field.children, hash, path, errors)?.as_value();
         }
     } else if field.kind == "array" {
         if let (Some(member), Some(array)) = (field.member.as_ref(), RArray::from_value(coerced)) {
@@ -294,13 +289,7 @@ fn process_value(
                 let mut item_path = clone_path(path);
                 item_path.push(PathPart::Index(index));
                 output.push(process_value(
-                    ruby,
-                    classes,
-                    mode,
-                    member,
-                    item,
-                    &item_path,
-                    errors,
+                    ruby, classes, mode, member, item, &item_path, errors,
                 )?)?;
             }
             value = output.as_value();
@@ -386,10 +375,12 @@ fn type_matches(ruby: &Ruby, classes: &RuntimeClasses, kind: &str, value: Value)
         "symbol" => Symbol::from_value(value).is_some(),
         "array" => RArray::from_value(value).is_some(),
         "hash" => RHash::from_value(value).is_some(),
-        "date" => classes.date.is_some_and(|class| value.is_kind_of(class))
-            && !classes
-                .date_time
-                .is_some_and(|class| value.is_kind_of(class)),
+        "date" => {
+            classes.date.is_some_and(|class| value.is_kind_of(class))
+                && !classes
+                    .date_time
+                    .is_some_and(|class| value.is_kind_of(class))
+        }
         "date_time" => classes
             .date_time
             .is_some_and(|class| value.is_kind_of(class)),
@@ -438,7 +429,9 @@ fn apply_predicates(
             },
             "min_size" | "max_size" | "size" => {
                 let expected = predicate.argument.as_u64().unwrap_or(0) as usize;
-                let actual = value.funcall::<_, _, usize>("size", ()).unwrap_or(usize::MAX);
+                let actual = value
+                    .funcall::<_, _, usize>("size", ())
+                    .unwrap_or(usize::MAX);
                 match predicate.name.as_str() {
                     "min_size" => actual >= expected,
                     "max_size" => actual <= expected,
@@ -467,10 +460,8 @@ fn json_scalar(ruby: &Ruby, value: &JsonValue) -> Option<Value> {
         Some(ruby.integer_from_u64(number).as_value())
     } else if let Some(number) = value.as_f64() {
         Some(ruby.float_from_f64(number).as_value())
-    } else if let Some(string) = value.as_str() {
-        Some(ruby.str_new(string).as_value())
     } else {
-        None
+        value.as_str().map(|string| ruby.str_new(string).as_value())
     }
 }
 

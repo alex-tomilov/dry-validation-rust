@@ -1,0 +1,19 @@
+{
+  "success": false,
+  "output": {
+    "scores": [
+      1,
+      "bad",
+      3
+    ]
+  },
+  "errors": {
+    "scores": {
+      "1": [
+        "must be an integer"
+      ]
+    }
+  },
+  "context": {
+  }
+}

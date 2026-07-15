@@ -1,0 +1,12 @@
+{
+  "success": true,
+  "output": {
+    "age": 42,
+    "enabled": false,
+    "nickname": null
+  },
+  "errors": {
+  },
+  "context": {
+  }
+}

@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- Added canonical verification and benchmark-smoke scripts.
+- Added fixture-backed baseline behavior tests and verification documentation.
+- Excluded local Cargo target output from source gem file selection.
+
 ## 0.1.0.pre1 — 2026-07-12
 
 - Added a Magnus/rb-sys native extension with immutable compiled schema plans.
