@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Added product-scope documentation, including the support matrix and pinned
+  upstream compatibility references.
 - Added canonical verification and benchmark-smoke scripts.
 - Added fixture-backed baseline behavior tests and verification documentation.
 - Excluded local Cargo target output from source gem file selection.

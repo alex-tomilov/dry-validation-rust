@@ -1,16 +1,18 @@
 # dry-validation-rust
 
-An experimental Rust-backed Ruby gem that preserves the most common
-`dry-validation` contract syntax while moving the declarative schema hot path
-into a compiled native execution plan.
+`dry-validation-rust` is a performance-oriented hybrid Ruby/Rust validation
+engine with familiar dry-validation-style contract syntax and a precisely
+documented compatible subset. Rust handles the immutable declarative schema
+execution path; Ruby preserves dynamic rules and Ruby-specific semantics.
 
 > Status: feasibility prototype / `0.1.0.pre1`. It is deliberately not
 > presented as a production-ready drop-in replacement.
 
-## Verdict
+Read [the support matrix](docs/SUPPORT_MATRIX.md), [compatibility matrix](docs/COMPATIBILITY.md),
+[architecture](docs/ARCHITECTURE.md), and [feasibility study](docs/FEASIBILITY.md)
+before considering real use.
 
-The useful part of `dry-validation` can be rewritten with Rust, but a faithful
-implementation should remain hybrid:
+## What this project is
 
 - Rust owns the immutable schema plan, key lookup and normalization, nested
   traversal, built-in coercion, type checks, native predicates, output
@@ -22,17 +24,22 @@ Rewriting arbitrary Ruby blocks into Rust is neither generally possible nor
 desirable. Calling those blocks through Ruby preserves the feature that makes
 `dry-validation` useful: domain validation can be normal Ruby.
 
-Read [the feasibility study](docs/FEASIBILITY.md), [architecture](docs/ARCHITECTURE.md),
-and [compatibility matrix](docs/COMPATIBILITY.md) before considering real use.
+## What this project is not
 
-## Familiar syntax
+- It is not a proven drop-in replacement for upstream `dry-validation`.
+- It is not a full Rust rewrite of the dry-rb validation stack.
+- It does not claim full upstream compatibility without fixture-backed,
+  version-pinned differential evidence.
+- It does not claim general speedups without representative benchmarks.
 
-Exact replacement mode keeps the usual superclass and execution syntax:
+## Primary safe API
+
+Use the side-by-side namespace first:
 
 ```ruby
-require "dry/validation"
+require "dry/validation/rust"
 
-class NewUserContract < Dry::Validation::Contract
+class NewUserContract < Dry::Validation::Rust::Contract
   params do
     required(:email).filled(:string, format?: /\A[^@]+@[^@]+\z/)
     required(:age).value(:integer)
@@ -61,17 +68,51 @@ result.success?
 result.errors.to_h
 ```
 
-For comparison work or gradual migration, avoid the conflicting constant:
+This is the primary supported API. Version, platform, and upstream-reference
+targets are listed in [SUPPORT_MATRIX.md](docs/SUPPORT_MATRIX.md). Supported
+DSL and semantic differences are listed in [COMPATIBILITY.md](docs/COMPATIBILITY.md).
+
+## Migration-compatible subset
+
+The safe API intentionally keeps familiar contract syntax where that behavior
+is implemented and covered. Use it for comparison work and gradual migration
+without taking over upstream constants:
 
 ```ruby
 require "dry/validation/rust"
 
-class NewUserContract < Dry::Validation::Rust::Contract
+class AgeContract < Dry::Validation::Rust::Contract
   params do
     required(:age).value(:integer)
   end
 end
 ```
+
+## Exact compatibility shim
+
+Exact compatibility mode keeps upstream-like require paths and constants:
+
+```ruby
+require "dry/validation"
+
+class AgeContract < Dry::Validation::Contract
+  params do
+    required(:age).value(:integer)
+  end
+end
+```
+
+> Collision warning: exact compatibility mode is experimental and opt-in. Do
+> not install or activate upstream `dry-validation` / `dry-schema` in the same
+> process when using `require "dry/validation"` or `require "dry/schema"` from
+> this gem. Both implementations own the same require paths and constants. This
+> gem raises a clear `LoadError` when it can detect such a collision.
+
+The exact shim currently lives in this gem. If maintaining the shim separately
+becomes necessary, the intended product split is `dry-validation-rust` for the
+safe namespace and `dry-validation-rust-compat` for the upstream-like require
+paths. No split is planned for the `0.1.x` line without concrete maintenance
+evidence.
 
 ## Loading modes
 
@@ -89,14 +130,14 @@ end
 - minimal `Dry::Schema.Params`, `Dry::Schema.JSON`, and
   `Dry::Schema.define` factories for reusable schemas.
 
-Do not install or activate upstream `dry-validation` / `dry-schema` in the
-same process in exact mode. Both implementations would own the same require
-paths and constants. The gem raises a clear `LoadError` when it can detect
-such a collision.
+The collision warning above applies to every exact-mode entrypoint.
 
 ## Supported highlights
 
-- CRuby 3.3+.
+This section is a summary. Version and platform support is authoritative in
+[SUPPORT_MATRIX.md](docs/SUPPORT_MATRIX.md); feature support is authoritative
+in [COMPATIBILITY.md](docs/COMPATIBILITY.md).
+
 - `params`, `json`, and plain `schema` modes.
 - String-key normalization for Params and JSON.
 - Integer, float, decimal, boolean, symbol, Date, DateTime, and Time Params
