@@ -2,9 +2,12 @@
 
 ## Target
 
-The public target is the common `dry-validation` 1.11 contract surface, read
-against current upstream main and `dry-schema` 1.16.0. This is not a claim of
-full behavioral compatibility.
+The public target for the `0.1.x` line is the common `dry-validation` contract
+surface, pinned to `dry-validation` 1.11.1 and `dry-schema` 1.16.0. This is not
+a claim of full behavioral compatibility.
+
+Version, platform, and release-line support are documented in
+[SUPPORT_MATRIX.md](SUPPORT_MATRIX.md).
 
 Legend:
 
