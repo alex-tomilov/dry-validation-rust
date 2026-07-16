@@ -1,6 +1,6 @@
 # Verification record
 
-Date: 2026-07-15
+Date: 2026-07-16
 
 ## Canonical command
 
@@ -11,8 +11,14 @@ script/verify
 ```
 
 The command exits nonzero on Ruby test, native compile, Rust formatting, Rust
-test, Clippy, Cargo lockfile check, gem build, source-gem install, or installed
-smoke-contract failure.
+test, Clippy, Cargo lockfile check, package audit, source-gem install, or
+installed smoke-contract failure.
+
+Run only the package audit with:
+
+```bash
+bundle exec rake package:audit
+```
 
 ## Toolchain
 
@@ -47,7 +53,7 @@ The exact and side-by-side loading fixtures assert that the upstream
 Observed from `script/verify`:
 
 ```text
-29 runs, 65 assertions, 0 failures, 0 errors, 0 skips
+35 runs, 111 assertions, 0 failures, 0 errors, 0 skips
 
 running 4 tests
 test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out
@@ -89,51 +95,19 @@ This smoke benchmark has no threshold and is not a public performance claim.
 
 ## Source gem file list
 
-Observed from `Gem::Specification.load("dry-validation-rust.gemspec").files`:
+Observed from `bundle exec rake package:audit`:
 
 ```text
 CHANGELOG.md
 LICENSE
 NOTICE.md
 README.md
-benchmark/schema_throughput.rb
 docs/ARCHITECTURE.md
 docs/COMPATIBILITY.md
 docs/FEASIBILITY.md
+docs/SUPPORT_MATRIX.md
 docs/VERIFICATION.md
-docs/codex/README.md
-docs/codex/stages/release-gates/G00-audit-and-close-the-alpha-release-gate.md
-docs/codex/stages/release-gates/G01-audit-and-close-the-beta-release-gate.md
-docs/codex/stages/release-gates/G02-audit-and-close-the-release-candidate-gate.md
-docs/codex/stages/release-gates/G03-audit-and-close-the-stable-1-0-gate.md
-docs/codex/stages/repository/R00-define-product-identity-and-scope.md
-docs/codex/stages/repository/R01-choose-branch-and-contribution-governance.md
-docs/codex/stages/repository/R02-add-community-health-and-support-files.md
-docs/codex/stages/repository/R03-repository-metadata-and-gemspec-cleanup.md
-docs/codex/stages/repository/R04-build-a-serious-ci-pipeline.md
-docs/codex/stages/repository/R05-dependency-and-supply-chain-hygiene.md
-docs/codex/stages/repository/R06-native-binary-gem-strategy.md
-docs/codex/stages/repository/R07-release-automation-and-version-policy.md
-docs/codex/stages/repository/R08-documentation-information-architecture.md
-docs/codex/stages/repository/R09-project-planning-and-issue-hygiene.md
-docs/codex/stages/repository/R10-public-performance-and-compatibility-evidence.md
-docs/codex/stages/repository/R11-adoption-examples-and-supportability.md
-docs/codex/stages/repository/R12-stable-1-0-governance.md
-docs/codex/stages/technical/T00-establish-a-reproducible-baseline.md
-docs/codex/stages/technical/T01-separate-mutable-dsl-builders-from-immutable-compiled-plans.md
-docs/codex/stages/technical/T02-introduce-a-typed-and-strictly-validated-native-plan.md
-docs/codex/stages/technical/T03-correct-ruby-exception-handling-across-the-rust-boundary.md
-docs/codex/stages/technical/T04-support-arbitrary-precision-ruby-integers.md
-docs/codex/stages/technical/T05-split-the-rust-extension-into-modules-without-behavior-changes.md
-docs/codex/stages/technical/T06-build-a-differential-compatibility-harness.md
-docs/codex/stages/technical/T07-index-schema-error-paths.md
-docs/codex/stages/technical/T08-cache-finalized-result-message-views.md
-docs/codex/stages/technical/T09-normalize-rule-paths-and-compile-rule-metadata-once.md
-docs/codex/stages/technical/T10-add-measured-native-fast-paths.md
-docs/codex/stages/technical/T11-replace-the-benchmark-smoke-test-with-a-benchmark-suite.md
-docs/codex/stages/technical/T12-property-fuzz-malformed-plan-gc-and-concurrency-testing.md
-docs/codex/stages/technical/T13-evaluate-a-future-batch-gvl-releasing-api.md
-examples/new_user_contract.rb
+dry-validation-rust.gemspec
 ext/dry_validation_rust/Cargo.lock
 ext/dry_validation_rust/Cargo.toml
 ext/dry_validation_rust/extconf.rb
@@ -159,15 +133,18 @@ lib/dry/validation/rust/schema.rb
 lib/dry/validation/rust/values.rb
 lib/dry/validation/rust/version.rb
 lib/dry_validation_rust.rb
+rust-toolchain.toml
 ```
 
 Local Cargo `target` files, generated Makefiles, logs, native shared objects,
-and built `.gem` artifacts are intentionally excluded from the source gem.
+built `.gem` artifacts, benchmarks, examples, editor files, credentials, and
+Codex stage prompts are intentionally excluded from the source gem.
 
 ## Verification runs
 
-- `script/verify`: passed after formatting and Clippy compatibility fixes.
-- `script/verify`: passed a second time from the built state.
+- `script/verify`: passed after adding the package audit to canonical
+  verification.
+- `bundle exec rake package:audit`: passed from the built state.
 - Removed generated build artifacts and ran `script/verify`: passed, including
   native extension rebuild, gem build, temporary gem-home install, and installed
   smoke contract.
@@ -180,3 +157,5 @@ and built `.gem` artifacts are intentionally excluded from the source gem.
   benchmark smoke capture.
 - The previous gemspec glob could include local Cargo `target` `.rs` files when
   build artifacts existed. The source gem file list now rejects `target`.
+- The dedicated package audit now also rejects benchmarks, examples, Codex stage
+  prompts, editor files, credentials, and built package artifacts.

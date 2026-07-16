@@ -7,6 +7,9 @@
 - Added canonical verification and benchmark-smoke scripts.
 - Added fixture-backed baseline behavior tests and verification documentation.
 - Excluded local Cargo target output from source gem file selection.
+- Added public RubyGems metadata and a package audit task for source-gem
+  contents, artifact rejection, isolated install, and safe-entrypoint smoke
+  verification.
 
 ## 0.1.0.pre1 — 2026-07-12
 
