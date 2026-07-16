@@ -105,7 +105,10 @@ def smoke_installed_package(gem_path)
 
     loaded = Gem.loaded_specs.fetch("dry-validation-rust")
     gem_home = ENV.fetch("GEM_HOME")
-    abort "loaded gem from #{loaded.full_gem_path}, expected #{gem_home}" unless loaded.full_gem_path.start_with?(gem_home)
+    loaded_path = File.realpath(loaded.full_gem_path)
+    expected_path = File.realpath(gem_home)
+    loaded_from_gem_home = loaded_path == expected_path || loaded_path.start_with?("#{expected_path}#{File::SEPARATOR}")
+    abort "loaded gem from #{loaded_path}, expected #{expected_path}" unless loaded_from_gem_home
     abort "loaded upstream dry-validation" if Gem.loaded_specs.key?("dry-validation")
 
     contract = Class.new(Dry::Validation::Rust::Contract) do

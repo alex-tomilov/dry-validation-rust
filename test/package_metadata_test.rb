@@ -64,6 +64,14 @@ class PackageMetadataTest < Minitest::Test
     assert_includes rakefile, '"RB_SYS_GEM_LIB" => rb_sys_gem_lib_path'
   end
 
+  def test_package_audit_canonicalizes_installed_gem_path
+    rakefile = File.read(File.join(PROJECT_ROOT, "Rakefile"))
+
+    assert_includes rakefile, "loaded_path = File.realpath(loaded.full_gem_path)"
+    assert_includes rakefile, "expected_path = File.realpath(gem_home)"
+    assert_includes rakefile, 'loaded_path.start_with?("#{expected_path}#{File::SEPARATOR}")'
+  end
+
   private
 
   def spec
