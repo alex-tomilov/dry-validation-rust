@@ -72,6 +72,15 @@ class PackageMetadataTest < Minitest::Test
     assert_includes rakefile, 'loaded_path.start_with?("#{expected_path}#{File::SEPARATOR}")'
   end
 
+  def test_development_dependencies_include_ostruct_for_ruby_35_rake_boot
+    development_dependencies = spec.development_dependencies.to_h { |dependency| [dependency.name, dependency.requirement.to_s] }
+    lockfile = File.read(File.join(PROJECT_ROOT, "Gemfile.lock"))
+
+    assert_equal "~> 0.6", development_dependencies.fetch("ostruct")
+    assert_includes lockfile, "ostruct (0.6.0)"
+    assert_includes lockfile, "ostruct (~> 0.6)"
+  end
+
   private
 
   def spec
