@@ -41,6 +41,7 @@ Gem::Specification.new do |spec|
   spec.add_runtime_dependency "rb_sys", "~> 0.9"
   spec.add_development_dependency "minitest", "~> 5.20"
   spec.add_development_dependency "mutex_m", "~> 0.2"
+  spec.add_development_dependency "ostruct", "~> 0.6"
   spec.add_development_dependency "rake", "~> 13.1"
 
   spec.metadata["rubygems_mfa_required"] = "true"

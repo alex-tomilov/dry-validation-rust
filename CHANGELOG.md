@@ -10,6 +10,8 @@
 - Added public RubyGems metadata and a package audit task for source-gem
   contents, artifact rejection, isolated install, and safe-entrypoint smoke
   verification.
+- Added GitHub Actions workflows for Ruby/Rust CI, compatibility preflight,
+  security audit, package audit, and scheduled fuzz preflight.
 
 ## 0.1.0.pre1 — 2026-07-12
 

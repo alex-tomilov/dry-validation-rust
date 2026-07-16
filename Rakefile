@@ -94,6 +94,10 @@ def with_unbundled_environment(&block)
   end
 end
 
+def rb_sys_gem_lib_path
+  File.join(Gem::Specification.find_by_name("rb_sys").full_gem_path, "lib")
+end
+
 def smoke_installed_package(gem_path)
   ruby_code = <<~'RUBY'
     gem "dry-validation-rust"
@@ -101,7 +105,10 @@ def smoke_installed_package(gem_path)
 
     loaded = Gem.loaded_specs.fetch("dry-validation-rust")
     gem_home = ENV.fetch("GEM_HOME")
-    abort "loaded gem from #{loaded.full_gem_path}, expected #{gem_home}" unless loaded.full_gem_path.start_with?(gem_home)
+    loaded_path = File.realpath(loaded.full_gem_path)
+    expected_path = File.realpath(gem_home)
+    loaded_from_gem_home = loaded_path == expected_path || loaded_path.start_with?("#{expected_path}#{File::SEPARATOR}")
+    abort "loaded gem from #{loaded_path}, expected #{expected_path}" unless loaded_from_gem_home
     abort "loaded upstream dry-validation" if Gem.loaded_specs.key?("dry-validation")
 
     contract = Class.new(Dry::Validation::Rust::Contract) do
@@ -126,7 +133,8 @@ def smoke_installed_package(gem_path)
     Dir.mktmpdir("dry-validation-rust-package-smoke") do |workdir|
       env = {
         "GEM_HOME" => gem_home,
-        "GEM_PATH" => ([gem_home] + Gem.path).uniq.join(File::PATH_SEPARATOR)
+        "GEM_PATH" => ([gem_home] + Gem.path).uniq.join(File::PATH_SEPARATOR),
+        "RB_SYS_GEM_LIB" => rb_sys_gem_lib_path
       }
 
       with_unbundled_environment do

@@ -20,6 +20,26 @@ Run only the package audit with:
 bundle exec rake package:audit
 ```
 
+## GitHub Actions
+
+The repository defines these non-release workflows:
+
+- `.github/workflows/ci.yml`: Ruby integration matrix for Ruby 3.3, 3.4, and
+  3.5 on Linux and macOS; Rust quality checks on MSRV 1.85 and stable; isolated
+  loading-mode checks for safe mode, exact mode, exact-mode conflict detection,
+  and built-gem installation.
+- `.github/workflows/compatibility.yml`: pinned upstream preflight for
+  `dry-validation` 1.11.1 and `dry-schema` 1.16.0, with structured artifact
+  upload until the full differential harness exists.
+- `.github/workflows/security.yml`: bundler-audit, Cargo audit, lockfile
+  checks, and Ruby CodeQL with explicit least-privilege permissions.
+- `.github/workflows/package.yml`: source-gem package audit and artifact
+  upload without publication.
+- `.github/workflows/fuzz.yml`: scheduled/manual bounded fuzz preflight that is
+  non-blocking for ordinary pull requests until a dedicated fuzz target exists.
+
+There is intentionally no release workflow.
+
 ## Toolchain
 
 - Ruby: `ruby 3.3.7 (2025-01-15 revision be31f993d7) [x86_64-linux]`

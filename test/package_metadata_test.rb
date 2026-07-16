@@ -57,6 +57,30 @@ class PackageMetadataTest < Minitest::Test
     end
   end
 
+  def test_package_audit_exposes_rb_sys_to_native_extension_build
+    rakefile = File.read(File.join(PROJECT_ROOT, "Rakefile"))
+
+    assert_includes rakefile, 'Gem::Specification.find_by_name("rb_sys")'
+    assert_includes rakefile, '"RB_SYS_GEM_LIB" => rb_sys_gem_lib_path'
+  end
+
+  def test_package_audit_canonicalizes_installed_gem_path
+    rakefile = File.read(File.join(PROJECT_ROOT, "Rakefile"))
+
+    assert_includes rakefile, "loaded_path = File.realpath(loaded.full_gem_path)"
+    assert_includes rakefile, "expected_path = File.realpath(gem_home)"
+    assert_includes rakefile, 'loaded_path.start_with?("#{expected_path}#{File::SEPARATOR}")'
+  end
+
+  def test_development_dependencies_include_ostruct_for_ruby_35_rake_boot
+    development_dependencies = spec.development_dependencies.to_h { |dependency| [dependency.name, dependency.requirement.to_s] }
+    lockfile = File.read(File.join(PROJECT_ROOT, "Gemfile.lock"))
+
+    assert_equal "~> 0.6", development_dependencies.fetch("ostruct")
+    assert_includes lockfile, "ostruct (0.6.0)"
+    assert_includes lockfile, "ostruct (~> 0.6)"
+  end
+
   private
 
   def spec
