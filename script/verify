@@ -8,39 +8,10 @@ run() {
   "$@"
 }
 
-gem_name() {
-  ruby -e 'require_relative "lib/dry/validation/rust/version"; print "dry-validation-rust-#{Dry::Validation::Rust::VERSION}.gem"'
-}
-
-smoke_installed_gem() {
-  local built_gem="$1"
-  local gem_home
-  gem_home="$(mktemp -d)"
-  trap "rm -rf '$gem_home'" EXIT
-
-  run env GEM_HOME="$gem_home" GEM_PATH="$gem_home:${GEM_PATH:-}" gem install --local "$built_gem" --no-document
-  run env GEM_HOME="$gem_home" GEM_PATH="$gem_home:${GEM_PATH:-}" ruby -e '
-    gem "dry-validation-rust"
-    require "dry/validation/rust"
-
-    contract = Class.new(Dry::Validation::Rust::Contract) do
-      params do
-        required(:age).value(:integer)
-        required(:name).filled(:string)
-      end
-    end
-
-    result = contract.new.call("age" => "21", "name" => "Jane")
-    abort result.errors.to_h.inspect unless result.success? && result.to_h == {age: 21, name: "Jane"}
-    abort "loaded upstream dry-validation" if Gem.loaded_specs.key?("dry-validation")
-  '
-}
-
 run bundle exec rake compile
 run bundle exec rake test
 run cargo fmt --check --manifest-path ext/dry_validation_rust/Cargo.toml
 run cargo test --manifest-path ext/dry_validation_rust/Cargo.toml
 run cargo clippy --manifest-path ext/dry_validation_rust/Cargo.toml --all-targets --all-features -- -D warnings
 run cargo check --manifest-path ext/dry_validation_rust/Cargo.toml --locked
-run gem build dry-validation-rust.gemspec
-smoke_installed_gem "$(gem_name)"
+run bundle exec rake package:audit
