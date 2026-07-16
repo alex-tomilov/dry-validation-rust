@@ -77,6 +77,8 @@ class CiWorkflowsTest < Minitest::Test
     security = File.read(File.join(WORKFLOW_DIR, "security.yml"))
     assert_includes security, "bundle-audit check --update"
     refute_includes security, "bundle audit check"
+    assert_includes security, "cargo install cargo-audit --version 0.22.1 --locked"
+    refute_includes security, "cargo install cargo-audit --locked\n"
     assert_includes security, "cargo audit --deny warnings"
     assert_includes security, "github/codeql-action/analyze@v3"
 

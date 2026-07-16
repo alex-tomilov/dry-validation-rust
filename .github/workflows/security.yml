@@ -51,7 +51,7 @@ jobs:
 
       - name: Audit Rust dependencies
         run: |
-          cargo install cargo-audit --locked
+          cargo install cargo-audit --version 0.22.1 --locked
           cd ext/dry_validation_rust
           cargo audit --deny warnings
 
