@@ -1,7 +1,9 @@
 name: Bug report
 description: Report incorrect behavior, an installation failure, or a native-extension failure.
 title: "[Bug]: "
-labels: []
+labels:
+  - "type:bug"
+  - "status:needs-reproduction"
 assignees: []
 body:
   - type: markdown

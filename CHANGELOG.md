@@ -16,6 +16,9 @@
   version capture in canonical verification logs.
 - Added contribution, conduct, security, support, and governance policies plus
   structured issue forms and a pull request template.
+- Added project-management policy, roadmap-to-milestone mapping, issue-quality
+  form, canonical labels, work-in-progress limits, and an idempotent GitHub API
+  synchronizer with dry-run defaults.
 
 ## 0.1.0.pre1 — 2026-07-12
 

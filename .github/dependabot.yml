@@ -10,8 +10,8 @@ updates:
       timezone: Etc/UTC
     open-pull-requests-limit: 5
     labels:
-      - dependencies
-      - ruby
+      - "type:maintenance"
+      - "area:packaging"
     groups:
       ruby-development:
         dependency-type: development
@@ -32,8 +32,8 @@ updates:
       timezone: Etc/UTC
     open-pull-requests-limit: 5
     labels:
-      - dependencies
-      - rust
+      - "type:maintenance"
+      - "area:rust-engine"
     groups:
       rust-native-bridge:
         patterns:
@@ -53,8 +53,8 @@ updates:
       timezone: Etc/UTC
     open-pull-requests-limit: 5
     labels:
-      - dependencies
-      - github-actions
+      - "type:maintenance"
+      - "area:ci"
     groups:
       github-actions-minor-patch:
         patterns:

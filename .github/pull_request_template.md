@@ -2,6 +2,11 @@
 
 Describe the problem and the focused change.
 
+## Planning
+
+Link the implementation issue and milestone. State whether this closes the
+issue or only one explicitly scoped child task.
+
 ## Design
 
 Explain important design choices, rejected alternatives, and affected Ruby/Rust
