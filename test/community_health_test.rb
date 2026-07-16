@@ -63,7 +63,8 @@ class CommunityHealthTest < Minitest::Test
     assert_includes contributing, "CHANGELOG.md"
     assert_includes contributing, "generated native libraries"
     assert_includes contributing, "does not require a Contributor License Agreement"
-    assert_includes contributing, "`develop` as the active integration branch"
+    assert_includes contributing, "pull requests against"
+    assert_includes contributing, "`main`"
   end
 
   def test_support_and_governance_match_single_maintainer_alpha
@@ -77,8 +78,8 @@ class CommunityHealthTest < Minitest::Test
 
     assert_includes governance, "single-maintainer project"
     assert_match(/Alexey\s+Tomilov/, governance)
-    assert_includes governance, "`main` is the default and release branch"
-    assert_match(/`develop` is currently the active\s+integration branch/, governance)
+    assert_includes governance, "`main` is the sole long-lived integration and release branch"
+    assert_includes governance, "retire `develop`"
     assert_includes governance, "independent from dry-rb"
   end
 

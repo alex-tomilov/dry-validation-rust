@@ -112,10 +112,9 @@ public performance claim.
 
 ## Pull requests
 
-The repository currently uses `develop` as the active integration branch and
-`main` as the default/release branch. Unless a maintainer requests otherwise,
-open feature and maintenance pull requests against `develop`. Tested changes
-are promoted to `main`; releases are tagged from `main`.
+`main` is the sole long-lived integration and release branch. Create
+short-lived feature or maintenance branches and open pull requests against
+`main`. Releases are tagged from tested commits on `main`.
 
 Pull requests should:
 
@@ -128,9 +127,13 @@ Pull requests should:
 - report exact verification commands and results;
 - avoid drive-by formatting or unrelated refactoring.
 
-Prefer squash merging for a focused pull request. Do not force-push after
-review has started unless necessary to remove sensitive data or repair the
-branch, and explain any rewritten history.
+All required status checks must pass, and conversation resolution is required
+before merge. The exact protected check names and owner migration checklist are
+documented in [GOVERNANCE.md](GOVERNANCE.md).
+
+Use squash merge for a focused pull request so the protected branch keeps a
+linear history. Do not force-push after review has started unless necessary to
+remove sensitive data or repair the branch, and explain any rewritten history.
 
 Do not commit generated native libraries, packaged `.gem` files, Cargo
 `target` output, generated Makefiles, or other build artifacts. Release tooling

@@ -16,6 +16,9 @@
   version capture in canonical verification logs.
 - Added contribution, conduct, security, support, and governance policies plus
   structured issue forms and a pull request template.
+- Selected `main` as the sole long-lived integration and release branch, with
+  documented merge policy, stable required checks, and an owner migration
+  checklist for retiring `develop`.
 - Added project-management policy, roadmap-to-milestone mapping, issue-quality
   form, canonical labels, work-in-progress limits, and an idempotent GitHub API
   synchronizer with dry-run defaults.
