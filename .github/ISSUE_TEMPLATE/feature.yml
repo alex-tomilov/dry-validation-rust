@@ -1,7 +1,9 @@
 name: Feature request
 description: Propose a focused capability or compatibility-surface addition.
 title: "[Feature]: "
-labels: []
+labels:
+  - "type:feature"
+  - "status:needs-design"
 assignees: []
 body:
   - type: textarea

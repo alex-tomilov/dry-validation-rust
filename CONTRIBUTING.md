@@ -7,6 +7,8 @@ and the safety of the Rust FFI boundary.
 Before starting substantial work, open an issue or comment on an existing one
 so scope and compatibility expectations can be agreed. Keep pull requests
 focused on one behavior, maintenance concern, or documentation change.
+Roadmap priorities, milestone scope, label meanings, and project-board flow are
+defined in [docs/PROJECT_MANAGEMENT.md](docs/PROJECT_MANAGEMENT.md).
 
 ## Prerequisites
 
@@ -117,6 +119,7 @@ are promoted to `main`; releases are tagged from `main`.
 
 Pull requests should:
 
+- link the implementation issue and milestone;
 - explain the problem and the chosen design;
 - identify public API and compatibility impact;
 - include regression tests for behavior changes;

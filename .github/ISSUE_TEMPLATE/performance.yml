@@ -1,7 +1,10 @@
 name: Performance report
 description: Report a reproducible regression or unexpectedly expensive supported workload.
 title: "[Performance]: "
-labels: []
+labels:
+  - "type:performance"
+  - "area:benchmark"
+  - "status:needs-reproduction"
 assignees: []
 body:
   - type: input

@@ -1,7 +1,11 @@
 name: Compatibility mismatch
 description: Report a difference from the pinned upstream dry-validation behavior.
 title: "[Compatibility]: "
-labels: []
+labels:
+  - "type:compatibility"
+  - "area:compatibility"
+  - "status:needs-reproduction"
+  - "upstream-difference"
 assignees: []
 body:
   - type: markdown
