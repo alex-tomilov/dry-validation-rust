@@ -10,6 +10,7 @@ run() {
 
 run bundle exec rake compile
 run bundle exec rake test
+run bundle exec rake dependency:versions
 run cargo fmt --check --manifest-path ext/dry_validation_rust/Cargo.toml
 run cargo test --manifest-path ext/dry_validation_rust/Cargo.toml
 run cargo clippy --manifest-path ext/dry_validation_rust/Cargo.toml --all-targets --all-features -- -D warnings
