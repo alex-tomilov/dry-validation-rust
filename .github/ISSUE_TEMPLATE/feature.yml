@@ -1,0 +1,50 @@
+name: Feature request
+description: Propose a focused capability or compatibility-surface addition.
+title: "[Feature]: "
+labels: []
+assignees: []
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem or use case
+      description: Describe the concrete user problem without assuming a particular implementation.
+    validations:
+      required: true
+  - type: textarea
+    id: proposed_behavior
+    attributes:
+      label: Proposed behavior
+      description: Show the intended Ruby API and result where useful.
+    validations:
+      required: true
+  - type: textarea
+    id: compatibility
+    attributes:
+      label: Compatibility impact
+      description: State whether this matches pinned upstream behavior, extends only the safe API, or changes existing semantics.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Include current workarounds and why they are insufficient.
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: Suggested scope and acceptance criteria
+      description: Describe the smallest coherent version of the request and how it could be verified.
+    validations:
+      required: true
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Submission checks
+      options:
+        - label: I checked the compatibility matrix and existing issues.
+          required: true
+        - label: This request does not rely on silently accepting unsupported DSL behavior.
+          required: true

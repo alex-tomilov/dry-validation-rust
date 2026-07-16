@@ -1,0 +1,114 @@
+name: Bug report
+description: Report incorrect behavior, an installation failure, or a native-extension failure.
+title: "[Bug]: "
+labels: []
+assignees: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Do not report security vulnerabilities here. Use the private route in SECURITY.md.
+        Check SUPPORT.md and docs/COMPATIBILITY.md before submitting.
+  - type: input
+    id: gem_version
+    attributes:
+      label: Gem version or commit
+      placeholder: 0.1.0.pre1 or commit SHA
+    validations:
+      required: true
+  - type: input
+    id: ruby_version
+    attributes:
+      label: Ruby version
+      description: Paste the output of `ruby --version`.
+    validations:
+      required: true
+  - type: input
+    id: rust_version
+    attributes:
+      label: Rust version
+      description: For source builds, paste `rustc --version`. Enter "not used" for a native gem.
+    validations:
+      required: true
+  - type: input
+    id: platform
+    attributes:
+      label: Platform
+      description: OS, version, architecture, and libc where relevant.
+      placeholder: Ubuntu 24.04, x86_64, glibc
+    validations:
+      required: true
+  - type: dropdown
+    id: loading_mode
+    attributes:
+      label: Loading mode
+      options:
+        - Safe side-by-side (`require "dry/validation/rust"`)
+        - Exact compatibility (`require "dry/validation"`)
+        - Extension build or installation only
+    validations:
+      required: true
+  - type: dropdown
+    id: build_type
+    attributes:
+      label: Installation or build type
+      options:
+        - Source gem build
+        - Repository checkout
+        - Precompiled native gem
+        - Unknown
+    validations:
+      required: true
+  - type: textarea
+    id: reproducer
+    attributes:
+      label: Minimal contract and input
+      description: Provide the smallest complete Ruby program that reproduces the problem.
+      render: ruby
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected result
+      description: Include values, errors, exception class, or loading behavior as applicable.
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual result
+      description: Include the complete output and state whether the failure is deterministic.
+    validations:
+      required: true
+  - type: textarea
+    id: upstream_comparison
+    attributes:
+      label: Upstream comparison
+      description: If applicable, include pinned dry-validation/dry-schema versions and output from a separate process. Otherwise explain why it is not applicable.
+    validations:
+      required: true
+  - type: textarea
+    id: backtrace
+    attributes:
+      label: Backtrace or native build log
+      description: Include the complete relevant backtrace or build failure, with secrets removed.
+      render: shell
+    validations:
+      required: false
+  - type: textarea
+    id: additional_context
+    attributes:
+      label: Additional context
+      description: Include recent changes, workarounds, or other details that may help reproduce the issue.
+    validations:
+      required: false
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Submission checks
+      options:
+        - label: I searched existing issues and checked the documented support and compatibility matrices.
+          required: true
+        - label: This report does not contain a suspected security vulnerability or sensitive data.
+          required: true

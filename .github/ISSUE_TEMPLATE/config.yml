@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security vulnerability
+    url: https://github.com/alex-tomilov/dry-validation-rust/security/advisories/new
+    about: Report suspected vulnerabilities privately. Do not open a public issue.
+  - name: Usage and support guidance
+    url: https://github.com/alex-tomilov/dry-validation-rust/blob/main/SUPPORT.md
+    about: Check the supported routes for questions, bugs, compatibility, and performance.

@@ -12,6 +12,11 @@ Read [the support matrix](docs/SUPPORT_MATRIX.md), [compatibility matrix](docs/C
 [architecture](docs/ARCHITECTURE.md), and [feasibility study](docs/FEASIBILITY.md)
 before considering real use.
 
+For project participation and reporting routes, see
+[CONTRIBUTING.md](CONTRIBUTING.md), [SUPPORT.md](SUPPORT.md),
+[SECURITY.md](SECURITY.md), [GOVERNANCE.md](GOVERNANCE.md), and the
+[Code of Conduct](CODE_OF_CONDUCT.md).
+
 ## What this project is
 
 - Rust owns the immutable schema plan, key lookup and normalization, nested

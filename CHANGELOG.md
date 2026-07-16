@@ -14,6 +14,8 @@
   security audit, package audit, and scheduled fuzz preflight.
 - Added Dependabot configuration, dependency audit policy, and dependency
   version capture in canonical verification logs.
+- Added contribution, conduct, security, support, and governance policies plus
+  structured issue forms and a pull request template.
 
 ## 0.1.0.pre1 — 2026-07-12
 
