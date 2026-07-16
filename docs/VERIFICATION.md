@@ -10,9 +10,9 @@ Run the repository verification entry point from the project root:
 script/verify
 ```
 
-The command exits nonzero on Ruby test, native compile, Rust formatting, Rust
-test, Clippy, Cargo lockfile check, package audit, source-gem install, or
-installed smoke-contract failure.
+The command exits nonzero on Ruby test, native compile, dependency version
+capture, Rust formatting, Rust test, Clippy, Cargo lockfile check, package
+audit, source-gem install, or installed smoke-contract failure.
 
 Run only the package audit with:
 
@@ -40,6 +40,11 @@ The repository defines these non-release workflows:
 
 There is intentionally no release workflow.
 
+Dependency update and audit policy is documented in
+[DEPENDENCY_SECURITY.md](DEPENDENCY_SECURITY.md). Dependabot is configured for
+Bundler, Cargo, and GitHub Actions in `.github/dependabot.yml`, with native
+bridge updates isolated from routine low-risk updates.
+
 ## Toolchain
 
 - Ruby: `ruby 3.3.7 (2025-01-15 revision be31f993d7) [x86_64-linux]`
@@ -47,6 +52,13 @@ There is intentionally no release workflow.
 - Rust host: `x86_64-unknown-linux-gnu`
 - Platform: `linux x86_64`
 - Bundler: `Bundler version 2.5.22`
+
+The canonical verification command also prints locked Ruby gem versions and a
+top-level locked Cargo dependency tree through:
+
+```bash
+bundle exec rake dependency:versions
+```
 
 ## Current behavior confirmed
 
@@ -73,7 +85,7 @@ The exact and side-by-side loading fixtures assert that the upstream
 Observed from `script/verify`:
 
 ```text
-35 runs, 111 assertions, 0 failures, 0 errors, 0 skips
+49 runs, 311 assertions, 0 failures, 0 errors, 0 skips
 
 running 4 tests
 test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out
@@ -165,6 +177,8 @@ Codex stage prompts are intentionally excluded from the source gem.
 - `script/verify`: passed after adding the package audit to canonical
   verification.
 - `bundle exec rake package:audit`: passed from the built state.
+- `script/verify`: passed after adding dependency version capture to canonical
+  verification.
 - Removed generated build artifacts and ran `script/verify`: passed, including
   native extension rebuild, gem build, temporary gem-home install, and installed
   smoke contract.

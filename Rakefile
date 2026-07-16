@@ -176,4 +176,29 @@ namespace :package do
   end
 end
 
+namespace :dependency do
+  desc "Print dependency and tool versions for verification logs"
+  task :versions do
+    puts "Ruby: #{RUBY_DESCRIPTION}"
+    puts "RubyGems: #{Gem::VERSION}"
+    puts "Bundler: #{Bundler::VERSION}" if defined?(Bundler)
+
+    puts "\nBundled Ruby gems:"
+    Gem.loaded_specs.values
+       .select { |loaded_spec| loaded_spec.full_gem_path.start_with?(File.expand_path(__dir__)) || loaded_spec.name == "dry-validation-rust" }
+       .sort_by(&:name)
+       .each { |loaded_spec| puts "  #{loaded_spec.name} #{loaded_spec.version}" }
+
+    puts "\nLocked Ruby gems:"
+    Bundler.load.specs.sort_by(&:name).each { |locked_spec| puts "  #{locked_spec.name} #{locked_spec.version}" }
+
+    puts "\nRust toolchain:"
+    sh "rustc", "--version"
+    sh "cargo", "--version"
+
+    puts "\nRust dependency tree:"
+    sh "cargo", "tree", "--locked", "--manifest-path", "ext/dry_validation_rust/Cargo.toml", "--depth", "1"
+  end
+end
+
 task default: :test
