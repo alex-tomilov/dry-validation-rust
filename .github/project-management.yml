@@ -1,6 +1,6 @@
 version: 1
 repository: alex-tomilov/dry-validation-rust
-integration_branch: develop
+integration_branch: main
 labels_file: .github/labels.yml
 
 project:

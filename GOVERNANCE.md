@@ -45,9 +45,58 @@ current support matrix.
 
 ## Branches and releases
 
-`main` is the default and release branch. `develop` is currently the active
-integration branch, with short-lived feature branches merged through pull
-requests. Tested changes are promoted from `develop` to `main`.
+`main` is the sole long-lived integration and release branch. Contributors use
+short-lived feature branches and merge them through pull requests targeting
+`main`. Releases are tagged from tested commits on `main`.
+
+The repository previously accumulated work on `develop` while `main` remained
+the GitHub default branch. After this policy is merged, the owner should:
+
+1. promote the complete tested `develop` history to `main`;
+2. verify that open pull requests target `main`;
+3. update existing managed roadmap issue links from `develop` to `main` and
+   verify that they resolve;
+4. configure the protection target below on `main`;
+5. retire `develop` after confirming that it contains no unique commits, open
+   work, or managed roadmap links.
+
+No new long-lived integration branch should be introduced unless release
+management evidence shows that the main-only model is insufficient.
+
+### Branch protection target
+
+The owner configures repository settings manually. Protection for `main`
+should:
+
+- require pull requests for normal changes;
+- require the status checks listed below to pass;
+- block force pushes;
+- block branch deletion;
+- require conversation resolution;
+- use squash merge for a linear history;
+- leave signed commits or tags optional until a separate policy adopts them.
+
+The exact required status-check contexts are:
+
+| Workflow | Required check context |
+| --- | --- |
+| CI | `Ruby 3.3 on ubuntu-latest` |
+| CI | `Ruby 3.3 on macos-latest` |
+| CI | `Ruby 3.4 on ubuntu-latest` |
+| CI | `Ruby 3.4 on macos-latest` |
+| CI | `Ruby 3.5 on ubuntu-latest` |
+| CI | `Ruby 3.5 on macos-latest` |
+| CI | `Rust quality on 1.85.0` |
+| CI | `Rust quality on stable` |
+| CI | `Loading modes and installed gem` |
+| Compatibility | `Pinned upstream preflight` |
+| Package | `Source gem audit` |
+| Security | `Dependency audit` |
+| Security | `CodeQL` |
+
+These names are part of the repository governance contract. Rename a required
+workflow job only in the same pull request that updates this table and the
+branch-protection configuration.
 
 Only the maintainer may authorize a gem publication, release tag, GitHub
 release, or security advisory. Passing CI does not itself authorize a release.
