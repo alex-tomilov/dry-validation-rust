@@ -57,6 +57,13 @@ class PackageMetadataTest < Minitest::Test
     end
   end
 
+  def test_package_audit_exposes_rb_sys_to_native_extension_build
+    rakefile = File.read(File.join(PROJECT_ROOT, "Rakefile"))
+
+    assert_includes rakefile, 'Gem::Specification.find_by_name("rb_sys")'
+    assert_includes rakefile, '"RB_SYS_GEM_LIB" => rb_sys_gem_lib_path'
+  end
+
   private
 
   def spec
