@@ -1,0 +1,88 @@
+name: Performance report
+description: Report a reproducible regression or unexpectedly expensive supported workload.
+title: "[Performance]: "
+labels: []
+assignees: []
+body:
+  - type: input
+    id: gem_version
+    attributes:
+      label: Gem version or commit
+    validations:
+      required: true
+  - type: input
+    id: runtime_versions
+    attributes:
+      label: Ruby and Rust versions
+      description: Include `ruby --version` and `rustc --version` for source builds.
+    validations:
+      required: true
+  - type: input
+    id: hardware
+    attributes:
+      label: Hardware and platform
+      description: Include CPU, core count, RAM, OS, architecture, and power/virtualization constraints.
+    validations:
+      required: true
+  - type: input
+    id: iterations
+    attributes:
+      label: Warmup and measured iterations
+      placeholder: 10,000 warmup; 500,000 measured; 5 independent runs
+    validations:
+      required: true
+  - type: textarea
+    id: benchmark
+    attributes:
+      label: Reproducible benchmark script
+      description: Provide a complete runnable script with representative contract and input data.
+      render: ruby
+    validations:
+      required: true
+  - type: textarea
+    id: command
+    attributes:
+      label: Exact commands
+      description: Include environment variables and commands used for every compared engine.
+      render: shell
+    validations:
+      required: true
+  - type: textarea
+    id: raw_results
+    attributes:
+      label: Raw results
+      description: Include all run results, not only averages or the fastest run.
+      render: text
+    validations:
+      required: true
+  - type: textarea
+    id: memory
+    attributes:
+      label: RSS and allocation results
+      description: Include peak/resident memory and Ruby allocation counts where relevant, or explain why they were not measured.
+      render: text
+    validations:
+      required: true
+  - type: textarea
+    id: semantic_check
+    attributes:
+      label: Semantic equivalence check
+      description: Show that compared implementations return equivalent values/errors for the measured workload.
+    validations:
+      required: true
+  - type: textarea
+    id: interpretation
+    attributes:
+      label: Expected behavior and interpretation
+      description: Explain the suspected regression, baseline, variance, and why the workload is representative.
+    validations:
+      required: true
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Submission checks
+      options:
+        - label: I included warmup, multiple measured runs, hardware details, and raw results.
+          required: true
+        - label: I did not infer a general performance claim from a single synthetic number.
+          required: true
