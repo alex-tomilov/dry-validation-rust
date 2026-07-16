@@ -1,0 +1,77 @@
+name: Security
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - develop
+  schedule:
+    - cron: "41 4 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: security-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  dependency-audit:
+    name: Dependency audit
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install native build prerequisites
+        run: sudo apt-get update && sudo apt-get install -y clang libclang-dev
+
+      - name: Setup Ruby and Bundler cache
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.3"
+          bundler-cache: true
+
+      - name: Setup Rust toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: 1.85.0
+
+      - name: Verify lockfiles are present
+        run: |
+          test -f Gemfile.lock
+          test -f ext/dry_validation_rust/Cargo.lock
+
+      - name: Audit Ruby dependencies
+        run: |
+          gem install bundler-audit --no-document
+          bundle-audit check --update
+
+      - name: Audit Rust dependencies
+        run: |
+          cargo install cargo-audit --locked
+          cd ext/dry_validation_rust
+          cargo audit --deny warnings
+
+      - name: Verify Cargo lockfile build
+        run: cargo check --locked --manifest-path ext/dry_validation_rust/Cargo.toml
+
+  codeql:
+    name: CodeQL
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: ruby
+
+      - name: Analyze with CodeQL
+        uses: github/codeql-action/analyze@v3

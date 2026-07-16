@@ -1,0 +1,53 @@
+name: Fuzz
+
+on:
+  schedule:
+    - cron: "23 5 * * 0"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: fuzz-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  bounded-preflight:
+    name: Bounded fuzz preflight
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    continue-on-error: true
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install native build prerequisites
+        run: sudo apt-get update && sudo apt-get install -y clang libclang-dev
+
+      - name: Setup Ruby and Bundler cache
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.3"
+          bundler-cache: true
+
+      - name: Setup Rust toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: stable
+
+      - name: Run bounded native preflight
+        run: |
+          mkdir -p tmp/fuzz/corpus tmp/fuzz/crashes
+          timeout 5m cargo test --locked --manifest-path ext/dry_validation_rust/Cargo.toml
+          printf '%s\n' 'No dedicated fuzz target exists yet; this scheduled workflow is the non-blocking placeholder for T12.' > tmp/fuzz/corpus/README.txt
+
+      - name: Upload fuzz corpus and crashes
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: fuzz-corpus-and-crashes
+          path: |
+            tmp/fuzz/corpus
+            tmp/fuzz/crashes
+          if-no-files-found: warn
