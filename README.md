@@ -12,6 +12,22 @@ Read [the support matrix](docs/SUPPORT_MATRIX.md), [compatibility matrix](docs/C
 [architecture](docs/ARCHITECTURE.md), and [feasibility study](docs/FEASIBILITY.md)
 before considering real use.
 
+## OpenAI Build Week 2026
+
+This repository predates OpenAI Build Week 2026. During the submission period,
+GPT-5.6 was used as an architecture and repository-review partner to analyze
+the feasibility prototype, identify correctness and native-boundary risks, and
+develop a staged maturity roadmap. Codex then helped inspect the repository,
+implement accepted stages, run verification, and diagnose failures. The human
+author retained the Ruby/Rust responsibility boundary, product scope,
+compatibility and performance claims, and final acceptance decisions.
+
+The validation runtime itself remains deterministic Ruby and Rust. It does not
+call GPT-5.6 and does not require an OpenAI API key. See the
+[Build Week evidence ledger](docs/BUILD_WEEK_2026_EVIDENCE.md) for the dated
+pre-existing baseline, commit ledger, Codex session mapping, contextual shared
+conversation, and evidence-maintenance procedure.
+
 For project participation and reporting routes, see
 [CONTRIBUTING.md](CONTRIBUTING.md), [SUPPORT.md](SUPPORT.md),
 [SECURITY.md](SECURITY.md), [GOVERNANCE.md](GOVERNANCE.md), and the
@@ -167,6 +183,19 @@ in [COMPATIBILITY.md](docs/COMPATIBILITY.md).
 
 The complete exclusions and semantic differences are explicit in
 [COMPATIBILITY.md](docs/COMPATIBILITY.md).
+
+## Deterministic judge demo
+
+After compiling the native extension, run the asserted, network-free order
+validation demo from the repository root:
+
+```bash
+script/demo
+script/demo --json
+```
+
+The script resolves the repository from its own location, so invoking it by an
+absolute path also works from another current directory.
 
 ## Building from source
 

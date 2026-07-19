@@ -2,8 +2,11 @@
 
 ## Unreleased
 
-- Added a Build Week evidence ledger and read-only audit helper that separate
-  the pre-existing prototype from submission-period repository work.
+- Added an asserted deterministic order-validation demo with human-readable
+  and JSON output for fast, offline judging.
+- Added a Build Week README collaboration summary, evidence ledger, and
+  read-only audit helper that separate the pre-existing prototype from
+  submission-period repository work.
 - Added product-scope documentation, including the support matrix and pinned
   upstream compatibility references.
 - Added canonical verification and benchmark-smoke scripts.

@@ -25,6 +25,18 @@ class DocumentationTest < Minitest::Test
     assert_includes readme, "docs/COMPATIBILITY.md"
   end
 
+  def test_readme_documents_build_week_collaboration_and_evidence
+    readme = read_doc("README.md")
+    normalized_readme = readme.gsub(/\s+/, " ")
+
+    assert_includes readme, "## OpenAI Build Week 2026"
+    assert_includes readme, "GPT-5.6 was used as an architecture and repository-review partner"
+    assert_includes readme, "Codex then helped inspect the repository"
+    assert_includes normalized_readme, "The human author retained"
+    assert_includes readme, "[Build Week evidence ledger](docs/BUILD_WEEK_2026_EVIDENCE.md)"
+    assert_includes readme, "does not require an OpenAI API key"
+  end
+
   def test_compatibility_target_uses_pinned_releases
     compatibility = read_doc("docs/COMPATIBILITY.md")
 

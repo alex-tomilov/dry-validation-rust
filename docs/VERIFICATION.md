@@ -20,6 +20,21 @@ Run only the package audit with:
 bundle exec rake package:audit
 ```
 
+## Deterministic judge demo
+
+After compiling the native extension, run the safe-namespace demo in human or
+machine-readable mode:
+
+```bash
+script/demo
+script/demo --json
+```
+
+Both modes execute the same asserted cases and exit nonzero if any expectation
+fails. The script resolves the repository from its own location, so its
+absolute path works from any current directory. The demo is offline and does
+not invoke a benchmark or an OpenAI API.
+
 ## GitHub Actions
 
 The repository defines these non-release workflows:

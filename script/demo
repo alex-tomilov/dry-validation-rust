@@ -1,0 +1,42 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+project_root = File.expand_path("..", __dir__)
+$LOAD_PATH.unshift(File.join(project_root, "lib"))
+
+require "json"
+require File.join(project_root, "examples/build_week_order_contract")
+
+format = case ARGV
+         when [] then :text
+         when ["--json"] then :json
+         else
+           warn "Usage: script/demo [--json]"
+           exit 64
+         end
+
+report = BuildWeekDemo.run
+
+if format == :json
+  puts JSON.generate(report)
+else
+  puts "dry-validation-rust — deterministic demo"
+  report.fetch("cases").each_with_index do |demo_case, index|
+    puts
+    puts "[#{index + 1}/#{report.fetch('cases').length}] #{demo_case.fetch('title')}"
+    demo_case.fetch("checks").each do |check|
+      status = check.fetch("success") ? "PASS" : "FAIL"
+      puts "#{status}  #{check.fetch('name')}"
+      puts "      #{check.fetch('detail')}" if check.fetch("detail")
+    end
+  end
+
+  puts
+  if report.fetch("success")
+    puts "Demo complete: #{report.fetch('checks_passed')} checks passed"
+  else
+    puts "Demo failed: #{report.fetch('checks_passed')}/#{report.fetch('checks_total')} checks passed"
+  end
+end
+
+exit(report.fetch("success") ? 0 : 1)
