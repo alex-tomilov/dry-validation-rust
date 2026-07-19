@@ -69,6 +69,7 @@ RUN apt-get update \
       libgmp10 \
       libssl3 \
       libyaml-0-2 \
+      time \
       zlib1g \
     && rm -rf /var/lib/apt/lists/* \
     && groupadd --gid 10001 dvr \
@@ -88,6 +89,7 @@ COPY --from=builder --chown=10001:10001 --chmod=0555 /opt/dry-validation-rust/bi
 COPY --from=builder --chown=10001:10001 /opt/dry-validation-rust/examples ./examples
 COPY --from=builder --chown=10001:10001 /opt/dry-validation-rust/lib ./lib
 COPY --from=builder --chown=10001:10001 --chmod=0555 /opt/dry-validation-rust/script/benchmark-smoke ./script/benchmark-smoke
+COPY --from=builder --chown=10001:10001 --chmod=0555 /opt/dry-validation-rust/script/benchmark-suite ./script/benchmark-suite
 COPY --from=builder --chown=10001:10001 --chmod=0555 /opt/dry-validation-rust/script/demo ./script/demo
 COPY --from=builder --chown=10001:10001 /opt/dry-validation-rust/ext/dry_validation_rust/native.so ./ext/dry_validation_rust/native.so
 

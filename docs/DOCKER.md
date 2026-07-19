@@ -33,6 +33,7 @@ docker run --rm dry-validation-rust:local test
 docker run --rm dry-validation-rust:local benchmark
 docker run --rm dry-validation-rust:local benchmark --iterations 100000 --warmup 10000
 docker run --rm dry-validation-rust:local benchmark --engine compare --iterations 100000 --warmup 10000
+docker run --rm dry-validation-rust:local benchmark-suite --mode quick --output /tmp/benchmark-quick
 docker run --rm dry-validation-rust:local help
 ```
 
@@ -50,6 +51,12 @@ defaults to 1,000 measured Rust-engine calls after 100 warmup calls. Use
 `dry-validation` 1.11.1 and `dry-schema` 1.16.0 gems only for the isolated
 upstream benchmark subprocess; the normal demo and Rust measurement do not
 load them.
+
+`benchmark-suite` runs the newer multi-workload evidence harness documented in
+[BENCHMARKING.md](BENCHMARKING.md). Quick mode is for smoke reproduction only.
+The container includes GNU `time`, so isolated quick workers record peak RSS in
+KiB. Generate full evidence from a clean source checkout where the recorded
+Rust and Cargo toolchains are also available.
 
 For example, capture five independent comparison samples without container
 network access:

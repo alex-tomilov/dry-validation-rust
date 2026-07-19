@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Added a separate-process, multi-workload benchmark suite with quick/full
+  modes, outcome equivalence checks, Linux RSS capture, raw samples, and
+  mechanically derived evidence summaries.
 - Added an asserted deterministic order-validation demo with human-readable
   and JSON output for fast, offline judging.
 - Added a Build Week README collaboration summary, evidence ledger, and

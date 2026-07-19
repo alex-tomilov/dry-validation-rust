@@ -22,6 +22,8 @@ class DockerAssetsTest < Minitest::Test
     assert_includes runtime, "COPY --from=builder /usr/local/lib/ruby/3.3.0 /usr/local/lib/ruby/3.3.0"
     assert_includes runtime, "COPY --from=builder /opt/upstream-bundle/ruby/3.3.0 /opt/upstream-gems"
     assert_includes runtime, "/ext/dry_validation_rust/native.so"
+    assert_includes runtime, "time"
+    assert_includes runtime, "script/benchmark-suite"
     assert_includes runtime, "USER 10001:10001"
     assert_includes runtime, 'ENTRYPOINT ["/opt/dry-validation-rust/bin/dvr"]'
     refute_match(/build-essential|\bclang\b|\bcargo\b|\brustc\b/i, runtime)
@@ -58,6 +60,7 @@ class DockerAssetsTest < Minitest::Test
     assert_includes stdout, "test"
     assert_includes stdout, "doctor"
     assert_includes stdout, "benchmark"
+    assert_includes stdout, "benchmark-suite"
 
     unknown_stdout, unknown_stderr, unknown_status = Open3.capture3(
       DISPATCHER,

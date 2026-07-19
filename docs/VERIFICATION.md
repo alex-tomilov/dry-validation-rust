@@ -1,6 +1,6 @@
 # Verification record
 
-Date: 2026-07-16
+Date: 2026-07-19
 
 ## Canonical command
 
@@ -105,7 +105,7 @@ The exact and side-by-side loading fixtures assert that the upstream
 Observed from `script/verify`:
 
 ```text
-49 runs, 311 assertions, 0 failures, 0 errors, 0 skips
+113 runs, 1284 assertions, 0 failures, 0 errors, 0 skips
 
 running 4 tests
 test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out
@@ -144,6 +144,20 @@ Observed JSON:
 ```
 
 This smoke benchmark has no threshold and is not a public performance claim.
+
+## Comparative benchmark suite
+
+Run the short, non-authoritative multi-workload check with:
+
+```bash
+script/benchmark-suite --mode quick --output tmp/benchmark-quick
+```
+
+Full evidence uses at least five isolated runs per engine, workload, and input
+distribution and writes raw results, environment metadata, and mechanically
+derived median/range summaries. See [BENCHMARKING.md](BENCHMARKING.md) for the
+clean-tree command, pinned upstream setup, GNU `time` RSS measurement, outcome
+equivalence checks, evidence layout, and interpretation limits.
 
 ## Source gem file list
 

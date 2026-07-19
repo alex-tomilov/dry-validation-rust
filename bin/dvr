@@ -17,6 +17,7 @@ Commands:
   test           Run the packaged, precompiled runtime smoke suite.
   doctor         Print runtime and native-extension diagnostics.
   benchmark      Run the configurable, non-gating benchmark.
+  benchmark-suite Run the reproducible multi-workload benchmark suite.
   help           Print this help.
 USAGE
 }
@@ -144,6 +145,13 @@ case "$command_name" in
     export N="$iterations" WARMUP="$warmup" ENGINE="$engine" FORMAT="$format"
     printf '%s\n' 'Synthetic single-schema benchmark; repeat runs and do not present it as a universal performance claim.' >&2
     exec "$project_root/script/benchmark-smoke"
+    ;;
+  benchmark-suite)
+    upstream_gem_home="${DVR_UPSTREAM_GEM_HOME:-/opt/upstream-gems}"
+    if [[ -d "$upstream_gem_home" ]]; then
+      export GEM_PATH="${upstream_gem_home}${GEM_PATH:+:${GEM_PATH}}"
+    fi
+    exec "$project_root/script/benchmark-suite" "$@"
     ;;
   help|-h|--help)
     require_no_arguments "$@"
