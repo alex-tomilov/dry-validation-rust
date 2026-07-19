@@ -48,10 +48,14 @@ case "$command_name" in
   test)
     require_no_arguments "$@"
     ruby -I"$project_root/lib" -e '
+      require "rbconfig"
       require "dry/validation/rust"
 
-      expected = File.realpath(File.join(ARGV.fetch(0), "ext/dry_validation_rust/native.so"))
-      loaded = $LOADED_FEATURES.find { |path| path.end_with?("/dry_validation_rust/native.so") }
+      extension_name = "native.#{RbConfig::CONFIG.fetch("DLEXT")}"
+      expected = File.realpath(File.join(ARGV.fetch(0), "ext/dry_validation_rust", extension_name))
+      loaded = $LOADED_FEATURES.find do |path|
+        File.basename(path) == extension_name && File.basename(File.dirname(path)) == "dry_validation_rust"
+      end
       abort "native extension was not loaded" unless loaded
       abort "loaded native extension from #{loaded}, expected #{expected}" unless File.realpath(loaded) == expected
 
@@ -62,9 +66,13 @@ case "$command_name" in
   doctor)
     require_no_arguments "$@"
     exec ruby -I"$project_root/lib" -e '
+      require "rbconfig"
       require "dry/validation/rust"
 
-      extension = $LOADED_FEATURES.find { |path| path.end_with?("/dry_validation_rust/native.so") }
+      extension_name = "native.#{RbConfig::CONFIG.fetch("DLEXT")}"
+      extension = $LOADED_FEATURES.find do |path|
+        File.basename(path) == extension_name && File.basename(File.dirname(path)) == "dry_validation_rust"
+      end
       abort "native extension was not loaded" unless extension
 
       puts "ruby=#{RUBY_DESCRIPTION}"

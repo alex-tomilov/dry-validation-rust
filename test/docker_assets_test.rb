@@ -70,11 +70,14 @@ class DockerAssetsTest < Minitest::Test
   end
 
   def test_dispatcher_uses_precompiled_extension_for_runtime_smoke
+    dispatcher = read_project_file("bin/dvr")
     stdout, stderr, status = Open3.capture3(DISPATCHER, "test", chdir: Dir.tmpdir)
 
     assert status.success?, stderr
     assert_empty stderr
     assert_includes stdout, "native_extension="
+    assert_includes dispatcher, 'RbConfig::CONFIG.fetch("DLEXT")'
+    refute_includes dispatcher, 'dry_validation_rust/native.so'
     report = JSON.parse(stdout.lines.drop(1).join)
     assert_equal true, report.fetch("success")
     assert_equal 10, report.fetch("checks_passed")
