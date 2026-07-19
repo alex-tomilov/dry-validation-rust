@@ -1,0 +1,4 @@
+source "https://rubygems.org"
+
+gem "dry-validation", "1.11.1"
+gem "dry-schema", "1.16.0"

@@ -1,0 +1,108 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+project_root="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)"
+image_tag="${DVR_DOCKER_TAG:-dry-validation-rust:local}"
+platform="${DVR_DOCKER_PLATFORM:-}"
+cleanup="${DVR_DOCKER_CLEANUP:-0}"
+
+usage() {
+  cat <<'USAGE'
+Usage: script/docker-smoke [--tag IMAGE] [--platform PLATFORM] [--cleanup]
+
+Environment:
+  DVR_DOCKER_TAG       Image tag (default: dry-validation-rust:local)
+  DVR_DOCKER_PLATFORM  Optional Docker platform, for example linux/amd64
+  DVR_DOCKER_CLEANUP   Set to 1 to remove the image when the script exits
+USAGE
+}
+
+while (( $# > 0 )); do
+  case "$1" in
+    --tag)
+      [[ $# -ge 2 ]] || { printf '%s\n' '--tag requires a value' >&2; exit 64; }
+      image_tag="$2"
+      shift 2
+      ;;
+    --platform)
+      [[ $# -ge 2 ]] || { printf '%s\n' '--platform requires a value' >&2; exit 64; }
+      platform="$2"
+      shift 2
+      ;;
+    --cleanup)
+      cleanup=1
+      shift
+      ;;
+    help|-h|--help)
+      usage
+      exit 0
+      ;;
+    *)
+      printf 'Unknown option: %s\n' "$1" >&2
+      usage >&2
+      exit 64
+      ;;
+  esac
+done
+
+if [[ "$cleanup" == 1 ]]; then
+  trap 'docker image rm --force "$image_tag" >/dev/null 2>&1 || true' EXIT
+fi
+
+build_arguments=(--pull --tag "$image_tag")
+run_arguments=(--rm --network none)
+
+if [[ -n "$platform" ]]; then
+  build_arguments+=(--platform "$platform")
+  run_arguments+=(--platform "$platform")
+fi
+
+if revision="$(git -C "$project_root" rev-parse --verify HEAD 2>/dev/null)"; then
+  if [[ -n "$(git -C "$project_root" status --porcelain --untracked-files=normal)" ]]; then
+    revision="${revision}-dirty"
+  fi
+  build_arguments+=(--build-arg "VCS_REF=$revision")
+fi
+
+printf 'Building %s\n' "$image_tag"
+docker build "${build_arguments[@]}" "$project_root"
+
+printf '\nRunning default demo without network access\n'
+docker run "${run_arguments[@]}" "$image_tag"
+
+printf '\nValidating JSON demo without network access\n'
+docker run "${run_arguments[@]}" "$image_tag" demo --json |
+  docker run "${run_arguments[@]}" --interactive --entrypoint ruby "$image_tag" -rjson -e '
+    report = JSON.parse(STDIN.read)
+    abort "JSON demo reported failure" unless report.fetch("success")
+    abort "unexpected demo check count" unless report.fetch("checks_passed") == 10 && report.fetch("checks_total") == 10
+    puts "JSON demo: 10/10 checks passed"
+  '
+
+printf '\nRunning doctor without network access\n'
+docker run "${run_arguments[@]}" "$image_tag" doctor
+
+printf '\nRunning packaged runtime smoke suite without network access\n'
+docker run "${run_arguments[@]}" "$image_tag" test
+
+printf '\nRunning pinned upstream benchmark comparison without network access\n'
+docker run "${run_arguments[@]}" "$image_tag" benchmark --engine compare --iterations 100 --warmup 10 |
+  docker run "${run_arguments[@]}" --interactive --entrypoint ruby "$image_tag" -rjson -e '
+    report = JSON.parse(STDIN.read)
+    engines = report.fetch("engines")
+    abort "expected Rust and upstream benchmark results" unless engines.map { |result| result.fetch("engine") } == ["dry-validation-rust", "dry-validation"]
+    abort "unexpected benchmark iteration count" unless engines.all? { |result| result.fetch("iterations") == 100 }
+    upstream = engines.last
+    abort "unexpected upstream dry-validation version" unless upstream.fetch("version") == "1.11.1"
+    abort "unexpected upstream dry-schema version" unless upstream.fetch("dry_schema_version") == "1.16.0"
+    abort "invalid throughput ratio" unless report.dig("comparison", "throughput_ratio").positive?
+    puts "Benchmark comparison: pinned engines, 100 iterations each"
+  '
+
+printf '\nChecking unknown-command failure\n'
+if docker run "${run_arguments[@]}" "$image_tag" definitely-not-a-command; then
+  printf '%s\n' 'unknown command unexpectedly succeeded' >&2
+  exit 1
+fi
+
+printf '\nDocker smoke passed for %s\n' "$image_tag"

@@ -13,14 +13,26 @@ INPUT = {
   "tags" => %w[ruby rust validation],
   "profile" => {"name" => "Jane", "age" => "31"}
 }.freeze
+EXPECTED_OUTPUT = {
+  id: 42,
+  email: "jane@example.org",
+  active: true,
+  tags: %w[ruby rust validation],
+  profile: {name: "Jane", age: 31}
+}.freeze
 
 ITERATIONS = Integer(ENV.fetch("N", "100000"))
 WARMUP_ITERATIONS = Integer(ENV.fetch("WARMUP", "10000"))
 ENGINE = ENV.fetch("ENGINE", "all")
 FORMAT = ENV.fetch("FORMAT", "text")
 PROJECT_LIB = File.expand_path("../lib", __dir__)
+UPSTREAM_DRY_VALIDATION_VERSION = "1.11.1"
+UPSTREAM_DRY_SCHEMA_VERSION = "1.16.0"
 
 def measure(contract)
+  preflight = contract.call(INPUT)
+  raise "benchmark contract produced an unexpected result: #{preflight.inspect}" unless preflight.success? && preflight.to_h == EXPECTED_OUTPUT
+
   WARMUP_ITERATIONS.times { contract.call(INPUT) }
   GC.start
   before = GC.stat
@@ -65,6 +77,7 @@ def upstream_result
     require "json"
 
     input = #{INPUT.inspect}.freeze
+    expected_output = #{EXPECTED_OUTPUT.inspect}.freeze
     iterations = #{ITERATIONS}
     warmup_iterations = #{WARMUP_ITERATIONS}
     project_lib_paths = #{[PROJECT_LIB, File.realpath(PROJECT_LIB)].uniq.inspect}
@@ -77,7 +90,8 @@ def upstream_result
       end
     end
 
-    gem "dry-validation"
+    gem "dry-validation", #{UPSTREAM_DRY_VALIDATION_VERSION.inspect}
+    gem "dry-schema", #{UPSTREAM_DRY_SCHEMA_VERSION.inspect}
     spec = Gem.loaded_specs.fetch("dry-validation")
     $LOAD_PATH.unshift(File.join(spec.full_gem_path, "lib"))
     require "dry/validation"
@@ -96,6 +110,9 @@ def upstream_result
     end
 
     contract = benchmark_contract.new
+    preflight = contract.call(input)
+    abort "upstream benchmark contract produced an unexpected result: \#{preflight.inspect}" unless preflight.success? && preflight.to_h == expected_output
+
     warmup_iterations.times { contract.call(input) }
     GC.start
     before = GC.stat
@@ -105,6 +122,7 @@ def upstream_result
     puts JSON.generate(
       "engine" => "dry-validation",
       "version" => Gem.loaded_specs.fetch("dry-validation").version.to_s,
+      "dry_schema_version" => Gem.loaded_specs.fetch("dry-schema").version.to_s,
       "ruby" => RUBY_DESCRIPTION,
       "iterations" => iterations,
       "warmup_iterations" => warmup_iterations,

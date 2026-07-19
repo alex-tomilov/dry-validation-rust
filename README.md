@@ -197,6 +197,9 @@ script/demo --json
 The script resolves the repository from its own location, so invoking it by an
 absolute path also works from another current directory.
 
+Judges can also use the [Docker image recipe](docs/DOCKER.md) to run the
+precompiled native extension without installing the Ruby/Rust build toolchain.
+
 ## Building from source
 
 Requirements:
@@ -238,6 +241,14 @@ ruby -Ilib benchmark/schema_throughput.rb
 N=500000 ruby -Ilib benchmark/schema_throughput.rb
 ENGINE=rust ruby -Ilib benchmark/schema_throughput.rb
 ENGINE=upstream ruby -Ilib benchmark/schema_throughput.rb
+```
+
+The Docker judge image also provides configurable, network-free comparison
+runs with pinned `dry-validation` 1.11.1 and `dry-schema` 1.16.0 references:
+
+```bash
+docker run --rm --network none dry-validation-rust:local \
+  benchmark --engine compare --iterations 100000 --warmup 10000
 ```
 
 By default the benchmark compares this Rust-backed hybrid implementation with
