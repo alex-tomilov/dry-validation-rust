@@ -1,0 +1,45 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+cd "$(dirname "$0")/.."
+
+readonly BOUNDARY="2026-07-13T16:00:00Z"
+
+baseline_sha="$(git rev-list -1 --before="$BOUNDARY" HEAD)"
+if [[ -z "$baseline_sha" ]]; then
+  printf "No baseline commit exists before %s on HEAD.\n" "$BOUNDARY" >&2
+  exit 1
+fi
+
+branch="$(git branch --show-current)"
+if [[ -z "$branch" ]]; then
+  branch="(detached HEAD)"
+fi
+
+printf "Submission boundary: %s\n" "$BOUNDARY"
+printf "Active branch: %s\n" "$branch"
+printf "Detected baseline:\n"
+git show -s --date=iso-strict \
+  --format='  SHA: %H%n  Author timestamp: %aI%n  Committer timestamp: %cI%n  Subject: %s' \
+  "$baseline_sha"
+
+printf "\nCommits reachable from HEAD on or after the boundary:\n"
+git log HEAD --since="$BOUNDARY" --reverse --date=iso-strict \
+  --format='  %H%n    author=%aI%n    committer=%cI%n    %s'
+
+printf "\nCurrent HEAD:\n"
+git show -s --format='  %H %s' HEAD
+
+printf "\nWorking tree:\n"
+status="$(git status --porcelain=v1)"
+if [[ -n "$status" ]]; then
+  printf "  dirty\n%s\n" "$status"
+else
+  printf "  clean\n"
+fi
+
+printf "\nRemaining Build Week placeholders:\n"
+if ! grep -nE '<[A-Z][A-Z0-9_]*>' \
+  docs/BUILD_WEEK_2026_EVIDENCE.md README.md; then
+  printf "  none\n"
+fi

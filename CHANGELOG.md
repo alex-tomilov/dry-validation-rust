@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Added a Build Week evidence ledger and read-only audit helper that separate
+  the pre-existing prototype from submission-period repository work.
 - Added product-scope documentation, including the support matrix and pinned
   upstream compatibility references.
 - Added canonical verification and benchmark-smoke scripts.
