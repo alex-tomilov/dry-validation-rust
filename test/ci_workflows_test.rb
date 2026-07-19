@@ -11,6 +11,7 @@ class CiWorkflowsTest < Minitest::Test
     security.yml
     package.yml
     fuzz.yml
+    container.yml
   ].freeze
 
   def test_required_workflows_exist_without_release_workflow
@@ -92,6 +93,50 @@ class CiWorkflowsTest < Minitest::Test
     assert_includes fuzz, "timeout 5m"
     assert_includes fuzz, "continue-on-error: true"
     refute_includes fuzz, "pull_request:"
+  end
+
+  def test_container_workflow_separates_pr_build_from_publication
+    path = File.join(WORKFLOW_DIR, "container.yml")
+    container = YAML.safe_load_file(path)
+    source = File.read(path)
+    jobs = container.fetch("jobs")
+
+    assert_includes source, "pull_request:"
+    assert_includes source, "workflow_dispatch:"
+    assert_includes source, '"build-week-*"'
+    assert_includes source, '"v*.*.*"'
+    refute_includes source, "branches:"
+    refute_match(/type=raw,value=latest|type=raw,value=main/, source)
+    assert_includes source, "latest=false"
+
+    assert_equal({"contents" => "read"}, jobs.fetch("pull-request").fetch("permissions"))
+    assert_equal(
+      {"contents" => "read", "packages" => "write"},
+      jobs.fetch("publish").fetch("permissions")
+    )
+    assert_equal(
+      {"contents" => "read", "packages" => "read"},
+      jobs.fetch("verify-published").fetch("permissions")
+    )
+
+    assert_includes source, "persist-credentials: false"
+    assert_includes source, "docker/login-action@v3"
+    assert_includes source, "password: ${{ secrets.GITHUB_TOKEN }}"
+    assert_includes source, "platforms: linux/amd64"
+    refute_includes source, "linux/arm64"
+  end
+
+  def test_container_workflow_pulls_and_tests_the_published_digest
+    source = File.read(File.join(WORKFLOW_DIR, "container.yml"))
+
+    assert_includes source, "type=sha,format=long,prefix=sha-"
+    assert_includes source, "steps.build.outputs.digest"
+    assert_includes source, "needs.publish.outputs.digest"
+    assert_includes source, 'docker pull "${IMAGE_REFERENCE}"'
+    assert_includes source, 'script/docker-smoke --skip-build --tag "${IMAGE_REFERENCE}"'
+    assert_includes source, "GITHUB_STEP_SUMMARY"
+    assert_includes source, "Published tags"
+    assert_includes source, "Digest:"
   end
 
   private

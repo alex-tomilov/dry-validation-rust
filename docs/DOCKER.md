@@ -134,6 +134,7 @@ command fails. Runtime checks use `--network none`.
 script/docker-smoke
 script/docker-smoke --tag dry-validation-rust:review
 DVR_DOCKER_PLATFORM=linux/amd64 script/docker-smoke
+script/docker-smoke --skip-build --tag dry-validation-rust:local
 script/docker-smoke --cleanup
 ```
 
@@ -143,24 +144,64 @@ the exact commit SHA for a clean checkout and appends `-dirty` when local
 tracked or untracked changes are present, so locally measured evidence is not
 misattributed to an unchanged commit.
 
-## Local build versus the future prebuilt image
+## Prepared GHCR publication
 
-`Dockerfile` is the reproducible local build recipe. A public GHCR image will
-be added only after the repository's container workflow builds and publishes
-it in Stage 04. Until that image exists, this document intentionally provides
-no runnable GHCR pull command and makes no published-image claim.
+The repository now contains `.github/workflows/container.yml`, which can build
+and test pull-request images without publishing and can publish a Linux amd64
+image after a manual dispatch or an explicit `build-week-*` or semantic-version
+tag. Preparing the workflow does not prove that a public package exists.
 
-Once an image is published, verify the registry-provided digest rather than
-trusting a mutable tag alone:
+Intended competition convenience tag, currently **unavailable until a
+successful workflow run and anonymous pull prove otherwise**:
 
-```bash
-docker pull <PUBLISHED_IMAGE_REFERENCE>
-docker image inspect <PUBLISHED_IMAGE_REFERENCE> \
-  --format '{{index .RepoDigests 0}}'
+```text
+ghcr.io/alex-tomilov/dry-validation-rust:build-week-2026
 ```
 
-The reported `name@sha256:...` value can then be compared with the digest in
-the release or submission evidence.
+That competition tag can move when the maintainer intentionally republishes
+it. The workflow also creates a full commit-SHA tag. For immutable evaluation,
+use the registry digest emitted by the successful workflow. This template is
+not runnable until `<PUBLISHED_DIGEST>` is replaced with a verified value:
+
+```text
+ghcr.io/alex-tomilov/dry-validation-rust@sha256:<PUBLISHED_DIGEST>
+```
+
+After publication, the workflow uses a separate clean job to pull that digest
+and run the default demo, JSON validation, `doctor`, `test`, the offline demo,
+and the packaged benchmark comparison. It records the exact tags, digest,
+platform, and workflow URL in the GitHub Actions job summary.
+
+### Repository-owner publishing checklist
+
+Review the workflow revision first and confirm that only `linux/amd64` is
+claimed. Then:
+
+1. Confirm the existing GHCR package visibility is public. On the first
+   publication, inspect the newly created package immediately and make it
+   public before advertising it; the workflow cannot change visibility.
+2. Manually run the `Container` workflow with `build-week-2026`, or push an
+   explicitly authorized `build-week-*`/semantic-version tag.
+3. From a logged-out or otherwise anonymous environment, pull the commit-SHA
+   tag and then the digest reported by the workflow.
+4. Run the default demo, JSON demo, `doctor`, and `test`, including a
+   `--network none` invocation.
+5. Capture the successful workflow URL, date, full image digest, commit tag,
+   and anonymous-pull result.
+6. Replace `<PUBLISHED_DIGEST>` and this unavailable marker only after those
+   checks pass, then add the verified judge command to the README in Stage 06.
+
+Owner-run verification after the package is public:
+
+```bash
+docker logout ghcr.io || true
+docker pull ghcr.io/alex-tomilov/dry-validation-rust:sha-<FULL_COMMIT_SHA>
+docker run --rm ghcr.io/alex-tomilov/dry-validation-rust:sha-<FULL_COMMIT_SHA>
+docker run --rm --network none \
+  ghcr.io/alex-tomilov/dry-validation-rust:sha-<FULL_COMMIT_SHA> test
+docker inspect --format='{{index .RepoDigests 0}}' \
+  ghcr.io/alex-tomilov/dry-validation-rust:sha-<FULL_COMMIT_SHA>
+```
 
 ## Platform support and limitations
 

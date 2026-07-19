@@ -46,6 +46,8 @@ class DockerAssetsTest < Minitest::Test
 
     assert_includes smoke, "status --porcelain --untracked-files=normal"
     assert_includes smoke, 'revision="${revision}-dirty"'
+    assert_includes smoke, "--skip-build"
+    assert_includes smoke, 'if [[ "$skip_build" == 1 ]]'
   end
 
   def test_dispatcher_help_and_unknown_command
@@ -131,12 +133,12 @@ class DockerAssetsTest < Minitest::Test
     assert_includes benchmark, 'Open3.capture3(env, RbConfig.ruby, "-e", source, chdir: Dir.tmpdir)'
   end
 
-  def test_docker_documentation_distinguishes_local_and_future_images
+  def test_docker_documentation_distinguishes_prepared_and_verified_images
     documentation = read_project_file("docs/DOCKER.md")
 
     assert_includes documentation, "## Build locally"
-    assert_includes documentation, "## Local build versus the future prebuilt image"
-    assert_includes documentation, "no runnable GHCR pull command"
+    assert_includes documentation, "## Prepared GHCR publication"
+    assert_includes documentation, "Preparing the workflow does not prove"
     assert_includes documentation, "--network none"
     assert_includes documentation, "--engine compare --iterations 100000 --warmup 10000"
     assert_includes documentation, "dry-validation` 1.11.1"
@@ -146,12 +148,14 @@ class DockerAssetsTest < Minitest::Test
     assert_includes documentation, "must be rerun"
     assert_includes documentation, "median of the five paired"
     assert_includes documentation, "They do not measure RSS or"
-    assert_includes documentation, "It is not evidence that every contract"
     assert_includes documentation, "Only `benchmark --engine"
     assert_includes documentation, "in a separate Ruby process"
     assert_includes documentation, "Linux x86-64 with glibc"
-    assert_includes documentation, "<PUBLISHED_IMAGE_REFERENCE>"
-    refute_match(%r{docker pull ghcr\.io/}, documentation)
+    assert_includes documentation, "ghcr.io/alex-tomilov/dry-validation-rust:build-week-2026"
+    assert_includes documentation, "currently **unavailable"
+    assert_includes documentation, "<PUBLISHED_DIGEST>"
+    assert_includes documentation, "Repository-owner publishing checklist"
+    assert_includes documentation, "docker pull ghcr.io/alex-tomilov/dry-validation-rust:sha-<FULL_COMMIT_SHA>"
   end
 
   private

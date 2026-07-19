@@ -52,8 +52,13 @@ The repository defines these non-release workflows:
   upload without publication.
 - `.github/workflows/fuzz.yml`: scheduled/manual bounded fuzz preflight that is
   non-blocking for ordinary pull requests until a dedicated fuzz target exists.
+- `.github/workflows/container.yml`: read-only pull-request image builds plus
+  restricted manual/tag GHCR publication. A separate job pulls the published
+  Linux amd64 image by digest and runs the offline Docker smoke suite. Workflow
+  presence is not evidence that a public image has been published.
 
-There is intentionally no release workflow.
+There is intentionally no RubyGems or GitHub release workflow. The container
+workflow prepares GHCR publication only for explicit manual or tag events.
 
 Dependency update and audit policy is documented in
 [DEPENDENCY_SECURITY.md](DEPENDENCY_SECURITY.md). Dependabot is configured for
