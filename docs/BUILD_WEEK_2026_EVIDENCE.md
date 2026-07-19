@@ -1,7 +1,8 @@
 # OpenAI Build Week 2026 evidence ledger
 
-This document separates the pre-existing `dry-validation-rust` prototype from
-work reachable from the submission branch during OpenAI Build Week 2026. The
+This page gives judges a repository-backed distinction between the
+pre-existing `dry-validation-rust` prototype and work added during OpenAI
+Build Week 2026. The
 [official rules](https://openai.devpost.com/rules) require pre-existing
 projects to distinguish prior work from meaningful extensions made with Codex
 and/or GPT-5.6 during the submission period and to provide dated evidence.
@@ -13,8 +14,8 @@ screenshots supplement it but do not replace it.
 - Project: `dry-validation-rust`
 - Intended track: Developer Tools
 - Repository: <https://github.com/alex-tomilov/dry-validation-rust>
-- Active submission branch when this ledger was established:
-  `feature/build-week-2026`
+- Submission branch: `feature/build-week-2026`
+- Committed ledger scope: through `65dd9cd` on July 19, 2026
 - Submission-period boundary: July 13, 2026 at 9:00 a.m. Pacific Daylight
   Time (`2026-07-13T16:00:00Z`)
 
@@ -39,8 +40,8 @@ git log --before='2026-07-13T16:00:00Z' -1 \
   (`2026-07-13T14:34:14Z`)
 - Committer timestamp: `2026-07-13T19:34:14+05:00`
   (`2026-07-13T14:34:14Z`)
-- Subject: `Merge pull request #1 from
-alex-tomilov/feature/rust-backed-validation-engine`
+- Subject:
+  `Merge pull request #1 from alex-tomilov/feature/rust-backed-validation-engine`
 - Merge-message body: `feat: add Rust-backed dry-validation prototype`
 
 `git show --stat` and the tree at this commit show that the baseline already
@@ -60,11 +61,12 @@ this commit.
 ## 3. Build Week commit ledger
 
 This table contains every post-boundary commit reachable from
-`feature/build-week-2026` when the ledger was established. It uses committer
-timestamps in UTC and orders commits chronologically. Author and committer
-timestamps were checked with `%aI` and `%cI`; they identify the same instant
-for every row. GitHub-created merge commits have a GitHub committer identity,
-but no conflicting date.
+`feature/build-week-2026` through committed ledger head `65dd9cd`. It uses
+committer timestamps in UTC and orders commits chronologically. Author and
+committer timestamps were checked with `%aI` and `%cI`; they identify the same
+instant for every row. GitHub-created merge commits have a GitHub committer
+identity, but no conflicting date. Uncommitted work is not evidence in this
+ledger.
 
 Both important constituent commits and their two-parent merge commits are
 listed. This deliberately duplicates the high-level addition in merge rows:
@@ -95,17 +97,18 @@ repository artifacts, not a claim that every historical CI job passed.
 | [`5178d0c`](https://github.com/alex-tomilov/dry-validation-rust/commit/5178d0cecd7ebb373479597d9bf8528d91feb05d) | `2026-07-16T14:55:23Z` | Integration           | Merged PR #8, integrating community-health work.                                                                                                | Two-parent merge; second parent `cb558e1`                                                                                  |
 | [`b1e61b0`](https://github.com/alex-tomilov/dry-validation-rust/commit/b1e61b07709043581d883ed14cba31233c6c7861) | `2026-07-16T15:37:40Z` | Project management    | Added roadmap/milestone policy, issue taxonomy, declarative GitHub metadata, and a dry-run-first synchronizer.                                  | `docs/PROJECT_MANAGEMENT.md`, `.github/project-management.yml`, `script/sync-github-project-management`, and focused tests |
 | [`0605875`](https://github.com/alex-tomilov/dry-validation-rust/commit/0605875fa8acddf772d0f7d60071770c45709f77) | `2026-07-16T15:47:47Z` | Integration           | Merged PR #34, integrating project-management work.                                                                                             | Two-parent merge; second parent `b1e61b0`                                                                                  |
+| [`d59086b`](https://github.com/alex-tomilov/dry-validation-rust/commit/d59086bee12780a4ef962e3ce63450b7bd30c2dd) | `2026-07-19T14:44:45Z` | Build Week evidence   | Added the pre-existing baseline, commit/session evidence ledger, and read-only audit helper.                                                     | `docs/BUILD_WEEK_2026_EVIDENCE.md` and `script/build-week-evidence`                                                        |
+| [`65dd9cd`](https://github.com/alex-tomilov/dry-validation-rust/commit/65dd9cd7641d66af73eb8af82086aaf0790857d0) | `2026-07-19T15:07:09Z` | Judge demo            | Added an asserted safe-namespace order demo with human/JSON output and a README Build Week collaboration summary.                               | `examples/build_week_order_contract.rb`, `script/demo`, focused tests, and `README.md`                                     |
 
 The all-refs inspection also found post-boundary commit
 [`2dce1cc`](https://github.com/alex-tomilov/dry-validation-rust/commit/2dce1cc7faec4d8f8bbbd8a2371c010097ef0ddc)
 on `feature/repository-governance`. It was not reachable from the active
 submission branch at this stage, so it is not represented as submitted work
-in the table. If it is integrated later, rerun the maintenance procedure and
-add it and its integration commit in chronological order.
+in the table.
 
-## 4. GPT-5.6 contribution narrative
+## 4. GPT-5.6 and Codex contributions
 
-The intended, limited narrative is:
+The contribution boundary presented for judging is:
 
 - GPT-5.6 was used as an architecture and repository-review partner.
 - It helped analyze the feasibility prototype, identify
@@ -126,24 +129,13 @@ information to verify a model name, conversation timestamp, or every later
 implementation detail. It must therefore be paired with timestamped Codex
 evidence and the Git ledger; it is not treated as standalone proof.
 
-## 5. Codex evidence
+## 5. Codex session and commit evidence
 
-Before submission, collect evidence without committing private prompts,
-credentials, or unrelated conversation content:
-
-1. Run `/feedback` in the primary Codex build thread and replace
-   `<PRIMARY_CODEX_FEEDBACK_SESSION_ID>` with the returned Session ID.
-2. For any secondary thread that materially affected the submitted work,
-   replace `<SECONDARY_SESSION_ID_OR_REMOVE>` with its Session ID. Remove the
-   line if there was no relevant secondary thread.
-3. Capture timestamped screenshots or export session logs that show the
-   repository, task, relevant dates, and verification output. Store or link
-   them only where the project owner has reviewed them for secrets and private
-   data.
-4. Map each retained session to the roadmap prompt and resulting commits. Do
-   not infer a session-to-commit relationship solely from similar wording.
-
-Current evidence mapping to complete:
+The table below maps concrete roadmap work to Codex session IDs supplied by
+the project owner and to the resulting Git history. Several stages were
+completed in the same primary build thread; focused architecture stages used
+separate sessions. The primary `/feedback` Session ID is also supplied through
+the official submission form.
 
 | Roadmap work                               | Codex session evidence                 | Resulting commits               |
 | ------------------------------------------ | -------------------------------------- | ------------------------------- |
@@ -156,9 +148,10 @@ Current evidence mapping to complete:
 | `R02` community health                     | `019f6b00-f639-7c82-a9f8-633407e9980f` | `cb558e1`, `5178d0c`            |
 | `R09` project planning                     | `019f6b00-f639-7c82-a9f8-633407e9980f` | `b1e61b0`, `0605875`            |
 
-Session IDs are intentionally unresolved placeholders. A Git commit proves a
-repository change and date; a reviewed session record supplies the separate
-Codex/GPT contribution evidence requested by the rules.
+The two evidence types serve different purposes: Git establishes what changed
+and when, while the session records show how Codex contributed to the work.
+Neither is presented as independent proof of the model name or timestamp of
+the contextual ChatGPT conversation described above.
 
 ## 6. Human decisions
 
@@ -184,50 +177,24 @@ release decisions. In particular, the author retained:
   stages listed in `docs/PROJECT_MANAGEMENT.md` until their dependencies and
   evidence requirements are met.
 
-No accepted-with-changes or rejected roadmap stage is documented in the
-active branch history. `R01` has a separate branch commit but was not yet
-accepted into the submission branch when this ledger was created. The owner
-must update this section if a stage is later accepted with changes,
-postponed, or rejected; silence must not be interpreted as an AI decision.
+At the ledger refresh point, no accepted-with-changes or rejected roadmap stage
+was documented in the active branch history. `R01` had a separate branch
+commit but was not accepted into the submission branch and is therefore not
+counted as submitted work.
 
-## 7. Evidence maintenance procedure
+## 7. Independent verification
 
-Run these commands from the repository root immediately before submission:
+The boundary and ledger can be checked directly from the public repository:
 
 ```bash
-BOUNDARY='2026-07-13T16:00:00Z'
-
-git status --short --branch
-git remote -v
-git log --date=iso-strict --pretty=fuller --decorate --all
-git log --before="$BOUNDARY" -1 --date=iso-strict --pretty=fuller
-git log --since="$BOUNDARY" --date=iso-strict --pretty=fuller --reverse
-git log --since="$BOUNDARY" --reverse \
+git log --before='2026-07-13T16:00:00Z' -1 \
+  --date=iso-strict --pretty=fuller
+git log --since='2026-07-13T16:00:00Z' --reverse \
   --format='%H%x09%aI%x09%cI%x09%P%x09%s'
 script/build-week-evidence
 ```
 
-For every baseline and ledger SHA, verify that Git contains a commit object:
-
-```bash
-git cat-file -e 6e986c164ddd7e9fab5854c81fa300c5df898476^{commit}
-git log --since='2026-07-13T16:00:00Z' --format='%H' |
-  while read -r sha; do git cat-file -e "${sha}^{commit}"; done
-```
-
-Before final submission:
-
-- confirm the active branch and repository URL;
-- recompute the baseline and confirm both its author and committer timestamp;
-- add every new reachable post-boundary constituent and merge commit in
-  chronological order;
-- inspect all refs and explain any relevant unmerged work;
-- validate each description against `git show --stat` and the commit tree;
-- replace `<PRIMARY_CODEX_FEEDBACK_SESSION_ID>`;
-- replace `<SECONDARY_SESSION_ID_OR_REMOVE>` or remove it everywhere;
-- add reviewed timestamped screenshots or exported session-log references;
-- verify every roadmap/session/commit mapping with the actual session;
-- rerun `script/build-week-evidence`, `git diff --check`, and all relevant
-  repository verification;
-- confirm no benchmark number, eligibility conclusion, supported platform,
-  model label, session ID, or timestamp has been inferred or invented.
+The helper is read-only: it reports the boundary, detected baseline, reachable
+post-boundary commits, current head, working-tree state, and any remaining
+Build Week placeholders. It makes no network calls and does not modify files,
+commits, tags, or history.

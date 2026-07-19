@@ -37,6 +37,20 @@ class DocumentationTest < Minitest::Test
     assert_includes readme, "does not require an OpenAI API key"
   end
 
+  def test_build_week_evidence_is_judge_facing_and_reproducible
+    evidence = read_doc("docs/BUILD_WEEK_2026_EVIDENCE.md")
+
+    assert_includes evidence, "## 5. Codex session and commit evidence"
+    assert_includes evidence, "## 7. Independent verification"
+    assert_includes evidence, "d59086bee12780a4ef962e3ce63450b7bd30c2dd"
+    assert_includes evidence, "65dd9cd7641d66af73eb8af82086aaf0790857d0"
+    assert_includes evidence, "script/build-week-evidence"
+    refute_includes evidence, "Current evidence mapping to complete"
+    refute_includes evidence, "Evidence maintenance procedure"
+    refute_includes evidence, "Before final submission"
+    refute_match(/<PRIMARY_CODEX_FEEDBACK_SESSION_ID>|<SECONDARY_SESSION_ID_OR_REMOVE>/, evidence)
+  end
+
   def test_compatibility_target_uses_pinned_releases
     compatibility = read_doc("docs/COMPATIBILITY.md")
 
