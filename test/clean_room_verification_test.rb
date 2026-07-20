@@ -8,6 +8,11 @@ require "tmpdir"
 
 class CleanRoomVerificationTest < Minitest::Test
   SCRIPT = File.join(PROJECT_ROOT, "script", "clean-room-verify")
+  PROJECT_TMP = File.join(PROJECT_ROOT, "tmp")
+
+  def setup
+    FileUtils.mkdir_p(PROJECT_TMP)
+  end
 
   def test_help_documents_modes_and_safety_contract
     stdout, stderr, status = Open3.capture3(SCRIPT, "--help", chdir: Dir.tmpdir)
@@ -26,7 +31,7 @@ class CleanRoomVerificationTest < Minitest::Test
       #!/usr/bin/env bash
       exit 127
     SH
-      Dir.mktmpdir("dvr-clean-room-output", File.join(PROJECT_ROOT, "tmp")) do |parent|
+      Dir.mktmpdir("dvr-clean-room-output", PROJECT_TMP) do |parent|
         output = File.join(parent, "evidence")
         stdout, stderr, status = run_script(bin_dir, "--docker-only", "--output", relative_output(output))
 
@@ -41,7 +46,7 @@ class CleanRoomVerificationTest < Minitest::Test
   end
 
   def test_output_refuses_symlinked_parent_below_tmp
-    Dir.mktmpdir("dvr-clean-room-output", File.join(PROJECT_ROOT, "tmp")) do |parent|
+    Dir.mktmpdir("dvr-clean-room-output", PROJECT_TMP) do |parent|
       Dir.mktmpdir("dvr-clean-room-outside") do |outside|
         link = File.join(parent, "linked")
         File.symlink(outside, link)
@@ -77,7 +82,7 @@ class CleanRoomVerificationTest < Minitest::Test
         *) exit 0 ;;
       esac
     SH
-      Dir.mktmpdir("dvr-clean-room-output", File.join(PROJECT_ROOT, "tmp")) do |parent|
+      Dir.mktmpdir("dvr-clean-room-output", PROJECT_TMP) do |parent|
         output = File.join(parent, "evidence")
         _stdout, _stderr, status = run_script(bin_dir, "--docker-only", "--output", relative_output(output))
 
