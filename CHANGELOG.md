@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Added a redacted clean-room verification orchestrator, observed evidence
+  matrix, and scheduled/manual no-cache Docker workflow covering Docker,
+  native Linux, and isolated source-gem paths without widening platform claims.
 - Reorganized the README around the judge quick start and added a Build Week
   narrative that separates the pre-existing prototype, GPT-5.6/Codex work,
   human decisions, runtime independence, and outstanding submission evidence.

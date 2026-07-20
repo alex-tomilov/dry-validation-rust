@@ -1,0 +1,45 @@
+name: Clean room
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "23 4 * * 1"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: clean-room-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  docker-no-cache:
+    name: No-cache Linux amd64 judge image
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout without persisted credentials
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Build without cache and run offline smoke checks
+        run: script/clean-room-verify --docker-only --output tmp/clean-room/ci
+
+      - name: Require build and runtime passes
+        run: |
+          awk -F '\t' '$1 == "local_docker_build" && $2 == "PASSED" { found = 1 } END { exit !found }' tmp/clean-room/ci/summary.tsv
+          awk -F '\t' '$1 == "local_docker_runtime" && $2 == "PASSED" { found = 1 } END { exit !found }' tmp/clean-room/ci/summary.tsv
+
+      - name: Upload redacted clean-room evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: clean-room-linux-amd64-${{ github.run_id }}
+          path: |
+            tmp/clean-room/ci/environment.txt
+            tmp/clean-room/ci/summary.tsv
+            tmp/clean-room/ci/summary.md
+            tmp/clean-room/ci/logs/*.log
+          if-no-files-found: error
+          retention-days: 14

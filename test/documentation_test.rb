@@ -125,6 +125,29 @@ class DocumentationTest < Minitest::Test
     assert_includes compatibility, "`dry-schema` 1.16.0"
   end
 
+  def test_clean_room_matrix_distinguishes_observed_and_unverified_paths
+    documentation = read_doc("docs/CLEAN_ROOM_VERIFICATION.md")
+    support_matrix = read_doc("docs/SUPPORT_MATRIX.md")
+    readme = read_doc("README.md")
+
+    assert_includes documentation, "| Public prebuilt image |"
+    assert_includes documentation, "**UNAVAILABLE**"
+    assert_includes documentation, "| Local Docker build |"
+    assert_includes documentation, "**PASSED**"
+    assert_includes documentation, "| Native Linux source build |"
+    assert_includes documentation, "| Native macOS source build |"
+    assert_includes documentation, "**UNVERIFIED HERE**"
+    assert_includes documentation, "| Source gem isolated install |"
+    assert_includes documentation, "| Native Windows |"
+    assert_includes documentation, "| JRuby / TruffleRuby |"
+    assert_includes documentation, "--no-cache"
+    assert_includes documentation, "RepoDigest"
+    assert_includes documentation, "`SKIPPED`, never as `PASSED`"
+    assert_includes support_matrix, "Linux x86-64 source verified"
+    assert_includes support_matrix, "macOS is a source-build CI target"
+    assert_includes readme, "[Clean-room verification](docs/CLEAN_ROOM_VERIFICATION.md)"
+  end
+
   private
 
   def read_doc(path)

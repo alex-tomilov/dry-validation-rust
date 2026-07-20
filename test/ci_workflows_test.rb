@@ -12,6 +12,7 @@ class CiWorkflowsTest < Minitest::Test
     package.yml
     fuzz.yml
     container.yml
+    clean-room.yml
   ].freeze
 
   def test_required_workflows_exist_without_release_workflow
@@ -137,6 +138,23 @@ class CiWorkflowsTest < Minitest::Test
     assert_includes source, "GITHUB_STEP_SUMMARY"
     assert_includes source, "Published tags"
     assert_includes source, "Digest:"
+  end
+
+  def test_clean_room_workflow_adds_scheduled_no_cache_coverage
+    path = File.join(WORKFLOW_DIR, "clean-room.yml")
+    source = File.read(path)
+    workflow = YAML.safe_load_file(path)
+
+    assert_includes source, "workflow_dispatch:"
+    assert_includes source, "schedule:"
+    refute_includes source, "pull_request:"
+    assert_equal({"contents" => "read"}, workflow.fetch("permissions"))
+    assert_includes source, "script/clean-room-verify --docker-only"
+    assert_includes source, 'local_docker_build" && $2 == "PASSED"'
+    assert_includes source, 'local_docker_runtime" && $2 == "PASSED"'
+    assert_includes source, "actions/upload-artifact@v4"
+    assert_includes source, "persist-credentials: false"
+    refute_includes source, "packages: write"
   end
 
   private

@@ -114,6 +114,8 @@ tools contributed to the development process, not to validation calls.
   Docker build and offline demo.
 - [Docker image guide](DOCKER.md): image contents, runtime commands, platform
   limits, and GHCR publication status.
+- [Clean-room verification](CLEAN_ROOM_VERIFICATION.md): observed Docker,
+  native Linux, source-gem, public-image, and unsupported-platform results.
 - [Benchmark methodology](BENCHMARKING.md): quick checks, full evidence mode,
   measurements, and interpretation limits.
 - [Benchmark evidence status](../benchmark/results/build-week-2026/README.md):

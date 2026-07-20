@@ -264,6 +264,7 @@ guidance.
 - [Build Week 2026 narrative](docs/BUILD_WEEK_2026.md)
 - [Build Week evidence ledger](docs/BUILD_WEEK_2026_EVIDENCE.md)
 - [Docker judge image](docs/DOCKER.md)
+- [Clean-room verification](docs/CLEAN_ROOM_VERIFICATION.md)
 - [Benchmark methodology](docs/BENCHMARKING.md)
 - [Support matrix](docs/SUPPORT_MATRIX.md)
 - [Compatibility matrix](docs/COMPATIBILITY.md)

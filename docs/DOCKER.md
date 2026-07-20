@@ -151,6 +151,22 @@ the exact commit SHA for a clean checkout and appends `-dirty` when local
 tracked or untracked changes are present, so locally measured evidence is not
 misattributed to an unchanged commit.
 
+## Clean-room no-cache verification
+
+The submission-oriented verifier builds Linux amd64 without Docker layer cache,
+then delegates all runtime assertions to `script/docker-smoke`:
+
+```bash
+script/clean-room-verify --docker-only
+```
+
+It uses an empty temporary Docker configuration, stores redacted logs and
+selected environment metadata under ignored `tmp/clean-room/`, and removes its
+temporary image tag on exit. This intentionally expensive check complements
+ordinary cache-friendly development builds. The observed matrix, including
+the unavailable anonymous GHCR pull, is in
+[CLEAN_ROOM_VERIFICATION.md](CLEAN_ROOM_VERIFICATION.md).
+
 ## Prepared GHCR publication
 
 The repository now contains `.github/workflows/container.yml`, which can build
