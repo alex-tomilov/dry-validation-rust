@@ -175,8 +175,9 @@ The gem uses the standard native extension contract:
 `Cargo.lock` is included for reproducible source-gem builds. Release builds
 enable thin LTO, one codegen unit, and debug-info stripping.
 
-The source checkout loader also looks for
-`ext/dry_validation_rust/native.so`, allowing tests without installing the gem.
+The source checkout loader also looks for the platform-native extension under
+`ext/dry_validation_rust/native.<DLEXT>` (`native.so` on Linux and
+`native.bundle` on macOS), allowing tests without installing the gem.
 
 ## Portability
 

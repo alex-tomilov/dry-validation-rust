@@ -1,6 +1,6 @@
 # Verification record
 
-Date: 2026-07-16
+Date: 2026-07-20
 
 ## Canonical command
 
@@ -20,6 +20,39 @@ Run only the package audit with:
 bundle exec rake package:audit
 ```
 
+## Clean-room entrypoint
+
+Use `script/clean-room-verify` to keep Docker, native source, and source-gem
+evidence separate while reusing the checks above:
+
+```bash
+script/clean-room-verify --docker-only
+script/clean-room-verify --native-only
+script/clean-room-verify --package-only
+script/clean-room-verify --all
+```
+
+Docker mode performs a cache-disabled Linux amd64 build. Native and package
+modes install the locked bundle below ignored `tmp/` rather than changing the
+user's gem home. Result summaries distinguish unavailable prerequisites from
+failed requested checks. See [CLEAN_ROOM_VERIFICATION.md](CLEAN_ROOM_VERIFICATION.md)
+for the observed matrix and limitations.
+
+## Deterministic judge demo
+
+After compiling the native extension, run the safe-namespace demo in human or
+machine-readable mode:
+
+```bash
+script/demo
+script/demo --json
+```
+
+Both modes execute the same asserted cases and exit nonzero if any expectation
+fails. The script resolves the repository from its own location, so its
+absolute path works from any current directory. The demo is offline and does
+not invoke a benchmark or an OpenAI API.
+
 ## GitHub Actions
 
 The repository defines these non-release workflows:
@@ -37,8 +70,16 @@ The repository defines these non-release workflows:
   upload without publication.
 - `.github/workflows/fuzz.yml`: scheduled/manual bounded fuzz preflight that is
   non-blocking for ordinary pull requests until a dedicated fuzz target exists.
+- `.github/workflows/container.yml`: read-only pull-request image builds plus
+  restricted manual/tag GHCR publication. A separate job pulls the published
+  Linux amd64 image by digest and runs the offline Docker smoke suite. Workflow
+  presence is not evidence that a public image has been published.
+- `.github/workflows/clean-room.yml`: scheduled/manual cache-disabled Linux
+  amd64 image build and offline smoke with redacted evidence artifacts. It does
+  not publish an image.
 
-There is intentionally no release workflow.
+There is intentionally no RubyGems or GitHub release workflow. The container
+workflow prepares GHCR publication only for explicit manual or tag events.
 
 Dependency update and audit policy is documented in
 [DEPENDENCY_SECURITY.md](DEPENDENCY_SECURITY.md). Dependabot is configured for
@@ -85,7 +126,7 @@ The exact and side-by-side loading fixtures assert that the upstream
 Observed from `script/verify`:
 
 ```text
-49 runs, 311 assertions, 0 failures, 0 errors, 0 skips
+124 runs, 1577 assertions, 0 failures, 0 errors, 0 skips
 
 running 4 tests
 test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out
@@ -124,6 +165,20 @@ Observed JSON:
 ```
 
 This smoke benchmark has no threshold and is not a public performance claim.
+
+## Comparative benchmark suite
+
+Run the short, non-authoritative multi-workload check with:
+
+```bash
+script/benchmark-suite --mode quick --output tmp/benchmark-quick
+```
+
+Full evidence uses at least five isolated runs per engine, workload, and input
+distribution and writes raw results, environment metadata, and mechanically
+derived median/range summaries. See [BENCHMARKING.md](BENCHMARKING.md) for the
+clean-tree command, pinned upstream setup, GNU `time` RSS measurement, outcome
+equivalence checks, evidence layout, and interpretation limits.
 
 ## Source gem file list
 

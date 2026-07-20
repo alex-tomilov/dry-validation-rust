@@ -8,6 +8,7 @@ PATH
 GEM
   remote: https://rubygems.org/
   specs:
+    benchmark (0.3.0)
     bigdecimal (3.1.5)
     minitest (5.20.0)
     mutex_m (0.2.0)
@@ -22,6 +23,7 @@ PLATFORMS
   x86_64-linux
 
 DEPENDENCIES
+  benchmark (~> 0.3)
   dry-validation-rust!
   minitest (~> 5.20)
   mutex_m (~> 0.2)

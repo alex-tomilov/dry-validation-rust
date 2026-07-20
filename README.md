@@ -1,47 +1,58 @@
 # dry-validation-rust
 
-`dry-validation-rust` is a performance-oriented hybrid Ruby/Rust validation
-engine with familiar dry-validation-style contract syntax and a precisely
-documented compatible subset. Rust handles the immutable declarative schema
-execution path; Ruby preserves dynamic rules and Ruby-specific semantics.
+A hybrid Ruby/Rust validation engine that executes a supported declarative schema plan in Rust while preserving dynamic Ruby business rules.
 
-> Status: feasibility prototype / `0.1.0.pre1`. It is deliberately not
-> presented as a production-ready drop-in replacement.
+> **Prototype:** `0.1.0.pre1` implements a documented subset of `dry-validation`. It is not a production-ready drop-in replacement.
 
-Read [the support matrix](docs/SUPPORT_MATRIX.md), [compatibility matrix](docs/COMPATIBILITY.md),
-[architecture](docs/ARCHITECTURE.md), and [feasibility study](docs/FEASIBILITY.md)
-before considering real use.
+## Try it
 
-For project participation and reporting routes, see
-[CONTRIBUTING.md](CONTRIBUTING.md), [SUPPORT.md](SUPPORT.md),
-[SECURITY.md](SECURITY.md), [GOVERNANCE.md](GOVERNANCE.md), and the
-[Code of Conduct](CODE_OF_CONDUCT.md).
-The ordered roadmap, issue taxonomy, and milestone policy are documented in
-[PROJECT_MANAGEMENT.md](docs/PROJECT_MANAGEMENT.md).
+After the Build Week package is public:
 
-## What this project is
+```bash
+docker run --rm \
+  --platform linux/amd64 \
+  ghcr.io/alex-tomilov/dry-validation-rust:build-week-2026
+```
 
-- Rust owns the immutable schema plan, key lookup and normalization, nested
-  traversal, built-in coercion, type checks, native predicates, output
-  filtering, and structural error collection.
-- Ruby owns class-level DSL capture, arbitrary rule blocks, injected Ruby
-  objects, macros, custom behavior, and Ruby-specific predicate semantics.
+Before sharing that command with judges, confirm it works after `docker logout ghcr.io`.
 
-Rewriting arbitrary Ruby blocks into Rust is neither generally possible nor
-desirable. Calling those blocks through Ruby preserves the feature that makes
-`dry-validation` useful: domain validation can be normal Ruby.
+Local fallback:
 
-## What this project is not
+```bash
+docker build --pull --platform linux/amd64 \
+  -t dry-validation-rust:local .
 
-- It is not a proven drop-in replacement for upstream `dry-validation`.
-- It is not a full Rust rewrite of the dry-rb validation stack.
-- It does not claim full upstream compatibility without fixture-backed,
-  version-pinned differential evidence.
-- It does not claim general speedups without representative benchmarks.
+docker run --rm --network none --platform linux/amd64 \
+  dry-validation-rust:local
+```
 
-## Primary safe API
+The image runs a deterministic demonstration and needs no OpenAI API key. Once built or pulled, the demo also needs no network connection.
 
-Use the side-by-side namespace first:
+## What the demo proves
+
+The order contract demonstrates:
+
+- string-key normalization and supported coercion;
+- nested hashes and arrays of hashes;
+- structural errors combined with a Ruby business rule;
+- dependent-rule skipping after a coercion failure.
+
+Each displayed `PASS` is an assertion. A mismatch exits nonzero. Use `script/demo --json` for machine-readable output.
+
+## How the hybrid works
+
+| Rust owns | Ruby owns |
+|---|---|
+| Immutable declarative schema plans | Contract classes and the public DSL |
+| Supported normalization and coercion | Arbitrary rule blocks |
+| Nested traversal and native predicates | Macros, options, context, and injected objects |
+| Filtered output and structural errors | Ruby-specific business semantics |
+
+Arbitrary Ruby blocks cannot be translated transparently into Rust. Keeping them in Ruby preserves ordinary application behavior while moving repeatable structural work into a typed native plan. See [ARCHITECTURE.md](docs/ARCHITECTURE.md).
+
+## Primary API
+
+Use the isolated namespace:
 
 ```ruby
 require "dry/validation/rust"
@@ -50,7 +61,6 @@ class NewUserContract < Dry::Validation::Rust::Contract
   params do
     required(:email).filled(:string, format?: /\A[^@]+@[^@]+\z/)
     required(:age).value(:integer)
-    optional(:display_name).maybe(:string)
 
     required(:addresses).array(:hash) do
       required(:city).filled(:string)
@@ -66,8 +76,9 @@ end
 result = NewUserContract.new.call(
   "email" => "jane@example.org",
   "age" => "17",
-  "display_name" => "",
-  "addresses" => [{"city" => "Astana", "postcode" => "010000"}]
+  "addresses" => [
+    {"city" => "Astana", "postcode" => "010000"}
+  ]
 )
 
 result.to_h
@@ -75,165 +86,63 @@ result.success?
 result.errors.to_h
 ```
 
-This is the primary supported API. Version, platform, and upstream-reference
-targets are listed in [SUPPORT_MATRIX.md](docs/SUPPORT_MATRIX.md). Supported
-DSL and semantic differences are listed in [COMPATIBILITY.md](docs/COMPATIBILITY.md).
+`Dry::Validation::Rust::Contract` is the supported side-by-side API. The [compatibility matrix](docs/COMPATIBILITY.md) and [support matrix](docs/SUPPORT_MATRIX.md) define the tested subset and platforms.
 
-## Migration-compatible subset
+## Benchmarking
 
-The safe API intentionally keeps familiar contract syntax where that behavior
-is implemented and covered. Use it for comparison work and gradual migration
-without taking over upstream constants:
+The comparative suite runs this project and pinned upstream gems in separate processes. Quick mode is a smoke check, not publication evidence:
 
-```ruby
-require "dry/validation/rust"
-
-class AgeContract < Dry::Validation::Rust::Contract
-  params do
-    required(:age).value(:integer)
-  end
-end
+```bash
+script/benchmark-suite --mode quick --output tmp/benchmark-quick
 ```
 
-## Exact compatibility shim
+Headline figures should appear only after a clean full run has produced raw samples, environment metadata, and a generated summary. Results remain workload- and environment-specific. See [BENCHMARKING.md](docs/BENCHMARKING.md).
 
-Exact compatibility mode keeps upstream-like require paths and constants:
+## OpenAI Build Week 2026
 
-```ruby
-require "dry/validation"
+The feasibility prototype existed before the submission period. During Build Week, GPT-5.6 helped review the architecture and shape an engineering roadmap. Codex helped implement and verify accepted work, including the demo, Docker judge path, GHCR workflow, and benchmark tooling.
 
-class AgeContract < Dry::Validation::Contract
-  params do
-    required(:age).value(:integer)
-  end
-end
-```
+The human author retained responsibility for architecture, scope, and claim boundaries. The validation runtime remains deterministic Ruby and Rust and does not call an OpenAI model. See [the Build Week narrative and evidence](docs/BUILD_WEEK_2026.md).
 
-> Collision warning: exact compatibility mode is experimental and opt-in. Do
-> not install or activate upstream `dry-validation` / `dry-schema` in the same
-> process when using `require "dry/validation"` or `require "dry/schema"` from
-> this gem. Both implementations own the same require paths and constants. This
-> gem raises a clear `LoadError` when it can detect such a collision.
+## Build and verify
 
-The exact shim currently lives in this gem. If maintaining the shim separately
-becomes necessary, the intended product split is `dry-validation-rust` for the
-safe namespace and `dry-validation-rust-compat` for the upstream-like require
-paths. No split is planned for the `0.1.x` line without concrete maintenance
-evidence.
-
-## Loading modes
-
-### Side-by-side mode
-
-`require "dry/validation/rust"` exposes only the
-`Dry::Validation::Rust` namespace. It does not define
-`Dry::Validation::Contract` or `Dry::Schema`.
-
-### Exact compatibility mode
-
-`require "dry/validation"` defines:
-
-- `Dry::Validation::Contract` and related result/message aliases;
-- minimal `Dry::Schema.Params`, `Dry::Schema.JSON`, and
-  `Dry::Schema.define` factories for reusable schemas.
-
-The collision warning above applies to every exact-mode entrypoint.
-
-## Supported highlights
-
-This section is a summary. Version and platform support is authoritative in
-[SUPPORT_MATRIX.md](docs/SUPPORT_MATRIX.md); feature support is authoritative
-in [COMPATIBILITY.md](docs/COMPATIBILITY.md).
-
-- `params`, `json`, and plain `schema` modes.
-- String-key normalization for Params and JSON.
-- Integer, float, decimal, boolean, symbol, Date, DateTime, and Time Params
-  coercions.
-- Required/optional keys, `filled`, `maybe`, hashes, arrays, primitive array
-  members, and arrays of nested hashes.
-- Numeric and size predicates in Rust; format, inclusion, exclusion, and Ruby
-  equality predicates in Ruby for semantic fidelity.
-- Ordered rules that run only when their schema dependencies succeeded.
-- Symbol, dot-string, array, and simple hash rule paths.
-- `value`, `values`, `key?`, `key.failure`, `key(path).failure`,
-  `base.failure`, `schema_error?`, `rule_error?`, and
-  `base_rule_error?`.
-- `rule.each` with `index:`.
-- Global and class macros, macro arguments, injected `option` values, and
-  mutable per-call context.
-- Result hashes, message sets, metadata, full messages, filtering, and Ruby
-  pattern matching.
-- Contract inheritance and compatible schema reuse.
-
-The complete exclusions and semantic differences are explicit in
-[COMPATIBILITY.md](docs/COMPATIBILITY.md).
-
-## Building from source
-
-Requirements:
-
-- Ruby 3.3 or newer with development headers;
-- Rust 1.85 or newer and Cargo;
-- a C toolchain;
-- libclang where the selected `rb-sys` build uses bindgen.
-
-Then:
+Native builds require CRuby, Bundler, the pinned Rust toolchain, a C toolchain, and the dependencies listed in [SUPPORT_MATRIX.md](docs/SUPPORT_MATRIX.md).
 
 ```bash
 bundle install
 bundle exec rake compile
 bundle exec rake test
+script/verify
 ```
 
-The source gem declares `rb_sys ~> 0.9` and builds through the ordinary Ruby
-native-extension lifecycle.
-
-## Verification
-
-The prototype was compiled and tested in this archive with:
-
-- CRuby 3.3.7;
-- Rust 1.97.0;
-- Magnus 0.8.2;
-- rb-sys 0.9.128;
-- an optimized release profile.
-
-The test suite covers the native plan, coercion modes, nested data, rules,
-rule skipping, array rules, macros, options, context, inheritance, external
-schemas, loading modes, pattern matching, metadata, and concurrent calls.
-
-Run a local throughput/allocation sanity benchmark with:
+Focused checks:
 
 ```bash
-ruby -Ilib benchmark/schema_throughput.rb
-N=500000 ruby -Ilib benchmark/schema_throughput.rb
-ENGINE=rust ruby -Ilib benchmark/schema_throughput.rb
-ENGINE=upstream ruby -Ilib benchmark/schema_throughput.rb
+script/demo
+script/demo --json
+script/docker-smoke
 ```
 
-By default the benchmark compares this Rust-backed hybrid implementation with
-the upstream `dry-validation` gem in a separate Ruby process. The upstream gem
-is intentionally not a project dependency; install it for the same Ruby with
-`gem install dry-validation` before running `ENGINE=all` or `ENGINE=upstream`.
-Do not interpret a single synthetic result as proof that the gem is faster than
-upstream. Real comparisons must use representative schemas, payload sizes,
-valid/invalid mixes, warmup, multiple Ruby versions, and RSS as well as
-throughput.
+## Current limitations
 
-## Important performance caveat
+- Only the documented compatibility subset is implemented.
+- Exact upstream-style constants are experimental and must not share a process with upstream `dry-validation` or `dry-schema`.
+- Execution still uses Ruby objects under the GVL; this is not a GVL-free parallel engine.
+- Small contracts and rule-heavy workloads can see neutral or negative native overhead.
+- Linux arm64, musl/Alpine, native Windows, JRuby, TruffleRuby, and Ractors are not supported targets.
+- Performance claims require committed full-run evidence for a named workload and environment.
 
-The native engine currently reads and creates Ruby objects, so it runs under
-the GVL. Rust reduces Ruby method dispatch and intermediate DSL execution; it
-does not automatically make validation parallel.
+## Documentation
 
-A future batch API could copy supported values into Rust-owned memory and
-release the GVL, but serialization/copy cost and Ruby object semantics make
-that a separate feature—not a free property of using Rust.
+- [Build Week 2026](docs/BUILD_WEEK_2026.md)
+- [Docker judge image](docs/DOCKER.md)
+- [Video package](docs/VIDEO_DEMO.md)
+- [Benchmark methodology](docs/BENCHMARKING.md)
+- [Support matrix](docs/SUPPORT_MATRIX.md)
+- [Compatibility matrix](docs/COMPATIBILITY.md)
+- [Architecture](docs/ARCHITECTURE.md)
+- [Verification](docs/VERIFICATION.md)
 
-## License and relationship to dry-rb
+## License and non-affiliation
 
-This code is MIT licensed and independent. `dry-validation` and its related
-dry-rb projects are MIT licensed as well, which permits reimplementation and
-derivative work subject to preserving required notices when source is copied.
-See [NOTICE.md](NOTICE.md). The distinct gem name and explicit non-affiliation
-are intentional.
+The project is MIT licensed and independent of the dry-rb project. See [NOTICE.md](NOTICE.md).

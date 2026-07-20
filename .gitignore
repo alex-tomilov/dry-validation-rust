@@ -1,7 +1,9 @@
 /.bundle/
 /pkg/
+/tmp/
 /coverage/
 /ext/dry_validation_rust/Makefile
 /ext/dry_validation_rust/mkmf.log
 /ext/dry_validation_rust/native.*
 /ext/dry_validation_rust/target/
+/build-week-2026/

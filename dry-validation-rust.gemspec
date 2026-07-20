@@ -39,6 +39,7 @@ Gem::Specification.new do |spec|
   spec.extensions = ["ext/dry_validation_rust/extconf.rb"]
   spec.add_runtime_dependency "bigdecimal", "~> 3.1"
   spec.add_runtime_dependency "rb_sys", "~> 0.9"
+  spec.add_development_dependency "benchmark", "~> 0.3"
   spec.add_development_dependency "minitest", "~> 5.20"
   spec.add_development_dependency "mutex_m", "~> 0.2"
   spec.add_development_dependency "ostruct", "~> 0.6"

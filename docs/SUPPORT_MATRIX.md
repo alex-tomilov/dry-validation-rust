@@ -8,7 +8,7 @@ in [COMPATIBILITY.md](COMPATIBILITY.md).
 
 | Gem line | Ruby | Rust MSRV | Platforms | Upstream reference | Status |
 | --- | --- | --- | --- | --- | --- |
-| 0.1.x | 3.3-3.5 | 1.85 | Source build, tested matrix recorded in [VERIFICATION.md](VERIFICATION.md) | `dry-validation` 1.11.1, `dry-schema` 1.16.0 | alpha |
+| 0.1.x | 3.3-3.5 | 1.85 | Linux x86-64 source verified; macOS is a source-build CI target; other paths are unsupported or unverified | `dry-validation` 1.11.1, `dry-schema` 1.16.0 | alpha |
 | 0.2.x | TBD | TBD | Native gems under evaluation | pinned before beta | beta |
 
 ## Support policy
@@ -22,6 +22,10 @@ in [COMPATIBILITY.md](COMPATIBILITY.md).
   `dry-validation` and `dry-schema`.
 - Runtime support means source builds and test coverage for the listed matrix,
   not precompiled native gems unless a later row explicitly says so.
+- The Ruby range is the release-line target, not proof that every
+  Ruby/platform pair passed in one clean-room run. Observed results and explicit
+  gaps are recorded in [CLEAN_ROOM_VERIFICATION.md](CLEAN_ROOM_VERIFICATION.md)
+  and [VERIFICATION.md](VERIFICATION.md).
 
 ## Product architecture note
 
