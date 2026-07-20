@@ -1,42 +1,118 @@
 #!/usr/bin/env ruby
 # frozen_string_literal: true
 
-project_root = File.expand_path("..", __dir__)
-$LOAD_PATH.unshift(File.join(project_root, "lib"))
-
 require "json"
-require File.join(project_root, "examples/build_week_order_contract")
 
-format = case ARGV
-         when [] then :text
-         when ["--json"] then :json
-         else
-           warn "Usage: script/demo [--json]"
-           exit 64
-         end
+ROOT = File.expand_path("..", __dir__)
+$LOAD_PATH.unshift(File.join(ROOT, "lib"))
 
-report = BuildWeekDemo.run
+require_relative "../examples/build_week_order_contract"
 
-if format == :json
-  puts JSON.generate(report)
-else
-  puts "dry-validation-rust — deterministic demo"
-  report.fetch("cases").each_with_index do |demo_case, index|
-    puts
-    puts "[#{index + 1}/#{report.fetch('cases').length}] #{demo_case.fetch('title')}"
-    demo_case.fetch("checks").each do |check|
-      status = check.fetch("success") ? "PASS" : "FAIL"
-      puts "#{status}  #{check.fetch('name')}"
-      puts "      #{check.fetch('detail')}" if check.fetch("detail")
-    end
+module BuildWeekDemoCLI
+  class CheckFailure < StandardError; end
+
+  module_function
+
+  def check(case_result, label)
+    passed = yield
+    case_result[:checks] << {label: label, success: !!passed}
+    raise CheckFailure, label unless passed
   end
 
-  puts
-  if report.fetch("success")
-    puts "Demo complete: #{report.fetch('checks_passed')} checks passed"
-  else
-    puts "Demo failed: #{report.fetch('checks_passed')}/#{report.fetch('checks_total')} checks passed"
+  def error_at?(errors, *path)
+    !errors.dig(*path).nil?
+  end
+
+  def run
+    report = {success: false, checks_passed: 0, cases: []}
+
+    valid_case = {id: "valid", title: "Valid nested input", checks: []}
+    valid = BuildWeekOrderContract.new.call(BuildWeekDemo.valid_input)
+    check(valid_case, "result succeeded") { valid.success? }
+    check(valid_case, "string keys normalized and age coerced") do
+      valid.to_h.dig(:customer, :age) == 32 &&
+        valid.to_h.dig(:customer, :age).is_a?(Integer)
+    end
+    check(valid_case, "nested items coerced and unknown keys filtered") do
+      valid.to_h[:items].map { |item| item[:quantity] } == [2, 1] &&
+        valid.to_h.keys.sort == %i[customer items] &&
+        valid.to_h[:customer].keys.sort == %i[age email] &&
+        valid.to_h[:items].all? { |item| item.keys.sort == %i[quantity sku] }
+    end
+    report[:cases] << valid_case
+
+    invalid_case = {id: "invalid", title: "Structural and Ruby rule errors", checks: []}
+    invalid = BuildWeekOrderContract.new.call(BuildWeekDemo.invalid_input)
+    invalid_errors = invalid.errors.to_h
+    check(invalid_case, "result failed") { invalid.failure? }
+    check(invalid_case, "invalid email reported") do
+      error_at?(invalid_errors, :customer, :email)
+    end
+    check(invalid_case, "items[0].quantity reported") do
+      error_at?(invalid_errors, :items, 0, :quantity)
+    end
+    check(invalid_case, "underage Ruby rule reported") do
+      Array(invalid_errors.dig(:customer, :age)).include?("must be at least 18")
+    end
+    report[:cases] << invalid_case
+
+    calls = 0
+    coercion_case = {
+      id: "coercion",
+      title: "Failed coercion skips dependent rule",
+      checks: []
+    }
+    coercion = BuildWeekOrderContract
+      .new(observer: -> { calls += 1 })
+      .call(BuildWeekDemo.failed_coercion_input)
+    coercion_errors = coercion.errors.to_h
+    check(coercion_case, "result failed") { coercion.failure? }
+    check(coercion_case, "integer coercion failure reported") do
+      error_at?(coercion_errors, :customer, :age)
+    end
+    check(coercion_case, "dependent age rule did not execute") { calls.zero? }
+    report[:cases] << coercion_case
+
+    report[:checks_passed] = report[:cases].sum { |item| item[:checks].length }
+    report[:success] = report[:cases].all? do |item|
+      item[:checks].all? { |entry| entry[:success] }
+    end
+    report
+  end
+
+  def print_human(report)
+    puts "dry-validation-rust — deterministic demo"
+    puts
+
+    report[:cases].each_with_index do |item, index|
+      puts "[#{index + 1}/#{report[:cases].length}] #{item[:title]}"
+      item[:checks].each { |entry| puts "PASS  #{entry[:label]}" }
+      puts
+    end
+
+    puts "Demo complete: #{report[:checks_passed]} checks passed"
+  end
+
+  def usage
+    "Usage: script/demo [--json]"
   end
 end
 
-exit(report.fetch("success") ? 0 : 1)
+mode = ARGV.shift
+if ARGV.any? || ![nil, "--json"].include?(mode)
+  warn BuildWeekDemoCLI.usage
+  exit 64
+end
+
+begin
+  report = BuildWeekDemoCLI.run
+  mode == "--json" ? puts(JSON.generate(report)) : BuildWeekDemoCLI.print_human(report)
+  exit(report[:success] ? 0 : 1)
+rescue StandardError => error
+  if mode == "--json"
+    puts JSON.generate(success: false, checks_passed: 0, cases: [], error: "#{error.class}: #{error.message}")
+  else
+    warn "Demo failed: #{error.class}: #{error.message}"
+  end
+  exit 1
+end
