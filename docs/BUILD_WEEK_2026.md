@@ -88,14 +88,11 @@ The shared chat is supplementary context. Git history, CI runs, container digest
 
 ## Evidence
 
-Complete these values before submission:
-
 - Primary Codex `/feedback` Session ID: `019f6b00-f639-7c82-a9f8-633407e9980f`
 - Final submission tag: `build-week-2026`
 - Public image: `ghcr.io/alex-tomilov/dry-validation-rust:build-week-2026`
-- Verified image digest: `<VERIFIED_GHCR_DIGEST>`
-- Successful publication workflow: `<PUBLIC_WORKFLOW_URL>`
-- Public video: `<PUBLIC_YOUTUBE_VIDEO_URL>`
+- Verified image digest: `sha256:c942b829d532579b02785c6cdaff62f86639ade5d51f285f917fedd23fb66e6c`
+- Public video: `https://youtu.be/eHtENQ43uYs`
 
 Unknown values are submission blockers, not decorative placeholders.
 
