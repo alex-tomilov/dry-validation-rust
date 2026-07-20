@@ -21,10 +21,8 @@ Use an immutable digest in final evidence when the workflow reports one:
 ```bash
 docker run --rm \
   --platform linux/amd64 \
-  ghcr.io/alex-tomilov/dry-validation-rust@sha256:<VERIFIED_DIGEST>
+  ghcr.io/alex-tomilov/dry-validation-rust@sha256:c942b829d532579b02785c6cdaff62f86639ade5d51f285f917fedd23fb66e6c
 ```
-
-Do not replace `<VERIFIED_DIGEST>` until the registry has returned the real value.
 
 ## Local build
 
@@ -66,6 +64,19 @@ docker run --rm dry-validation-rust:local test
 ```
 
 The benchmark command is diagnostic and must not be presented as final comparative evidence.
+
+## Run the comparative benchmark from the published image
+
+The digest-pinned image can run the Rust and upstream engines in comparison mode without rebuilding the project:
+
+```bash
+docker run --rm \
+  --platform linux/amd64 \
+  ghcr.io/alex-tomilov/dry-validation-rust@sha256:c942b829d532579b02785c6cdaff62f86639ade5d51f285f917fedd23fb66e6c \
+  benchmark --engine compare --iterations 100000 --warmup 10000
+```
+
+This command runs 100,000 measured iterations after 10,000 warmup iterations. The result applies only to the benchmark workload, versions, image digest, and environment shown in the output; it is not a universal performance claim.
 
 ## Verify the judge path
 
