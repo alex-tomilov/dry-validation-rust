@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Reorganized the README around the judge quick start and added a Build Week
+  narrative that separates the pre-existing prototype, GPT-5.6/Codex work,
+  human decisions, runtime independence, and outstanding submission evidence.
 - Added a separate-process, multi-workload benchmark suite with quick/full
   modes, outcome equivalence checks, Linux RSS capture, raw samples, and
   mechanically derived evidence summaries.

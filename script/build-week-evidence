@@ -40,6 +40,6 @@ fi
 
 printf "\nRemaining Build Week placeholders:\n"
 if ! grep -nE '<[A-Z][A-Z0-9_]*>' \
-  docs/BUILD_WEEK_2026_EVIDENCE.md README.md; then
+  README.md docs/BUILD_WEEK_2026.md docs/BUILD_WEEK_2026_EVIDENCE.md; then
   printf "  none\n"
 fi

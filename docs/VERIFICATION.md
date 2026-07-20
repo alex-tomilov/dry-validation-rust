@@ -1,6 +1,6 @@
 # Verification record
 
-Date: 2026-07-19
+Date: 2026-07-20
 
 ## Canonical command
 
@@ -105,7 +105,7 @@ The exact and side-by-side loading fixtures assert that the upstream
 Observed from `script/verify`:
 
 ```text
-113 runs, 1284 assertions, 0 failures, 0 errors, 0 skips
+116 runs, 1359 assertions, 0 failures, 0 errors, 0 skips
 
 running 4 tests
 test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out

@@ -15,7 +15,7 @@ screenshots supplement it but do not replace it.
 - Intended track: Developer Tools
 - Repository: <https://github.com/alex-tomilov/dry-validation-rust>
 - Submission branch: `feature/build-week-2026`
-- Committed ledger scope: through `65dd9cd` on July 19, 2026
+- Committed ledger scope: through `0c189d2` on July 19, 2026
 - Submission-period boundary: July 13, 2026 at 9:00 a.m. Pacific Daylight
   Time (`2026-07-13T16:00:00Z`)
 
@@ -61,7 +61,7 @@ this commit.
 ## 3. Build Week commit ledger
 
 This table contains every post-boundary commit reachable from
-`feature/build-week-2026` through committed ledger head `65dd9cd`. It uses
+`feature/build-week-2026` through committed ledger head `0c189d2`. It uses
 committer timestamps in UTC and orders commits chronologically. Author and
 committer timestamps were checked with `%aI` and `%cI`; they identify the same
 instant for every row. GitHub-created merge commits have a GitHub committer
@@ -99,6 +99,12 @@ repository artifacts, not a claim that every historical CI job passed.
 | [`0605875`](https://github.com/alex-tomilov/dry-validation-rust/commit/0605875fa8acddf772d0f7d60071770c45709f77) | `2026-07-16T15:47:47Z` | Integration           | Merged PR #34, integrating project-management work.                                                                                             | Two-parent merge; second parent `b1e61b0`                                                                                  |
 | [`d59086b`](https://github.com/alex-tomilov/dry-validation-rust/commit/d59086bee12780a4ef962e3ce63450b7bd30c2dd) | `2026-07-19T14:44:45Z` | Build Week evidence   | Added the pre-existing baseline, commit/session evidence ledger, and read-only audit helper.                                                     | `docs/BUILD_WEEK_2026_EVIDENCE.md` and `script/build-week-evidence`                                                        |
 | [`65dd9cd`](https://github.com/alex-tomilov/dry-validation-rust/commit/65dd9cd7641d66af73eb8af82086aaf0790857d0) | `2026-07-19T15:07:09Z` | Judge demo            | Added an asserted safe-namespace order demo with human/JSON output and a README Build Week collaboration summary.                               | `examples/build_week_order_contract.rb`, `script/demo`, focused tests, and `README.md`                                     |
+| [`fc254cf`](https://github.com/alex-tomilov/dry-validation-rust/commit/fc254cfa8d685cc8aa3a8e24cd621249790e6fef) | `2026-07-19T15:14:39Z` | Evidence presentation | Reframed the evidence ledger as a concise judge-facing record and removed maintainer-only workflow text.                                         | `docs/BUILD_WEEK_2026_EVIDENCE.md` and `test/documentation_test.rb`                                                        |
+| [`578c165`](https://github.com/alex-tomilov/dry-validation-rust/commit/578c165b59d1f2cb65ab7e55a1d1670b950fdf7b) | `2026-07-19T16:07:23Z` | Docker judge path     | Added a multi-stage Linux amd64 image with a precompiled extension, unprivileged runtime, offline demo/smoke commands, and pinned benchmark gems. | `Dockerfile`, `bin/dvr`, `script/docker-smoke`, `docs/DOCKER.md`, and focused tests                                        |
+| [`e4f7fdf`](https://github.com/alex-tomilov/dry-validation-rust/commit/e4f7fdf389c84e2da77941ea70b63ae0c0a92d3a) | `2026-07-19T16:23:43Z` | Container CI          | Added restricted GHCR publication triggers plus digest-pinned pull and offline smoke verification in a separate job.                            | `.github/workflows/container.yml`, Docker/CI documentation, and workflow tests                                             |
+| [`1a3512d`](https://github.com/alex-tomilov/dry-validation-rust/commit/1a3512de9761b1b1561bb9cfcb7016d9d06e13bc) | `2026-07-19T16:30:34Z` | macOS CI fix          | Made runtime extension discovery use Ruby's platform extension suffix so macOS loads `native.bundle` instead of assuming `native.so`.            | `bin/dvr`, `docs/ARCHITECTURE.md`, and `test/docker_assets_test.rb`                                                        |
+| [`53b0fb0`](https://github.com/alex-tomilov/dry-validation-rust/commit/53b0fb0188d2805a51b957baaedfa5a378c472c2) | `2026-07-19T16:37:04Z` | Ruby 3.5 CI fix       | Declared `benchmark` as a development dependency after it left Ruby 3.5's default gems.                                                          | `dry-validation-rust.gemspec`, `Gemfile.lock`, and `test/package_metadata_test.rb`                                         |
+| [`0c189d2`](https://github.com/alex-tomilov/dry-validation-rust/commit/0c189d252f478058963b53b4f0932d7c3461e59a) | `2026-07-19T16:56:09Z` | Benchmark evidence    | Added isolated multi-workload quick/full comparison modes, outcome checks, raw samples, environment metadata, Linux RSS, and derived summaries.  | `benchmark/support/`, `benchmark/worker.rb`, `script/benchmark-suite`, `docs/BENCHMARKING.md`, and focused tests            |
 
 The all-refs inspection also found post-boundary commit
 [`2dce1cc`](https://github.com/alex-tomilov/dry-validation-rust/commit/2dce1cc7faec4d8f8bbbd8a2371c010097ef0ddc)
@@ -173,6 +179,9 @@ release decisions. In particular, the author retained:
   requirement;
 - acceptance of the stages merged into this branch: `T00`, `R00`, `R02`,
   `R03`, `R04`, `R05`, and `R09`;
+- acceptance of Build Week stages 01 through 05: evidence ledger, deterministic
+  demo, local Docker judge image, prepared GHCR workflow, and reproducible
+  benchmark evidence tooling;
 - postponement of the remaining technical, repository, and release-gate
   stages listed in `docs/PROJECT_MANAGEMENT.md` until their dependencies and
   evidence requirements are met.
