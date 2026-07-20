@@ -148,6 +148,65 @@ class DocumentationTest < Minitest::Test
     assert_includes readme, "[Clean-room verification](docs/CLEAN_ROOM_VERIFICATION.md)"
   end
 
+  def test_video_package_is_complete_truthful_and_privacy_safe
+    paths = %w[
+      docs/demo/VIDEO_SCRIPT.md
+      docs/demo/SHOT_LIST.md
+      docs/demo/TERMINAL_COMMANDS.md
+      docs/demo/RECORDING_CHECKLIST.md
+      docs/demo/ASSET_MANIFEST.md
+    ]
+    package = paths.to_h { |path| [path, read_doc(path)] }
+    script = package.fetch("docs/demo/VIDEO_SCRIPT.md")
+    shots = package.fetch("docs/demo/SHOT_LIST.md")
+    commands = package.fetch("docs/demo/TERMINAL_COMMANDS.md")
+    checklist = package.fetch("docs/demo/RECORDING_CHECKLIST.md")
+    assets = package.fetch("docs/demo/ASSET_MANIFEST.md")
+
+    %w[0:00 0:15 0:30 1:15 1:35 2:12 2:38 2:48].each do |timestamp|
+      assert_includes script, timestamp
+    end
+    assert_includes script, "<MM:SS on YYYY-MM-DD; replace before submission>"
+    assert_includes script, "full package is not ready"
+    assert_includes script, "remains under the GVL"
+    assert_includes script, "runtime is deterministic Ruby and Rust"
+    assert_includes script, "I retained the Ruby-Rust boundary"
+    voiceover = script.scan(/\*\*Voiceover:\*\*\n\n(.*?)(?=\n## |\z)/m).flatten.join(" ")
+    voiceover_words = voiceover.scan(/[[:alnum:]][[:alnum:]’'`.\/-]*/).length
+    assert_operator voiceover_words, :>=, 350
+    assert_operator voiceover_words, :<=, 400
+    refute_match(/\b\d+(?:\.\d+)?x\b/, script)
+    refute_includes script, "full compatibility"
+    refute_includes script, "all validation in Rust"
+    refute_includes script, "GPT-5.6 is integrated into the engine"
+
+    assert_includes shots, "Backup:"
+    assert_includes shots, "maximum 45 seconds"
+    assert_includes shots, "docs/BUILD_WEEK_2026.md:70-101"
+    refute_includes shots, "docs/BUILD_WEEK_2026_EVIDENCE.md:115-164"
+    assert_includes shots, "I built this verified local image"
+    assert_includes shots, "The harness compares Rust with pinned upstream"
+    assert_includes commands, "docker build --pull --platform linux/amd64"
+    assert_includes commands, "docker run --rm --network none --platform linux/amd64"
+    assert_includes commands, "sed -n '1,8p' benchmark/results/build-week-2026/README.md"
+    assert_includes commands, "script/build-week-evidence | sed -n '1,9p'"
+    refute_includes commands, "ghcr.io/alex-tomilov"
+    refute_match(%r{/home/|/Users/}, commands)
+    refute_match(/github_pat_|gh[pousr]_|sk-[A-Za-z0-9]/, commands)
+
+    assert_includes checklist, "https://openai.devpost.com/rules"
+    assert_includes checklist, "https://openai.devpost.com/details/faqs"
+    assert_includes checklist, "under 3:00"
+    assert_includes checklist, "publicly visible"
+    assert_includes checklist, "Audio/voiceover"
+    assert_includes checklist, "public YouTube URL"
+
+    assert_includes assets, "MANUAL CAPTURE REQUIRED"
+    assert_includes assets, "primary `/feedback` ID still pending"
+    assert_includes assets, "no performance figure approved"
+    assert_includes read_doc("README.md"), "[Build Week video package](docs/demo/VIDEO_SCRIPT.md)"
+  end
+
   private
 
   def read_doc(path)

@@ -126,7 +126,7 @@ The exact and side-by-side loading fixtures assert that the upstream
 Observed from `script/verify`:
 
 ```text
-123 runs, 1494 assertions, 0 failures, 0 errors, 0 skips
+124 runs, 1577 assertions, 0 failures, 0 errors, 0 skips
 
 running 4 tests
 test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out

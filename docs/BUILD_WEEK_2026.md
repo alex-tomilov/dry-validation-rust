@@ -122,6 +122,8 @@ tools contributed to the development process, not to validation calls.
   the clean-commit full package has not yet been generated.
 - [Verification record](VERIFICATION.md): local toolchain, checks, tests, and CI
   definitions.
+- [Video recording package](demo/VIDEO_SCRIPT.md): timed narration, shot list,
+  verified terminal sequence, recording checklist, and manual asset status.
 
 ## Session and video evidence
 

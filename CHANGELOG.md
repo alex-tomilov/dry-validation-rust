@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Added a judge-facing under-three-minute video package with truthful
+  narration, verified local-Docker recording commands, shot backups, official
+  requirement checks, privacy guidance, and explicit manual asset blockers.
 - Added a redacted clean-room verification orchestrator, observed evidence
   matrix, and scheduled/manual no-cache Docker workflow covering Docker,
   native Linux, and isolated source-gem paths without widening platform claims.
