@@ -1,195 +1,83 @@
-# Verification record
-
-Date: 2026-07-16
+# Verification
 
 ## Canonical command
 
-Run the repository verification entry point from the project root:
+Run from the repository root:
 
 ```bash
 script/verify
 ```
 
-The command exits nonzero on Ruby test, native compile, dependency version
-capture, Rust formatting, Rust test, Clippy, Cargo lockfile check, package
-audit, source-gem install, or installed smoke-contract failure.
+It compiles the native extension, runs Ruby and Rust tests, records dependency
+versions, checks Rust formatting/Clippy/lockfile consistency, audits the source
+gem, installs it in a temporary gem home, and runs a smoke contract. The command
+exits nonzero when any required step fails.
 
-Run only the package audit with:
+Focused commands remain useful while developing:
 
 ```bash
+bundle exec rake compile
+bundle exec rake test
+cargo test --locked --manifest-path ext/dry_validation_rust/Cargo.toml
 bundle exec rake package:audit
 ```
 
-## GitHub Actions
+The canonical command output is the source for current test counts, toolchain
+versions, and package contents. This document deliberately does not snapshot
+those volatile values.
 
-The repository defines these non-release workflows:
+## Behavior evidence
 
-- `.github/workflows/ci.yml`: Ruby integration matrix for Ruby 3.3, 3.4, and
-  3.5 on Linux and macOS; Rust quality checks on MSRV 1.85 and stable; isolated
-  loading-mode checks for safe mode, exact mode, exact-mode conflict detection,
-  and built-gem installation.
-- `.github/workflows/compatibility.yml`: pinned upstream preflight for
-  `dry-validation` 1.11.1 and `dry-schema` 1.16.0, with structured artifact
-  upload until the full differential harness exists.
-- `.github/workflows/security.yml`: bundler-audit, Cargo audit, lockfile
-  checks, and Ruby CodeQL with explicit least-privilege permissions.
-- `.github/workflows/package.yml`: source-gem package audit and artifact
-  upload without publication.
-- `.github/workflows/fuzz.yml`: scheduled/manual bounded fuzz preflight that is
-  non-blocking for ordinary pull requests until a dedicated fuzz target exists.
+`test/fixtures/baseline/*.json` and `test/baseline_fixture_test.rb` cover the
+currently advertised safe-mode behavior categories, including nested data,
+arrays, Ruby predicates/rules, options/context, schema reuse, and isolated
+loading modes.
 
-There is intentionally no release workflow.
+Compatibility claims require cases executed against pinned upstream releases in
+separate processes. Documentation text and method/file inventories are not
+compatibility evidence.
 
-Dependency update and audit policy is documented in
-[DEPENDENCY_SECURITY.md](DEPENDENCY_SECURITY.md). Dependabot is configured for
-Bundler, Cargo, and GitHub Actions in `.github/dependabot.yml`, with native
-bridge updates isolated from routine low-risk updates.
+## CI responsibilities
 
-## Toolchain
+- `ci.yml`: supported Ruby/platform integration, Rust MSRV/stable checks,
+  loading isolation, and package smoke checks.
+- `compatibility.yml`: pinned-upstream preflight and structured evidence until
+  the full `T03` differential slice is implemented.
+- `security.yml`: dependency audits and CodeQL with explicit permissions.
+- `package.yml`: source-gem audit and artifact upload without publication.
+- `fuzz.yml`: scheduled/manual bounded preflight until `T04` adds dedicated
+  targets justified by risk.
 
-- Ruby: `ruby 3.3.7 (2025-01-15 revision be31f993d7) [x86_64-linux]`
-- Rust: `rustc 1.90.0 (1159e78c4 2025-09-14) (Homebrew)`
-- Rust host: `x86_64-unknown-linux-gnu`
-- Platform: `linux x86_64`
-- Bundler: `Bundler version 2.5.22`
+There is intentionally no publication workflow yet. Pull-request workflows must
+not contain publication credentials or release permissions.
 
-The canonical verification command also prints locked Ruby gem versions and a
-top-level locked Cargo dependency tree through:
+## Package evidence
 
-```bash
-bundle exec rake dependency:versions
-```
+`bundle exec rake package:audit` verifies an allow/deny package manifest, rejects
+local/generated/credential material, installs the built gem into a temporary
+gem home, confirms it loads from that location without upstream dry-validation,
+and runs valid/invalid contract smoke cases.
 
-## Current behavior confirmed
+Codex stage prompts, benchmarks, examples, editor state, generated native output,
+and built gem artifacts are excluded from the source gem.
 
-Baseline fixtures live under `test/fixtures/baseline/*.json` and are checked by
-`test/baseline_fixture_test.rb`. They cover:
+## Performance evidence
 
-- shallow Params;
-- nested hash;
-- primitive array;
-- array of hashes;
-- Ruby predicate;
-- rule failure;
-- `rule.each`;
-- options and context;
-- inherited schema;
-- imported schema;
-- exact and side-by-side loading.
+`script/benchmark-smoke` is a non-gating local sanity check. It is not a public
+performance claim. Stage `T05` requires representative semantics, warmup,
+multiple samples, environment data, allocations/RSS where relevant, negative
+results, and pinned-upstream process isolation before publishing comparisons.
 
-The exact and side-by-side loading fixtures assert that the upstream
-`dry-validation` gem is not loaded accidentally.
+Shared-runner benchmark thresholds and CI commits of benchmark baselines are not
+part of the verification model.
 
-## Test and build counts
+## Evidence policy
 
-Observed from `script/verify`:
-
-```text
-49 runs, 311 assertions, 0 failures, 0 errors, 0 skips
-
-running 4 tests
-test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out
-```
-
-Native extension compile status: `bundle exec rake compile` completed
-successfully, including a rebuild after removing generated artifacts.
-
-## Benchmark smoke
-
-Run the non-gating machine-readable benchmark smoke with:
-
-```bash
-script/benchmark-smoke
-```
-
-Observed JSON:
-
-```json
-{
-  "benchmark": "schema_throughput",
-  "ruby_platform": "x86_64-linux",
-  "engines": [
-    {
-      "iterations": 1000,
-      "warmup_iterations": 100,
-      "elapsed": 0.011346595998475095,
-      "throughput": 88132.15876676963,
-      "allocated_objects": 71012,
-      "engine": "dry-validation-rust",
-      "version": "0.1.0.pre1",
-      "ruby": "ruby 3.3.7 (2025-01-15 revision be31f993d7) [x86_64-linux]"
-    }
-  ]
-}
-```
-
-This smoke benchmark has no threshold and is not a public performance claim.
-
-## Source gem file list
-
-Observed from `bundle exec rake package:audit`:
-
-```text
-CHANGELOG.md
-LICENSE
-NOTICE.md
-README.md
-docs/ARCHITECTURE.md
-docs/COMPATIBILITY.md
-docs/FEASIBILITY.md
-docs/SUPPORT_MATRIX.md
-docs/VERIFICATION.md
-dry-validation-rust.gemspec
-ext/dry_validation_rust/Cargo.lock
-ext/dry_validation_rust/Cargo.toml
-ext/dry_validation_rust/extconf.rb
-ext/dry_validation_rust/src/lib.rs
-lib/dry-schema.rb
-lib/dry-validation.rb
-lib/dry/schema.rb
-lib/dry/validation.rb
-lib/dry/validation/rust.rb
-lib/dry/validation/rust/config.rb
-lib/dry/validation/rust/contract.rb
-lib/dry/validation/rust/errors.rb
-lib/dry/validation/rust/evaluator.rb
-lib/dry/validation/rust/failures.rb
-lib/dry/validation/rust/macros.rb
-lib/dry/validation/rust/message.rb
-lib/dry/validation/rust/message_set.rb
-lib/dry/validation/rust/native.rb
-lib/dry/validation/rust/path.rb
-lib/dry/validation/rust/result.rb
-lib/dry/validation/rust/rule.rb
-lib/dry/validation/rust/schema.rb
-lib/dry/validation/rust/values.rb
-lib/dry/validation/rust/version.rb
-lib/dry_validation_rust.rb
-rust-toolchain.toml
-```
-
-Local Cargo `target` files, generated Makefiles, logs, native shared objects,
-built `.gem` artifacts, benchmarks, examples, editor files, credentials, and
-Codex stage prompts are intentionally excluded from the source gem.
-
-## Verification runs
-
-- `script/verify`: passed after adding the package audit to canonical
-  verification.
-- `bundle exec rake package:audit`: passed from the built state.
-- `script/verify`: passed after adding dependency version capture to canonical
-  verification.
-- Removed generated build artifacts and ran `script/verify`: passed, including
-  native extension rebuild, gem build, temporary gem-home install, and installed
-  smoke contract.
-
-## Prompt assumptions corrected
-
-- The old verification document existed but was handwritten and did not point
-  to a single canonical command.
-- `benchmark/schema_throughput.rb` emitted text only; it now supports JSON for
-  benchmark smoke capture.
-- The previous gemspec glob could include local Cargo `target` `.rs` files when
-  build artifacts existed. The source gem file list now rejects `target`.
-- The dedicated package audit now also rejects benchmarks, examples, Codex stage
-  prompts, editor files, credentials, and built package artifacts.
+- Test observable behavior, failure propagation, security boundaries, and built
+  artifacts.
+- Parse configuration when syntax or permissions matter; do not freeze command
+  strings or exact roadmap counts.
+- Do not test documentation wording, heading order, badges, file layout, YARD
+  coverage, or arbitrary line-coverage percentages.
+- Record reproducible regressions as focused tests; avoid permanent snapshots of
+  incidental local output.

@@ -40,7 +40,7 @@ jobs:
         run: |
           mkdir -p tmp/fuzz/corpus tmp/fuzz/crashes
           timeout 5m cargo test --locked --manifest-path ext/dry_validation_rust/Cargo.toml
-          printf '%s\n' 'No dedicated fuzz target exists yet; this scheduled workflow is the non-blocking placeholder for T12.' > tmp/fuzz/corpus/README.txt
+          printf '%s\n' 'No dedicated fuzz target exists yet; this scheduled workflow is the non-blocking placeholder for T04.' > tmp/fuzz/corpus/README.txt
 
       - name: Upload fuzz corpus and crashes
         uses: actions/upload-artifact@v4

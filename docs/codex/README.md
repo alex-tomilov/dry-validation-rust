@@ -1,69 +1,57 @@
-# Codex automation layer for dry-validation-rust
+# Codex roadmap prompts
 
-This package replaces manual `H00–H05` prompt pasting with repository instructions and repo-scoped skills.
+Repository-wide architecture, correctness, verification, delivery-gate, and
+final-report rules live in `AGENTS.md`. Stage prompts contain only the objective,
+stage-specific work, scope control, files, and acceptance criteria.
 
-## Mapping
+## Compact stage set
 
-| Old helper | New mechanism |
+| Stage | Outcome |
 |---|---|
-| H00 skeptical review | `dvr-delivery-gate` |
-| H01 fix blocking findings | `dvr-delivery-gate` |
-| H02 diagnose failure | `dvr-failure-diagnosis` |
-| H03 benchmark regression | `dvr-benchmark-regression` |
-| H04 upstream mismatch | `dvr-upstream-mismatch` |
-| H05 PR description | `dvr-delivery-gate` |
+| `T01` | Modularize Rust and Ruby without behavior changes |
+| `T02` | Harden immutable plans and Ruby/Rust boundaries |
+| `T03` | Align the deliberately supported compatibility slice |
+| `T04` | Add risk-based robustness evidence |
+| `T05` | Measure before optimizing |
+| `T06` | Evaluate optional batch and streaming APIs |
+| `R01` | Streamline CI and developer workflow |
+| `R02` | Keep public documentation canonical |
+| `R03` | Prove package and release readiness |
+| `R04` | Add evidence-backed adoption paths |
+| `G00` | Audit prerelease readiness |
+| `G01` | Audit evidence and adoption readiness |
 
-## Installation
+The set consolidates the detailed implementation-plan suggestions rather than
+copying its sample code. Those samples must be reconciled with current APIs and
+repository invariants; unsafe patterns such as silent predicate success,
+exception swallowing, numeric narrowing, `eval`, CI self-commits, and long-lived
+publication credentials are explicitly rejected.
 
-Extract the archive into the repository root. The resulting paths must be:
+## Running a stage
 
-```text
-AGENTS.md
-.agents/skills/dvr-delivery-gate/SKILL.md
-.agents/skills/dvr-failure-diagnosis/SKILL.md
-.agents/skills/dvr-benchmark-regression/SKILL.md
-.agents/skills/dvr-upstream-mismatch/SKILL.md
-docs/codex/README.md
-```
+Ask Codex to `Implement T02`, `Run R03`, or `Audit G00`. The root `AGENTS.md`
+requires a unique prefix match and prevents adjacent stages from being bundled.
+If a stage contains several viable slices, Codex completes only the first
+coherent pull request unless explicitly asked for the full sequence.
 
-Commit them if every Codex user of the repository should inherit the workflow.
+## Why the set is small
 
-Start a new Codex session after adding the files.
+- Module/file moves share one behavior-preserving stage.
+- Correctness and FFI safeguards share one invariant-driven stage.
+- Predicate, DSL, message, and composition work share one differential stage.
+- Property, fuzz, GC, concurrency, and coverage evidence share one risk stage.
+- Benchmark harnesses and optimizations share one measurement stage.
+- CI tools and developer conveniences share one workflow stage.
+- Public docs have canonical homes instead of one document per roadmap bullet.
+- Packaging, native artifacts, and release automation share one evidence chain.
 
-## Verify discovery
+Do not add a new stage for a lint rule, badge, documentation page, test-count
+target, micro-optimization, or one CI command. Track those as a slice of the
+owning stage when evidence shows they are needed.
 
-Ask Codex:
+## Test policy
 
-```text
-List the AGENTS.md instruction sources and repository skills you loaded. Do not modify anything.
-```
-
-You can explicitly test the main skill:
-
-```text
-Use $dvr-delivery-gate to review the current branch without editing.
-```
-
-## Roadmap-stage convenience
-
-Place the previously generated stage files under:
-
-```text
-docs/codex/stages/technical/
-docs/codex/stages/repository/
-docs/codex/stages/release-gates/
-```
-
-Then you can say:
-
-```text
-Implement T01.
-Run R04.
-Audit G00.
-```
-
-The root `AGENTS.md` tells Codex to find and read the matching stage file instead of asking you to paste it.
-
-## Important limitation
-
-`AGENTS.md` and implicit skill selection are instructions interpreted by the agent, not an external guaranteed hook. The workflow is strongly encoded, but CI remains the deterministic enforcement layer for tests, linting, package checks, and compatibility checks.
+Tests protect behavior, FFI safety, executable configuration security, and
+package artifacts. They should not freeze prose, heading order, exact roadmap
+counts, file layout, badges, YARD coverage, or shell-command text. Prefer direct
+execution, differential fixtures, package inspection, and parser/schema checks.
