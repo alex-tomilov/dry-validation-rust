@@ -16,8 +16,8 @@ For project participation and reporting routes, see
 [CONTRIBUTING.md](CONTRIBUTING.md), [SUPPORT.md](SUPPORT.md),
 [SECURITY.md](SECURITY.md), [GOVERNANCE.md](GOVERNANCE.md), and the
 [Code of Conduct](CODE_OF_CONDUCT.md).
-The ordered roadmap, issue taxonomy, and milestone policy are documented in
-[PROJECT_MANAGEMENT.md](docs/PROJECT_MANAGEMENT.md).
+See the concise [roadmap](docs/ROADMAP.md) for planned outcomes and
+[project-management policy](docs/PROJECT_MANAGEMENT.md) for issue workflow.
 
 ## What this project is
 

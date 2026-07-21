@@ -98,7 +98,7 @@ module DryValidationRust
           raise Error, "#{item.fetch("id")} stage file does not exist" unless stage_path(item).file?
         end
 
-        known_ids = ids + %w[R00 R02 R03 R04 R05 T00 R09]
+        known_ids = ids
         roadmap.each do |item|
           unknown_dependencies = item.fetch("dependencies") - known_ids
           next if unknown_dependencies.empty?
@@ -341,7 +341,8 @@ module DryValidationRust
             missing_labels = stable_labels - current.fetch("labels")
             wrong_milestone = current.fetch("milestone") != item.fetch("milestone")
             wrong_title = current.fetch("title") != issue_title(item)
-            if missing_labels.any? || wrong_milestone || wrong_title
+            wrong_body = current.fetch("body", "") != IssueBody.new(@manifest, item).render
+            if missing_labels.any? || wrong_milestone || wrong_title || wrong_body
               actions << Action.new(
                 :update_issue,
                 item.fetch("id"),
@@ -561,6 +562,7 @@ module DryValidationRust
               "number" => issue.fetch("number"),
               "node_id" => issue.fetch("node_id"),
               "title" => issue.fetch("title"),
+              "body" => issue.fetch("body", ""),
               "labels" => issue.fetch("labels").map { |label| label.fetch("name") },
               "milestone" => issue["milestone"]&.fetch("title")
             }
@@ -904,6 +906,7 @@ module DryValidationRust
           "/repos/#{@manifest.repository}/issues/#{issue.fetch("number")}",
           body: {
             "title" => details.fetch("title"),
+            "body" => details.fetch("body"),
             "labels" => labels,
             "milestone" => milestone.fetch("number")
           }

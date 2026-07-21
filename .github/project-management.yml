@@ -7,12 +7,12 @@ project:
   owner: alex-tomilov
   owner_type: user
   title: dry-validation-rust roadmap
-  short_description: Correctness, compatibility, packaging, and release-readiness roadmap
+  short_description: Safe core, executable compatibility, packaging, and measured adoption
   readme: |
     <!-- dvr-project-management:v1 -->
 
     This project is synchronized from `.github/project-management.yml`.
-    Repository issues are grouped by the managed Status field.
+    Work is grouped into a compact set of outcome-oriented stages.
   public: true
   workflow_field: Status
   workflow_options:
@@ -40,194 +40,95 @@ project:
     filter: "is:issue"
 
 milestones:
-  - title: 0.1 alpha - correctness foundation
-    description: Resolve correctness and compatibility-claim blockers for the first public alpha.
-  - title: 0.1 beta - compatibility and benchmark evidence
-    description: Build broad differential, robustness, maintainability, and measured-performance evidence.
-  - title: 0.1 RC - native packaging and release readiness
-    description: Validate native artifacts, release automation, operations, and rollback.
-  - title: 1.0 - stable API and support policy
-    description: Commit to a supportable stable subset and lifecycle policy.
-  - title: Future - experimental batch API
-    description: Evaluate an opt-in Rust-owned batch path without delaying the core engine.
+  - title: 0.1 prerelease - safe core
+    description: Prove a safe supported subset and source package before publication.
+  - title: 0.2-0.3 - evidence and adoption
+    description: Broaden evidence, verify delivery paths, and add measured adoption support.
+  - title: Future - batch and streaming experiments
+    description: Evaluate optional Rust-owned processing without blocking the normal API.
 
 roadmap:
-  - id: R01
-    stage: R01
-    title: Choose branch and contribution governance
-    spec: docs/codex/stages/repository/R01-choose-branch-and-contribution-governance.md
-    milestone: 0.1 alpha - correctness foundation
-    labels: ["type:documentation", "priority:p0", "area:docs", "status:needs-design"]
-    dependencies: []
   - id: T01
     stage: T01
-    title: Separate mutable DSL builders from immutable compiled plans
-    spec: docs/codex/stages/technical/T01-separate-mutable-dsl-builders-from-immutable-compiled-plans.md
-    milestone: 0.1 alpha - correctness foundation
-    labels: ["type:bug", "priority:p0", "area:ruby-dsl", "area:rust-engine", "status:needs-design"]
-    dependencies: ["T00"]
+    title: Modularize without changing behavior
+    spec: docs/codex/stages/technical/T01-modularize-without-changing-behavior.md
+    milestone: 0.1 prerelease - safe core
+    labels: ["type:maintenance", "priority:p1", "area:ruby-dsl", "area:rust-engine", "status:needs-design"]
+    dependencies: []
   - id: T02
     stage: T02
-    title: Introduce a typed and strictly validated native plan
-    spec: docs/codex/stages/technical/T02-introduce-a-typed-and-strictly-validated-native-plan.md
-    milestone: 0.1 alpha - correctness foundation
-    labels: ["type:bug", "priority:p0", "area:rust-engine", "area:ffi", "status:needs-design"]
+    title: Harden plans and Ruby/Rust boundaries
+    spec: docs/codex/stages/technical/T02-harden-plans-and-ruby-rust-boundaries.md
+    milestone: 0.1 prerelease - safe core
+    labels: ["type:bug", "priority:p0", "area:ruby-dsl", "area:rust-engine", "area:ffi", "status:needs-design"]
     dependencies: ["T01"]
   - id: T03
     stage: T03
-    title: Correct Ruby exception handling across the Rust boundary
-    spec: docs/codex/stages/technical/T03-correct-ruby-exception-handling-across-the-rust-boundary.md
-    milestone: 0.1 alpha - correctness foundation
-    labels: ["type:bug", "priority:p0", "area:ffi", "status:needs-design"]
+    title: Align the supported compatibility slice
+    spec: docs/codex/stages/technical/T03-align-the-supported-compatibility-slice.md
+    milestone: 0.1 prerelease - safe core
+    labels: ["type:compatibility", "priority:p0", "area:compatibility", "area:ruby-dsl", "area:rust-engine", "status:blocked", "upstream-difference"]
     dependencies: ["T02"]
   - id: T04
     stage: T04
-    title: Support arbitrary-precision Ruby integers
-    spec: docs/codex/stages/technical/T04-support-arbitrary-precision-ruby-integers.md
-    milestone: 0.1 alpha - correctness foundation
-    labels: ["type:compatibility", "priority:p0", "area:ruby-dsl", "area:rust-engine", "area:compatibility", "status:needs-design", "upstream-difference"]
+    title: Add risk-based robustness evidence
+    spec: docs/codex/stages/technical/T04-add-risk-based-robustness-evidence.md
+    milestone: 0.1 prerelease - safe core
+    labels: ["type:maintenance", "priority:p1", "area:ffi", "area:ci", "status:blocked"]
+    dependencies: ["T02"]
+  - id: R01
+    stage: R01
+    title: Streamline CI and developer workflow
+    spec: docs/codex/stages/repository/R01-streamline-ci-and-developer-workflow.md
+    milestone: 0.1 prerelease - safe core
+    labels: ["type:maintenance", "priority:p1", "area:ci", "status:needs-design"]
+    dependencies: []
+  - id: R02
+    stage: R02
+    title: Keep public documentation canonical
+    spec: docs/codex/stages/repository/R02-keep-public-documentation-canonical.md
+    milestone: 0.1 prerelease - safe core
+    labels: ["type:documentation", "priority:p1", "area:docs", "status:blocked"]
     dependencies: ["T03"]
-  - id: T06A
-    stage: T06
-    title: Build the initial differential compatibility harness
-    spec: docs/codex/stages/technical/T06-build-a-differential-compatibility-harness.md
-    milestone: 0.1 alpha - correctness foundation
-    labels: ["type:compatibility", "priority:p0", "area:compatibility", "status:needs-design"]
-    dependencies: ["T00", "T04"]
-  - id: R08
-    stage: R08
-    title: Establish documentation information architecture
-    spec: docs/codex/stages/repository/R08-documentation-information-architecture.md
-    milestone: 0.1 alpha - correctness foundation
-    labels: ["type:documentation", "priority:p1", "area:docs", "status:needs-design"]
-    dependencies: ["T06A"]
+  - id: R03
+    stage: R03
+    title: Prove package and release readiness
+    spec: docs/codex/stages/repository/R03-prove-package-and-release-readiness.md
+    milestone: 0.1 prerelease - safe core
+    labels: ["type:maintenance", "priority:p0", "area:packaging", "area:ci", "status:blocked"]
+    dependencies: ["R01", "R02", "T04"]
   - id: G00
     stage: G00
-    title: Audit and close the alpha release gate
-    spec: docs/codex/stages/release-gates/G00-audit-and-close-the-alpha-release-gate.md
-    milestone: 0.1 alpha - correctness foundation
-    labels: ["type:maintenance", "priority:p0", "area:docs", "area:ci", "status:blocked"]
-    dependencies: ["R01", "T01", "T02", "T03", "T04", "T06A", "R08"]
-
+    title: Audit prerelease readiness
+    spec: docs/codex/stages/release-gates/G00-audit-prerelease-readiness.md
+    milestone: 0.1 prerelease - safe core
+    labels: ["type:maintenance", "priority:p0", "area:packaging", "area:ci", "area:docs", "status:blocked"]
+    dependencies: ["T01", "T02", "T03", "T04", "R01", "R02", "R03"]
   - id: T05
     stage: T05
-    title: Split the Rust extension into modules without behavior changes
-    spec: docs/codex/stages/technical/T05-split-the-rust-extension-into-modules-without-behavior-changes.md
-    milestone: 0.1 beta - compatibility and benchmark evidence
-    labels: ["type:maintenance", "priority:p1", "area:rust-engine", "status:blocked"]
-    dependencies: ["T02", "T03", "T04"]
-  - id: T06B
-    stage: T06
-    title: Expand differential compatibility coverage for beta
-    spec: docs/codex/stages/technical/T06-build-a-differential-compatibility-harness.md
-    milestone: 0.1 beta - compatibility and benchmark evidence
-    labels: ["type:compatibility", "priority:p1", "area:compatibility", "status:blocked"]
-    dependencies: ["T06A"]
-  - id: T09
-    stage: T09
-    title: Normalize rule paths and compile rule metadata once
-    spec: docs/codex/stages/technical/T09-normalize-rule-paths-and-compile-rule-metadata-once.md
-    milestone: 0.1 beta - compatibility and benchmark evidence
-    labels: ["type:performance", "priority:p1", "area:rules", "status:blocked"]
-    dependencies: ["T01", "T06B"]
-  - id: T11
-    stage: T11
-    title: Replace benchmark smoke with a benchmark suite
-    spec: docs/codex/stages/technical/T11-replace-the-benchmark-smoke-test-with-a-benchmark-suite.md
-    milestone: 0.1 beta - compatibility and benchmark evidence
-    labels: ["type:performance", "priority:p1", "area:benchmark", "status:needs-design"]
-    dependencies: ["T00"]
-  - id: T07
-    stage: T07
-    title: Index schema error paths
-    spec: docs/codex/stages/technical/T07-index-schema-error-paths.md
-    milestone: 0.1 beta - compatibility and benchmark evidence
-    labels: ["type:performance", "priority:p1", "area:rust-engine", "area:messages", "status:blocked"]
-    dependencies: ["T00", "T06B"]
-  - id: T08
-    stage: T08
-    title: Cache finalized result and message views
-    spec: docs/codex/stages/technical/T08-cache-finalized-result-message-views.md
-    milestone: 0.1 beta - compatibility and benchmark evidence
-    labels: ["type:performance", "priority:p1", "area:messages", "status:needs-design"]
-    dependencies: ["T00"]
-  - id: T10
-    stage: T10
-    title: Add measured native fast paths
-    spec: docs/codex/stages/technical/T10-add-measured-native-fast-paths.md
-    milestone: 0.1 beta - compatibility and benchmark evidence
-    labels: ["type:performance", "priority:p1", "area:rust-engine", "area:benchmark", "status:blocked"]
-    dependencies: ["T03", "T06B", "T09", "T11"]
-  - id: T12
-    stage: T12
-    title: Add property, fuzz, GC, and concurrency testing
-    spec: docs/codex/stages/technical/T12-property-fuzz-malformed-plan-gc-and-concurrency-testing.md
-    milestone: 0.1 beta - compatibility and benchmark evidence
-    labels: ["type:maintenance", "priority:p1", "area:ffi", "area:ci", "status:blocked"]
-    dependencies: ["T02", "T03", "T04", "T05", "T06B"]
-  - id: R10
-    stage: R10
-    title: Publish compatibility and performance evidence
-    spec: docs/codex/stages/repository/R10-public-performance-and-compatibility-evidence.md
-    milestone: 0.1 beta - compatibility and benchmark evidence
-    labels: ["type:documentation", "priority:p1", "area:compatibility", "area:benchmark", "area:docs", "status:blocked"]
-    dependencies: ["T06B", "T11"]
+    title: Measure before optimizing
+    spec: docs/codex/stages/technical/T05-measure-before-optimizing.md
+    milestone: 0.2-0.3 - evidence and adoption
+    labels: ["type:performance", "priority:p2", "area:rust-engine", "area:benchmark", "status:blocked"]
+    dependencies: ["T03", "T04"]
+  - id: R04
+    stage: R04
+    title: Add evidence-backed adoption paths
+    spec: docs/codex/stages/repository/R04-add-evidence-backed-adoption-paths.md
+    milestone: 0.2-0.3 - evidence and adoption
+    labels: ["type:feature", "priority:p2", "area:compatibility", "area:docs", "status:blocked"]
+    dependencies: ["G00", "T03"]
   - id: G01
     stage: G01
-    title: Audit and close the beta release gate
-    spec: docs/codex/stages/release-gates/G01-audit-and-close-the-beta-release-gate.md
-    milestone: 0.1 beta - compatibility and benchmark evidence
-    labels: ["type:maintenance", "priority:p0", "area:docs", "area:ci", "status:blocked"]
-    dependencies: ["T05", "T06B", "T07", "T08", "T09", "T10", "T11", "T12", "R10"]
-
-  - id: R06
-    stage: R06
-    title: Define the native binary gem strategy
-    spec: docs/codex/stages/repository/R06-native-binary-gem-strategy.md
-    milestone: 0.1 RC - native packaging and release readiness
-    labels: ["type:maintenance", "priority:p1", "area:packaging", "status:blocked"]
-    dependencies: ["R04", "G00"]
-  - id: R07
-    stage: R07
-    title: Add release automation and version policy
-    spec: docs/codex/stages/repository/R07-release-automation-and-version-policy.md
-    milestone: 0.1 RC - native packaging and release readiness
-    labels: ["type:maintenance", "priority:p1", "area:packaging", "area:ci", "status:blocked"]
-    dependencies: ["R03", "R04", "R05", "R06"]
-  - id: G02
-    stage: G02
-    title: Audit and close the release-candidate gate
-    spec: docs/codex/stages/release-gates/G02-audit-and-close-the-release-candidate-gate.md
-    milestone: 0.1 RC - native packaging and release readiness
-    labels: ["type:maintenance", "priority:p0", "area:packaging", "area:ci", "status:blocked"]
-    dependencies: ["R06", "R07", "G01"]
-
-  - id: R11
-    stage: R11
-    title: Add adoption examples and supportability guidance
-    spec: docs/codex/stages/repository/R11-adoption-examples-and-supportability.md
-    milestone: 1.0 - stable API and support policy
-    labels: ["type:documentation", "priority:p2", "area:docs", "status:blocked"]
-    dependencies: ["G00"]
-  - id: R12
-    stage: R12
-    title: Define stable 1.0 governance
-    spec: docs/codex/stages/repository/R12-stable-1-0-governance.md
-    milestone: 1.0 - stable API and support policy
-    labels: ["type:documentation", "priority:p0", "area:docs", "status:blocked"]
-    dependencies: ["R11", "G02"]
-  - id: G03
-    stage: G03
-    title: Audit and close the stable 1.0 gate
-    spec: docs/codex/stages/release-gates/G03-audit-and-close-the-stable-1-0-gate.md
-    milestone: 1.0 - stable API and support policy
-    labels: ["type:maintenance", "priority:p0", "area:docs", "area:ci", "status:blocked"]
-    dependencies: ["R12", "G02"]
-
-  - id: T13
-    stage: T13
-    title: Evaluate a future batch and GVL-releasing API
-    spec: docs/codex/stages/technical/T13-evaluate-a-future-batch-gvl-releasing-api.md
-    milestone: Future - experimental batch API
+    title: Audit evidence and adoption readiness
+    spec: docs/codex/stages/release-gates/G01-audit-evidence-and-adoption-readiness.md
+    milestone: 0.2-0.3 - evidence and adoption
+    labels: ["type:maintenance", "priority:p0", "area:compatibility", "area:benchmark", "area:packaging", "status:blocked"]
+    dependencies: ["G00", "T05", "R04"]
+  - id: T06
+    stage: T06
+    title: Evaluate batch and streaming APIs
+    spec: docs/codex/stages/technical/T06-evaluate-batch-and-streaming-apis.md
+    milestone: Future - batch and streaming experiments
     labels: ["type:feature", "priority:p3", "area:rust-engine", "area:ffi", "status:blocked"]
-    dependencies: ["G03", "T11"]
+    dependencies: ["T05", "G01"]

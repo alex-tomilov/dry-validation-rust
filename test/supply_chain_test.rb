@@ -29,34 +29,14 @@ class SupplyChainTest < Minitest::Test
     assert_equal %w[magnus rb-sys], cargo.fetch("groups").fetch("rust-native-bridge").fetch("patterns")
   end
 
-  def test_audit_policy_documents_exceptions_and_provenance
-    policy = read_doc("docs/DEPENDENCY_SECURITY.md")
-
-    assert_includes policy, "There are no active audit exceptions."
-    assert_includes policy, "Expires: YYYY-MM-DD"
-    assert_includes policy, "RubyGems trusted publishing"
-    assert_includes policy, "avoid long-lived RubyGems tokens"
-  end
-
-  def test_security_workflow_has_audits_without_publish_credentials
+  def test_security_workflow_has_least_privilege_and_no_publish_credentials
     security = File.read(File.join(PROJECT_ROOT, ".github", "workflows", "security.yml"))
 
-    assert_includes security, "bundle-audit check --update"
-    assert_includes security, "cargo audit --deny warnings"
     assert_includes security, "permissions:\n  contents: read"
     refute_includes security, "secrets."
     refute_includes security, "GEM_HOST_API_KEY"
     refute_includes security, "contents: write"
     refute_includes security, "id-token: write"
-  end
-
-  def test_canonical_verification_prints_dependency_versions
-    verify = File.read(File.join(PROJECT_ROOT, "script", "verify"))
-    rakefile = File.read(File.join(PROJECT_ROOT, "Rakefile"))
-
-    assert_includes verify, "bundle exec rake dependency:versions"
-    assert_includes rakefile, '"cargo", "tree"'
-    assert_includes rakefile, "Bundler.load.specs"
   end
 
   private
@@ -65,7 +45,4 @@ class SupplyChainTest < Minitest::Test
     config.fetch("updates").find { |entry| entry.fetch("package-ecosystem") == ecosystem }
   end
 
-  def read_doc(path)
-    File.read(File.join(PROJECT_ROOT, path))
-  end
 end

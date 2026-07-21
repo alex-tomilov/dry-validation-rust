@@ -19,6 +19,11 @@
 - Added project-management policy, roadmap-to-milestone mapping, issue-quality
   form, canonical labels, work-in-progress limits, and an idempotent GitHub API
   synchronizer with dry-run defaults.
+- Replaced the extensive stage catalog with a compact outcome-oriented roadmap
+  and aligned project synchronization, issue milestones, and workflow references.
+- Removed prose-only documentation/community/project-policy tests and made
+  remaining configuration tests protect executable, package, or security
+  behavior without freezing exact roadmap counts.
 
 ## 0.1.0.pre1 — 2026-07-12
 

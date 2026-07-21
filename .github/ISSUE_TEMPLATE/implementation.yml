@@ -13,8 +13,8 @@ body:
     id: roadmap_reference
     attributes:
       label: Roadmap reference
-      description: Use the stable stage or issue key, such as T03, R06, or G00.
-      placeholder: T03
+      description: Use the stable stage or issue key, such as T03, R03, or G00.
+      placeholder: T02
     validations:
       required: true
   - type: dropdown
@@ -33,11 +33,9 @@ body:
     attributes:
       label: Milestone
       options:
-        - 0.1 alpha - correctness foundation
-        - 0.1 beta - compatibility and benchmark evidence
-        - 0.1 RC - native packaging and release readiness
-        - 1.0 - stable API and support policy
-        - Future - experimental batch API
+        - 0.1 prerelease - safe core
+        - 0.2-0.3 - evidence and adoption
+        - Future - batch and streaming experiments
     validations:
       required: true
   - type: dropdown

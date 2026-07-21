@@ -48,14 +48,12 @@ jobs:
         run: bundle exec rake compile
 
       - name: Run available compatibility-adjacent tests
-        run: |
-          bundle exec ruby -Itest test/baseline_fixture_test.rb
-          bundle exec ruby -Itest test/documentation_test.rb
+        run: bundle exec ruby -Itest test/baseline_fixture_test.rb
 
       - name: Write compatibility artifact
         run: |
           mkdir -p tmp/compatibility
-          ruby -rjson -e 'payload = {status: "preflight", upstream: {"dry-validation": "1.11.1", "dry-schema": "1.16.0"}, differential_harness: "not present yet; planned in technical stage T06", checks: ["test/baseline_fixture_test.rb", "test/documentation_test.rb"]}; File.write("tmp/compatibility/compatibility-preflight.json", JSON.pretty_generate(payload) + "\n")'
+          ruby -rjson -e 'payload = {status: "preflight", upstream: {"dry-validation": "1.11.1", "dry-schema": "1.16.0"}, differential_harness: "planned in technical stage T03", checks: ["test/baseline_fixture_test.rb"]}; File.write("tmp/compatibility/compatibility-preflight.json", JSON.pretty_generate(payload) + "\n")'
 
       - name: Upload compatibility artifact
         uses: actions/upload-artifact@v4

@@ -10,9 +10,9 @@ class GitHubProjectManagementSyncTest < Minitest::Test
   def test_manifest_is_complete_and_references_declared_objects
     manifest = load_manifest
 
-    assert_equal 27, manifest.labels.size
-    assert_equal 5, manifest.milestones.size
-    assert_equal 25, manifest.roadmap.size
+    refute_empty manifest.labels
+    refute_empty manifest.milestones
+    refute_empty manifest.roadmap
     assert_equal manifest.roadmap.map { |item| item.fetch("id") }.uniq.size, manifest.roadmap.size
 
     manifest.roadmap.each do |item|
@@ -35,17 +35,20 @@ class GitHubProjectManagementSyncTest < Minitest::Test
   end
 
   def test_empty_remote_plan_creates_every_managed_object_without_deletions
-    actions = Sync::Planner.new(load_manifest, Sync::Snapshot.empty).actions
+    manifest = load_manifest
+    actions = Sync::Planner.new(manifest, Sync::Snapshot.empty).actions
     counts = actions.group_by(&:kind).transform_values(&:size)
 
-    assert_equal 85, actions.size
-    assert_equal 27, counts.fetch(:create_label)
-    assert_equal 5, counts.fetch(:create_milestone)
+    expected_total = manifest.labels.size + manifest.milestones.size + (manifest.roadmap.size * 2) + 3
+
+    assert_equal expected_total, actions.size
+    assert_equal manifest.labels.size, counts.fetch(:create_label)
+    assert_equal manifest.milestones.size, counts.fetch(:create_milestone)
     assert_equal 1, counts.fetch(:create_project)
     assert_equal 1, counts.fetch(:sync_workflow)
     assert_equal 1, counts.fetch(:create_project_view)
-    assert_equal 25, counts.fetch(:create_issue)
-    assert_equal 25, counts.fetch(:add_project_item)
+    assert_equal manifest.roadmap.size, counts.fetch(:create_issue)
+    assert_equal manifest.roadmap.size, counts.fetch(:add_project_item)
     refute actions.any? { |action| action.kind.to_s.start_with?("delete") }
   end
 
@@ -61,16 +64,27 @@ class GitHubProjectManagementSyncTest < Minitest::Test
     snapshot = synchronized_snapshot(manifest)
     snapshot.labels["type:bug"]["description"] = "stale"
     snapshot.labels["unmanaged"] = {"color" => "ffffff", "description" => "preserve me"}
-    snapshot.milestones["0.1 alpha - correctness foundation"]["state"] = "closed"
+    first_milestone = manifest.milestone_titles.first
+    snapshot.milestones.fetch(first_milestone)["state"] = "closed"
     snapshot.issues.fetch("T01")["labels"] << "unmanaged"
 
     actions = Sync::Planner.new(manifest, snapshot).actions
 
     assert actions.any? { |action| action.kind == :update_label && action.key == "type:bug" }
-    assert actions.any? { |action| action.kind == :update_milestone && action.key.start_with?("0.1 alpha") }
+    assert actions.any? { |action| action.kind == :update_milestone && action.key == first_milestone }
     refute actions.any? { |action| action.key == "unmanaged" }
     refute actions.any? { |action| action.kind == :update_issue && action.key == "T01" }
     refute actions.any? { |action| action.kind.to_s.start_with?("delete") }
+  end
+
+  def test_planner_updates_a_stale_managed_issue_body
+    manifest = load_manifest
+    snapshot = synchronized_snapshot(manifest)
+    snapshot.issues.fetch("T01")["body"] = "stale roadmap body"
+
+    actions = Sync::Planner.new(manifest, snapshot).actions
+
+    assert actions.any? { |action| action.kind == :update_issue && action.key == "T01" }
   end
 
   def test_planner_preserves_existing_project_item_workflow
@@ -114,24 +128,26 @@ class GitHubProjectManagementSyncTest < Minitest::Test
   end
 
   def test_component_filter_limits_the_plan
+    manifest = load_manifest
     actions = Sync::Planner.new(
-      load_manifest,
+      manifest,
       Sync::Snapshot.empty,
       components: ["labels"]
     ).actions
 
-    assert_equal 27, actions.size
+    assert_equal manifest.labels.size, actions.size
     assert_equal [:create_label], actions.map(&:kind).uniq
   end
 
   def test_issue_only_plan_does_not_create_or_modify_project_items
+    manifest = load_manifest
     actions = Sync::Planner.new(
-      load_manifest,
+      manifest,
       Sync::Snapshot.empty,
       components: ["issues"]
     ).actions
 
-    assert_equal 25, actions.size
+    assert_equal manifest.roadmap.size, actions.size
     assert_equal [:create_issue], actions.map(&:kind).uniq
   end
 
@@ -175,9 +191,10 @@ class GitHubProjectManagementSyncTest < Minitest::Test
     assert_equal 0, status
     assert_empty error.string
     assert_includes output.string, "Mode: dry-run (offline)"
-    assert_match(/create_label\s+27/, output.string)
-    assert_match(/create_issue\s+25/, output.string)
-    assert_match(/add_project_item\s+25/, output.string)
+    manifest = load_manifest
+    assert_match(/create_label\s+#{manifest.labels.size}/, output.string)
+    assert_match(/create_issue\s+#{manifest.roadmap.size}/, output.string)
+    assert_match(/add_project_item\s+#{manifest.roadmap.size}/, output.string)
     assert_includes output.string, "Offline dry-run assumes no managed remote objects exist."
   end
 
@@ -265,6 +282,30 @@ class GitHubProjectManagementSyncTest < Minitest::Test
     assert_includes call.fetch(:path), "type%3Abug"
     assert_equal "type:bug", call.fetch(:body).fetch("new_name")
     refute call.fetch(:body).key?("name")
+  end
+
+  def test_issue_update_replaces_the_managed_body
+    manifest = load_manifest
+    client = RecordingApiClient.new
+    executor = Sync::Executor.new(client, manifest)
+    item = manifest.roadmap.find { |candidate| candidate.fetch("id") == "T01" }
+    details = Sync::IssueBody.new(manifest, item).render
+    action = Sync::Action.new(
+      :update_issue,
+      "T01",
+      {"title" => "[T01] #{item.fetch("title")}", "body" => details, "labels" => item.fetch("labels"), "milestone" => item.fetch("milestone")}
+    )
+
+    executor.instance_variable_set(:@issues, {
+      "T01" => {"number" => 10, "node_id" => "ISSUE_T01", "title" => "old", "body" => "old", "labels" => [], "milestone" => "old"}
+    })
+    executor.instance_variable_set(:@milestones, {
+      item.fetch("milestone") => {"number" => 6, "title" => item.fetch("milestone"), "description" => "", "state" => "open"}
+    })
+
+    executor.send(:update_issue, action)
+
+    assert_equal details, client.rest_calls.fetch(0).fetch(:body).fetch("body")
   end
 
   def test_user_project_view_path_uses_owner_login
@@ -567,6 +608,7 @@ class GitHubProjectManagementSyncTest < Minitest::Test
           "number" => index + 1,
           "node_id" => "ISSUE_#{item.fetch("id")}",
           "title" => "[#{item.fetch("id")}] #{item.fetch("title")}",
+          "body" => Sync::IssueBody.new(manifest, item).render,
           "labels" => item.fetch("labels").dup,
           "milestone" => item.fetch("milestone")
         }
