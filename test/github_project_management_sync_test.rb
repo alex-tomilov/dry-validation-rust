@@ -66,36 +66,36 @@ class GitHubProjectManagementSyncTest < Minitest::Test
     snapshot.labels["unmanaged"] = {"color" => "ffffff", "description" => "preserve me"}
     first_milestone = manifest.milestone_titles.first
     snapshot.milestones.fetch(first_milestone)["state"] = "closed"
-    snapshot.issues.fetch("T01")["labels"] << "unmanaged"
+    snapshot.issues.fetch("A")["labels"] << "unmanaged"
 
     actions = Sync::Planner.new(manifest, snapshot).actions
 
     assert actions.any? { |action| action.kind == :update_label && action.key == "type:bug" }
     assert actions.any? { |action| action.kind == :update_milestone && action.key == first_milestone }
     refute actions.any? { |action| action.key == "unmanaged" }
-    refute actions.any? { |action| action.kind == :update_issue && action.key == "T01" }
+    refute actions.any? { |action| action.kind == :update_issue && action.key == "A" }
     refute actions.any? { |action| action.kind.to_s.start_with?("delete") }
   end
 
   def test_planner_updates_a_stale_managed_issue_body
     manifest = load_manifest
     snapshot = synchronized_snapshot(manifest)
-    snapshot.issues.fetch("T01")["body"] = "stale roadmap body"
+    snapshot.issues.fetch("A")["body"] = "stale roadmap body"
 
     actions = Sync::Planner.new(manifest, snapshot).actions
 
-    assert actions.any? { |action| action.kind == :update_issue && action.key == "T01" }
+    assert actions.any? { |action| action.kind == :update_issue && action.key == "A" }
   end
 
   def test_planner_preserves_existing_project_item_workflow
     manifest = load_manifest
     snapshot = synchronized_snapshot(manifest)
-    issue = snapshot.issues.fetch("T03")
+    issue = snapshot.issues.fetch("C")
     snapshot.project.fetch("items").fetch(issue.fetch("node_id"))["workflow"] = "Done"
 
     actions = Sync::Planner.new(manifest, snapshot).actions
 
-    refute actions.any? { |action| action.key == "T03" && action.kind.to_s.include?("workflow") }
+    refute actions.any? { |action| action.key == "C" && action.kind.to_s.include?("workflow") }
     assert_empty actions
   end
 
@@ -118,12 +118,12 @@ class GitHubProjectManagementSyncTest < Minitest::Test
   def test_planner_does_not_restore_mutable_status_labels
     manifest = load_manifest
     snapshot = synchronized_snapshot(manifest)
-    issue = snapshot.issues.fetch("G00")
+    issue = snapshot.issues.fetch("G")
     issue["labels"].delete("status:blocked")
 
     actions = Sync::Planner.new(manifest, snapshot).actions
 
-    refute actions.any? { |action| action.kind == :update_issue && action.key == "G00" }
+    refute actions.any? { |action| action.kind == :update_issue && action.key == "G" }
     assert_empty actions
   end
 
@@ -153,10 +153,10 @@ class GitHubProjectManagementSyncTest < Minitest::Test
 
   def test_generated_issue_body_contains_quality_sections_and_stable_marker
     manifest = load_manifest
-    item = manifest.roadmap.find { |candidate| candidate.fetch("id") == "T03" }
+    item = manifest.roadmap.find { |candidate| candidate.fetch("id") == "C" }
     body = Sync::IssueBody.new(manifest, item).render
 
-    assert_includes body, "<!-- dvr-roadmap:T03 -->"
+    assert_includes body, "<!-- dvr-roadmap:C -->"
     assert_includes body, "## Problem"
     assert_includes body, "## User or maintainer impact"
     assert_includes body, "## Current behavior and evidence"
@@ -168,7 +168,7 @@ class GitHubProjectManagementSyncTest < Minitest::Test
     assert_includes body, "## Acceptance criteria"
     assert_includes body, "## Dependencies and blockers"
     assert_includes body, "## Risks and rollback"
-    assert_includes body, "`T02`"
+    assert_includes body, "`B`"
     assert_includes body, "script/verify"
   end
 
@@ -288,16 +288,16 @@ class GitHubProjectManagementSyncTest < Minitest::Test
     manifest = load_manifest
     client = RecordingApiClient.new
     executor = Sync::Executor.new(client, manifest)
-    item = manifest.roadmap.find { |candidate| candidate.fetch("id") == "T01" }
+    item = manifest.roadmap.find { |candidate| candidate.fetch("id") == "A" }
     details = Sync::IssueBody.new(manifest, item).render
     action = Sync::Action.new(
       :update_issue,
-      "T01",
-      {"title" => "[T01] #{item.fetch("title")}", "body" => details, "labels" => item.fetch("labels"), "milestone" => item.fetch("milestone")}
+      "A",
+      {"title" => "[A] #{item.fetch("title")}", "body" => details, "labels" => item.fetch("labels"), "milestone" => item.fetch("milestone")}
     )
 
     executor.instance_variable_set(:@issues, {
-      "T01" => {"number" => 10, "node_id" => "ISSUE_T01", "title" => "old", "body" => "old", "labels" => [], "milestone" => "old"}
+      "A" => {"number" => 10, "node_id" => "ISSUE_A", "title" => "old", "body" => "old", "labels" => [], "milestone" => "old"}
     })
     executor.instance_variable_set(:@milestones, {
       item.fetch("milestone") => {"number" => 6, "title" => item.fetch("milestone"), "description" => "", "state" => "open"}
@@ -322,14 +322,14 @@ class GitHubProjectManagementSyncTest < Minitest::Test
     client = IssueCreationClient.new(manifest)
     executor = Sync::Executor.new(client, manifest)
     action = Sync::Planner.new(manifest, Sync::Snapshot.empty).actions.find do |candidate|
-      candidate.kind == :create_issue && candidate.key == "R01"
+      candidate.kind == :create_issue && candidate.key == "F"
     end
 
     executor.send(:create_issue, action)
-    issue = executor.send(:issues).fetch("R01")
+    issue = executor.send(:issues).fetch("F")
 
     assert_equal 41, issue.fetch("number")
-    assert_equal "ISSUE_R01", issue.fetch("node_id")
+    assert_equal "ISSUE_F", issue.fetch("node_id")
     refute client.rest_calls.any? { |call| call.fetch(:path).include?("/issues?") }
   end
 
@@ -471,7 +471,7 @@ class GitHubProjectManagementSyncTest < Minitest::Test
     def created_issue(body)
       {
         "number" => 41,
-        "node_id" => "ISSUE_R01",
+        "node_id" => "ISSUE_F",
         "title" => body.fetch("title"),
         "labels" => body.fetch("labels").map { |name| {"name" => name} },
         "milestone" => {"title" => @manifest.milestones.fetch(body.fetch("milestone") - 1).fetch("title")}

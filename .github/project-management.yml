@@ -7,12 +7,12 @@ project:
   owner: alex-tomilov
   owner_type: user
   title: dry-validation-rust roadmap
-  short_description: Safe core, executable compatibility, packaging, and measured adoption
+  short_description: Evidence-backed supported subset, migration slices, and verified delivery
   readme: |
     <!-- dvr-project-management:v1 -->
 
     This project is synchronized from `.github/project-management.yml`.
-    Work is grouped into a compact set of outcome-oriented stages.
+    Work is grouped into the outcome-oriented Milestones A through G.
   public: true
   workflow_field: Status
   workflow_options:
@@ -40,95 +40,68 @@ project:
     filter: "is:issue"
 
 milestones:
-  - title: 0.1 prerelease - safe core
-    description: Prove a safe supported subset and source package before publication.
-  - title: 0.2-0.3 - evidence and adoption
-    description: Broaden evidence, verify delivery paths, and add measured adoption support.
-  - title: Future - batch and streaming experiments
-    description: Evaluate optional Rust-owned processing without blocking the normal API.
+  - title: Milestone A - trustworthy baseline
+    description: Pin compatibility evidence, make unsupported forms explicit, and prove the source-gem path.
+  - title: Milestone B - common schema path
+    description: Make the documented common schema subset dependable for realistic nested payloads.
+  - title: Milestone C - ordinary contract rules
+    description: Make supported Ruby rule execution predictable, compatible, and isolated.
+  - title: Milestone D - performance proof
+    description: Measure favourable, neutral, and unfavourable workloads before optimization decisions.
+  - title: Milestone E - migration-driven compatibility slice
+    description: Deliver one selected, upstream-evidenced migration blocker at a time.
+  - title: Milestone F - packaging and platforms
+    description: Verify source-gem installation and a deliberately small supported platform matrix.
+  - title: Milestone G - stable supported subset
+    description: Make a narrow 1.0 go/no-go decision from executable evidence.
 
 roadmap:
-  - id: T01
-    stage: T01
-    title: Modularize without changing behavior
-    spec: docs/codex/stages/technical/T01-modularize-without-changing-behavior.md
-    milestone: 0.1 prerelease - safe core
-    labels: ["type:maintenance", "priority:p1", "area:ruby-dsl", "area:rust-engine", "status:needs-design"]
+  - id: A
+    stage: Milestone A - Establish the trustworthy baseline
+    title: Establish the trustworthy baseline
+    spec: docs/codex/01_MILESTONE_A_TRUSTWORTHY_BASELINE.md
+    milestone: Milestone A - trustworthy baseline
+    labels: ["type:compatibility", "priority:p0", "area:compatibility", "area:packaging", "area:ci", "status:needs-design"]
     dependencies: []
-  - id: T02
-    stage: T02
-    title: Harden plans and Ruby/Rust boundaries
-    spec: docs/codex/stages/technical/T02-harden-plans-and-ruby-rust-boundaries.md
-    milestone: 0.1 prerelease - safe core
-    labels: ["type:bug", "priority:p0", "area:ruby-dsl", "area:rust-engine", "area:ffi", "status:needs-design"]
-    dependencies: ["T01"]
-  - id: T03
-    stage: T03
-    title: Align the supported compatibility slice
-    spec: docs/codex/stages/technical/T03-align-the-supported-compatibility-slice.md
-    milestone: 0.1 prerelease - safe core
-    labels: ["type:compatibility", "priority:p0", "area:compatibility", "area:ruby-dsl", "area:rust-engine", "status:blocked", "upstream-difference"]
-    dependencies: ["T02"]
-  - id: T04
-    stage: T04
-    title: Add risk-based robustness evidence
-    spec: docs/codex/stages/technical/T04-add-risk-based-robustness-evidence.md
-    milestone: 0.1 prerelease - safe core
-    labels: ["type:maintenance", "priority:p1", "area:ffi", "area:ci", "status:blocked"]
-    dependencies: ["T02"]
-  - id: R01
-    stage: R01
-    title: Streamline CI and developer workflow
-    spec: docs/codex/stages/repository/R01-streamline-ci-and-developer-workflow.md
-    milestone: 0.1 prerelease - safe core
-    labels: ["type:maintenance", "priority:p1", "area:ci", "status:needs-design"]
-    dependencies: []
-  - id: R02
-    stage: R02
-    title: Keep public documentation canonical
-    spec: docs/codex/stages/repository/R02-keep-public-documentation-canonical.md
-    milestone: 0.1 prerelease - safe core
-    labels: ["type:documentation", "priority:p1", "area:docs", "status:blocked"]
-    dependencies: ["T03"]
-  - id: R03
-    stage: R03
-    title: Prove package and release readiness
-    spec: docs/codex/stages/repository/R03-prove-package-and-release-readiness.md
-    milestone: 0.1 prerelease - safe core
-    labels: ["type:maintenance", "priority:p0", "area:packaging", "area:ci", "status:blocked"]
-    dependencies: ["R01", "R02", "T04"]
-  - id: G00
-    stage: G00
-    title: Audit prerelease readiness
-    spec: docs/codex/stages/release-gates/G00-audit-prerelease-readiness.md
-    milestone: 0.1 prerelease - safe core
-    labels: ["type:maintenance", "priority:p0", "area:packaging", "area:ci", "area:docs", "status:blocked"]
-    dependencies: ["T01", "T02", "T03", "T04", "R01", "R02", "R03"]
-  - id: T05
-    stage: T05
-    title: Measure before optimizing
-    spec: docs/codex/stages/technical/T05-measure-before-optimizing.md
-    milestone: 0.2-0.3 - evidence and adoption
-    labels: ["type:performance", "priority:p2", "area:rust-engine", "area:benchmark", "status:blocked"]
-    dependencies: ["T03", "T04"]
-  - id: R04
-    stage: R04
-    title: Add evidence-backed adoption paths
-    spec: docs/codex/stages/repository/R04-add-evidence-backed-adoption-paths.md
-    milestone: 0.2-0.3 - evidence and adoption
-    labels: ["type:feature", "priority:p2", "area:compatibility", "area:docs", "status:blocked"]
-    dependencies: ["G00", "T03"]
-  - id: G01
-    stage: G01
-    title: Audit evidence and adoption readiness
-    spec: docs/codex/stages/release-gates/G01-audit-evidence-and-adoption-readiness.md
-    milestone: 0.2-0.3 - evidence and adoption
-    labels: ["type:maintenance", "priority:p0", "area:compatibility", "area:benchmark", "area:packaging", "status:blocked"]
-    dependencies: ["G00", "T05", "R04"]
-  - id: T06
-    stage: T06
-    title: Evaluate batch and streaming APIs
-    spec: docs/codex/stages/technical/T06-evaluate-batch-and-streaming-apis.md
-    milestone: Future - batch and streaming experiments
-    labels: ["type:feature", "priority:p3", "area:rust-engine", "area:ffi", "status:blocked"]
-    dependencies: ["T05", "G01"]
+  - id: B
+    stage: Milestone B - Dependable common schema path
+    title: Make the common schema path dependable
+    spec: docs/codex/02_MILESTONE_B_COMMON_SCHEMA.md
+    milestone: Milestone B - common schema path
+    labels: ["type:compatibility", "priority:p0", "area:ruby-dsl", "area:rust-engine", "area:compatibility", "status:blocked"]
+    dependencies: ["A"]
+  - id: C
+    stage: Milestone C - Dependable ordinary contract rules
+    title: Make ordinary contract rules dependable
+    spec: docs/codex/03_MILESTONE_C_ORDINARY_RULES.md
+    milestone: Milestone C - ordinary contract rules
+    labels: ["type:compatibility", "priority:p0", "area:rules", "area:ruby-dsl", "area:compatibility", "status:blocked"]
+    dependencies: ["B"]
+  - id: D
+    stage: Milestone D - Prove or disprove the performance case
+    title: Prove or disprove the performance case
+    spec: docs/codex/04_MILESTONE_D_PERFORMANCE_PROOF.md
+    milestone: Milestone D - performance proof
+    labels: ["type:performance", "priority:p1", "area:benchmark", "area:rust-engine", "status:blocked"]
+    dependencies: ["C"]
+  - id: E
+    stage: Milestone E - Implement one migration-driven compatibility slice
+    title: Implement one migration-driven compatibility slice
+    spec: docs/codex/05_MILESTONE_E_COMPATIBILITY_SLICE.md
+    milestone: Milestone E - migration-driven compatibility slice
+    labels: ["type:feature", "priority:p1", "area:compatibility", "area:ruby-dsl", "area:rust-engine", "status:blocked"]
+    dependencies: ["C"]
+  - id: F
+    stage: Milestone F - Package and platform hardening
+    title: Harden packaging and verified platforms
+    spec: docs/codex/06_MILESTONE_F_PACKAGING_AND_PLATFORMS.md
+    milestone: Milestone F - packaging and platforms
+    labels: ["type:maintenance", "priority:p1", "area:packaging", "area:ffi", "area:ci", "status:blocked"]
+    dependencies: ["A", "C"]
+  - id: G
+    stage: Milestone G - Stable supported subset
+    title: Establish the stable supported subset
+    spec: docs/codex/07_MILESTONE_G_STABLE_SUBSET.md
+    milestone: Milestone G - stable supported subset
+    labels: ["type:maintenance", "priority:p0", "area:compatibility", "area:benchmark", "area:packaging", "area:docs", "status:blocked"]
+    dependencies: ["D", "E", "F"]

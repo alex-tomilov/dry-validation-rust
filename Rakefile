@@ -201,4 +201,11 @@ namespace :dependency do
   end
 end
 
+namespace :compatibility do
+  desc "Run the pinned upstream differential corpus in isolated Ruby processes"
+  task differential: :compile do
+    sh "bundle", "exec", "ruby", "-Ilib", "-Itest", "test/differential_compatibility_test.rb"
+  end
+end
+
 task default: :test

@@ -13,8 +13,8 @@ body:
     id: roadmap_reference
     attributes:
       label: Roadmap reference
-      description: Use the stable stage or issue key, such as T03, R03, or G00.
-      placeholder: T02
+      description: Use the stable milestone or issue key, such as A, C, or G.
+      placeholder: B
     validations:
       required: true
   - type: dropdown

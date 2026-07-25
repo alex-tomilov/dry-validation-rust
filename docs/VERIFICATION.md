@@ -13,6 +13,9 @@ versions, checks Rust formatting/Clippy/lockfile consistency, audits the source
 gem, installs it in a temporary gem home, and runs a smoke contract. The command
 exits nonzero when any required step fails.
 
+The Ruby suite includes the pinned, separate-process differential corpus. Run
+`bundle exec rake compatibility:differential` to execute that corpus alone.
+
 Focused commands remain useful while developing:
 
 ```bash
@@ -34,7 +37,9 @@ arrays, Ruby predicates/rules, options/context, schema reuse, and isolated
 loading modes.
 
 Compatibility claims require cases executed against pinned upstream releases in
-separate processes. Documentation text and method/file inventories are not
+separate processes. `test/differential_compatibility_test.rb` compares values,
+value classes, success state, errors, exceptions, and rule traces for the
+initial corpus. Documentation text and method/file inventories are not
 compatibility evidence.
 
 ## CI responsibilities
@@ -42,10 +47,10 @@ compatibility evidence.
 - `ci.yml`: supported Ruby/platform integration, Rust MSRV/stable checks,
   loading isolation, and package smoke checks.
 - `compatibility.yml`: pinned-upstream preflight and structured evidence until
-  the full `T03` differential slice is implemented.
+  the full Milestone B common-schema corpus is implemented.
 - `security.yml`: dependency audits and CodeQL with explicit permissions.
 - `package.yml`: source-gem audit and artifact upload without publication.
-- `fuzz.yml`: scheduled/manual bounded preflight until `T04` adds dedicated
+- `fuzz.yml`: scheduled/manual bounded preflight until Milestone B adds dedicated
   targets justified by risk.
 
 There is intentionally no publication workflow yet. Pull-request workflows must
@@ -64,7 +69,7 @@ and built gem artifacts are excluded from the source gem.
 ## Performance evidence
 
 `script/benchmark-smoke` is a non-gating local sanity check. It is not a public
-performance claim. Stage `T05` requires representative semantics, warmup,
+performance claim. Milestone D requires representative semantics, warmup,
 multiple samples, environment data, allocations/RSS where relevant, negative
 results, and pinned-upstream process isolation before publishing comparisons.
 
