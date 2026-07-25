@@ -59,6 +59,25 @@ class RulesTest < Minitest::Test
     )
   end
 
+  def test_multi_hash_rule_uses_the_declared_paths_as_the_default_failure_key
+    contract = build_contract do
+      params do
+        required(:address).hash do
+          required(:city).filled(:string)
+          required(:zip).filled(:string)
+        end
+      end
+      rule(address: [:city, :zip]) do
+        key.failure("is unavailable") if values[:address][:city] == "Nowhere" && values[:address][:zip] == "00000"
+      end
+    end
+
+    assert_equal(
+      {address: {[:city, :zip] => ["is unavailable"]}},
+      contract.new.call(address: {city: "Nowhere", zip: "00000"}).errors.to_h
+    )
+  end
+
   def test_rule_each_uses_index_and_item_value
     contract = build_contract do
       params { required(:numbers).array(:integer) }

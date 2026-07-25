@@ -393,8 +393,8 @@ module Dry
                  when :format then "is in invalid format"
                  when :included_in then "must be one of: #{Array(predicate.argument).join(', ')}"
                  when :excluded_from then "must not be one of: #{Array(predicate.argument).join(', ')}"
-                 when :eql then "must be equal to #{predicate.argument.inspect}"
-                 when :not_eql then "must not be equal to #{predicate.argument.inspect}"
+                 when :eql then "must be equal to #{predicate.argument}"
+                 when :not_eql then "must not be equal to #{predicate.argument}"
                  else "is invalid"
                  end
           Message.new(text, path: path, code: predicate.name, source: :schema)

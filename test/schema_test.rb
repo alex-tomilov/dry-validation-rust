@@ -114,6 +114,15 @@ class SchemaTest < Minitest::Test
     assert_equal "must be greater than or equal to 18", result.errors.to_h[:age].first
   end
 
+  def test_filled_failure_skips_native_predicates
+    contract = build_contract do
+      params { required(:name).filled(:string, min_size?: 3) }
+    end
+
+    assert_equal({name: ["must be filled"]}, contract.new.call(name: "").errors.to_h)
+    assert_equal({name: ["size cannot be less than 3"]}, contract.new.call(name: "Al").errors.to_h)
+  end
+
   def test_dates_times_and_decimals
     contract = build_contract do
       params do

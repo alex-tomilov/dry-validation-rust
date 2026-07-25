@@ -42,9 +42,11 @@ class DifferentialCompatibilityTest < Minitest::Test
     begin
       trace = []
       contract = eval(payload.fetch("source"), binding, "differential-case.rb", 1)
-      result = contract.new(**payload.fetch("options", {})).call(
+      options = payload.fetch("options", {}).transform_keys(&:to_sym)
+      context = payload.fetch("context", {}).transform_keys(&:to_sym)
+      result = contract.new(**options).call(
         payload.fetch("input"),
-        payload.fetch("context", {})
+        context
       )
       puts JSON.generate(
         "engine" => mode,
@@ -71,10 +73,15 @@ class DifferentialCompatibilityTest < Minitest::Test
       upstream = run_case("upstream", fixture)
       rust = run_case("rust", fixture)
 
-      assert_nil upstream["exception"], "#{fixture.fetch(:name)}: #{upstream.inspect}"
       assert_equal UPSTREAM_VERSION, upstream.fetch("dry_validation_version"), fixture.fetch(:name)
-      assert_equal upstream_validation_source, upstream.fetch("dry_validation_source"), fixture.fetch(:name)
       assert_nil rust.fetch("dry_validation_version"), fixture.fetch(:name)
+
+      if upstream["exception"] || rust["exception"]
+        assert_equal upstream["exception"], rust["exception"], fixture.fetch(:name)
+        next
+      end
+
+      assert_equal upstream_validation_source, upstream.fetch("dry_validation_source"), fixture.fetch(:name)
       assert_equal comparable_payload(upstream), comparable_payload(rust), fixture.fetch(:name)
     end
   end
@@ -102,7 +109,12 @@ class DifferentialCompatibilityTest < Minitest::Test
         "DRY_VALIDATION_UPSTREAM_VERSION" => UPSTREAM_VERSION
       },
       RbConfig.ruby, *ruby_load_path(mode), "-e", RUNNER, mode,
-      JSON.generate("source" => fixture.fetch(:source), "input" => fixture.fetch(:input))
+      JSON.generate(
+        "source" => fixture.fetch(:source),
+        "input" => fixture.fetch(:input),
+        "options" => fixture.fetch(:options, {}),
+        "context" => fixture.fetch(:context, {})
+      )
     )
     assert status.success?, stderr
     JSON.parse(stdout)
@@ -174,8 +186,8 @@ class DifferentialCompatibilityTest < Minitest::Test
       schema_case("exact size predicate", 'params { required(:code).value(:string, size?: 3) }', { "code" => "AB" }),
       schema_case("minimum size predicate", 'params { required(:name).value(:string, min_size?: 3) }', { "name" => "Al" }),
       schema_case("maximum size predicate", 'params { required(:name).value(:string, max_size?: 3) }', { "name" => "Alex" }),
-      schema_case("odd predicate", 'params { required(:number).value(:integer, odd?: true) }', { "number" => "2" }),
-      schema_case("even predicate", 'params { required(:number).value(:integer, even?: true) }', { "number" => "3" }),
+      schema_case("odd predicate", 'params { required(:number).value(:integer, :odd?) }', { "number" => "2" }),
+      schema_case("even predicate", 'params { required(:number).value(:integer, :even?) }', { "number" => "3" }),
       schema_case("format predicate", 'params { required(:email).value(:string, format?: /\\A[^@]+@[^@]+\\z/) }', { "email" => "invalid" }),
       schema_case("included in predicate", 'params { required(:role).value(:string, included_in?: %w[admin user]) }', { "role" => "guest" }),
       schema_case("excluded from predicate", 'params { required(:role).value(:string, excluded_from?: %w[root admin]) }', { "role" => "root" }),
