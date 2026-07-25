@@ -39,7 +39,10 @@ class DifferentialCompatibilityTest < Minitest::Test
     begin
       trace = []
       contract = eval(payload.fetch("source"), binding, "differential-case.rb", 1)
-      result = contract.new.call(payload.fetch("input"))
+      result = contract.new(**payload.fetch("options", {})).call(
+        payload.fetch("input"),
+        payload.fetch("context", {})
+      )
       puts JSON.generate(
         "engine" => mode,
         "dry_validation_version" => Gem.loaded_specs["dry-validation"]&.version&.to_s,
@@ -47,6 +50,7 @@ class DifferentialCompatibilityTest < Minitest::Test
         "output" => normalize(result.to_h),
         "classes" => classes(result.to_h),
         "errors" => normalize(result.errors.to_h),
+        "context" => normalize(result.context.to_h),
         "trace" => trace
       )
     rescue StandardError => error
@@ -150,7 +154,29 @@ class DifferentialCompatibilityTest < Minitest::Test
       rule_case("base rule failure", 'params { required(:age).value(:integer) }; rule(:age) { base.failure("blocked") if value == 0 }', { "age" => "0" }),
       rule_case("rule skips after schema failure", 'params { required(:age).value(:integer) }; rule(:age) { trace << "ran"; key.failure("must be adult") if value < 18 }', { "age" => "bad" }),
       rule_case("rule trace on valid schema", 'params { required(:age).value(:integer) }; rule(:age) { trace << "ran"; key.failure("must be adult") if value < 18 }', { "age" => "17" }),
-      rule_case("rule exception propagates", 'params { required(:age).value(:integer) }; rule(:age) { raise ArgumentError, "rule exploded" }', { "age" => "17" })
+      rule_case("rule exception propagates", 'params { required(:age).value(:integer) }; rule(:age) { raise ArgumentError, "rule exploded" }', { "age" => "17" }),
+      contract_case(
+        "required option and mutable call context",
+        'option :minimum; params { required(:age).value(:integer) }; rule(:age) { |context:| context[:minimum] = minimum; key.failure("must meet minimum") if value < minimum }',
+        { "age" => "17" },
+        options: { minimum: 18 },
+        context: { request_id: 7 }
+      ),
+      contract_case(
+        "global macro failure",
+        'Dry::Validation.register_macro(:differential_even) { key.failure("must be even") unless value.even? }; params { required(:number).value(:integer) }; rule(:number).validate(:differential_even)',
+        { "number" => "3" }
+      ),
+      source_case(
+        "inherited contract schema rules and macros",
+        'parent = Class.new(Dry::Validation::Contract) do; register_macro(:minimum) { |macro:| key.failure("must meet minimum") if value < macro.args.fetch(0) }; params { required(:name).filled(:string) }; rule(:name) { key.failure("is blocked") if value == "blocked" }; end; Class.new(parent) do; params { required(:age).value(:integer) }; rule(:age).validate(minimum: 18); end',
+        { "name" => "blocked", "age" => "17" }
+      ),
+      contract_case(
+        "imported reusable schema",
+        'address = Dry::Schema.Params { required(:city).filled(:string) }; params(address) { required(:name).filled(:string) }',
+        { "city" => "", "name" => "Jane" }
+      )
     ]
   end
 
@@ -169,5 +195,25 @@ class DifferentialCompatibilityTest < Minitest::Test
 
   def rule_case(name, body, input)
     { name: name, source: "Class.new(Dry::Validation::Contract) do\n#{body}\nend", input: input }
+  end
+
+  def contract_case(name, body, input, options: {}, context: {})
+    source_case(
+      name,
+      "Class.new(Dry::Validation::Contract) do\n#{body}\nend",
+      input,
+      options: options,
+      context: context
+    )
+  end
+
+  def source_case(name, source, input, options: {}, context: {})
+    {
+      name: name,
+      source: source,
+      input: input,
+      options: options,
+      context: context
+    }
   end
 end
