@@ -143,6 +143,7 @@ class DifferentialCompatibilityTest < Minitest::Test
       schema_case("date time coercion", 'params { required(:created_at).value(:date_time) }', { "created_at" => "2026-07-12T10:00:00+00:00" }),
       schema_case("time coercion", 'params { required(:created_at).value(:time) }', { "created_at" => "2026-07-12T10:00:00Z" }),
       schema_case("filled rejects blank string", 'params { required(:name).filled(:string) }', { "name" => "" }),
+      schema_case("filled preserves companion size predicate", 'params { required(:name).filled(:string, min_size?: 3) }', { "name" => "" }),
       schema_case("maybe converts blank params string", 'params { required(:name).maybe(:string) }', { "name" => "" }),
       schema_case("nested hash succeeds", 'params { required(:profile).hash { required(:age).value(:integer) } }', { "profile" => { "age" => "42" } }),
       schema_case("nested hash missing key", 'params { required(:profile).hash { required(:age).value(:integer) } }', { "profile" => {} }),
@@ -175,6 +176,8 @@ class DifferentialCompatibilityTest < Minitest::Test
       rule_case("multi hash nested rule path", 'params { required(:address).hash { required(:city).filled(:string); required(:zip).filled(:string) } }; rule(address: [:city, :zip]) { key.failure("is unavailable") if values[:address][:city] == "Nowhere" && values[:address][:zip] == "00000" }', { "address" => { "city" => "Nowhere", "zip" => "00000" } }),
       rule_case("rule skips after schema failure", 'params { required(:age).value(:integer) }; rule(:age) { trace << "ran"; key.failure("must be adult") if value < 18 }', { "age" => "bad" }),
       rule_case("rule trace on valid schema", 'params { required(:age).value(:integer) }; rule(:age) { trace << "ran"; key.failure("must be adult") if value < 18 }', { "age" => "17" }),
+      rule_case("array rule skips invalid members", 'params { required(:numbers).array(:integer) }; rule(:numbers).each { key.failure("must be positive") if value <= 0 }', { "numbers" => ["bad", "0", "1"] }),
+      rule_case("optional key rule executes when key is absent", 'params { optional(:age).value(:integer) }; rule(:age) { key.failure("must be supplied") unless key? }', {}),
       rule_case("rule exception propagates", 'params { required(:age).value(:integer) }; rule(:age) { raise ArgumentError, "rule exploded" }', { "age" => "17" }),
       contract_case(
         "required option and mutable call context",
