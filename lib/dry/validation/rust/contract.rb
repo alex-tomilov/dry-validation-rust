@@ -33,7 +33,9 @@ module Dry
           def rule(*specs, &block)
             paths = specs.flat_map { |spec| Path.expand(spec) }
             ensure_valid_paths(paths) unless paths.empty?
-            Rule.new(paths: paths, block: block).tap { |new_rule| own_rules << new_rule }
+            Rule.new(paths: paths, default_path: default_rule_path(specs, paths), block: block).tap do |new_rule|
+              own_rules << new_rule
+            end
           end
 
           def rules
@@ -114,6 +116,14 @@ module Dry
             raise InvalidKeysError,
               "#{name || self}.rule specifies keys that are not defined by the schema: #{invalid.inspect}"
           end
+
+          def default_rule_path(specs, paths)
+            spec = specs.first
+            return paths.first || [] unless specs.length == 1 && spec.is_a?(Hash) && spec.length == 1
+
+            key, value = spec.first
+            value.is_a?(Array) ? [key, value] : paths.first || []
+          end
         end
 
         attr_reader :default_context
@@ -185,7 +195,13 @@ module Dry
         end
 
         def execute_rule(rule, result, context)
-          evaluator = Evaluator.new(contract: self, result: result, paths: rule.paths, context: context)
+          evaluator = Evaluator.new(
+            contract: self,
+            result: result,
+            paths: rule.paths,
+            default_path: rule.default_path,
+            context: context
+          )
           evaluator.execute(rule.block, rule.macro_calls).failures.each { |failure| result.add_error(failure) }
         end
 

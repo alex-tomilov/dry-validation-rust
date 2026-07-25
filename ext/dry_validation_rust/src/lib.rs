@@ -272,7 +272,8 @@ fn process_value(
         }
     };
 
-    if field.filled && empty_value(coerced) {
+    let filled_error = field.filled && empty_value(coerced);
+    if filled_error {
         errors.push(NativeError::new(path, "filled", "must be filled"));
     }
 
@@ -296,7 +297,9 @@ fn process_value(
         }
     }
 
-    apply_predicates(ruby, field, value, path, errors)?;
+    if !filled_error {
+        apply_predicates(ruby, field, value, path, errors)?;
+    }
     Ok(value)
 }
 
@@ -497,7 +500,7 @@ fn predicate_message(predicate: &PredicatePlan) -> String {
         "lteq" => format!("must be less than or equal to {argument}"),
         "min_size" => format!("size cannot be less than {argument}"),
         "max_size" => format!("size cannot be greater than {argument}"),
-        "size" => format!("size must be {argument}"),
+        "size" => format!("length must be {argument}"),
         "odd" => "must be odd".to_owned(),
         "even" => "must be even".to_owned(),
         _ => "is invalid".to_owned(),
@@ -599,15 +602,20 @@ mod tests {
 
     #[test]
     fn predicate_messages_preserve_arguments() {
-        let predicate = PredicatePlan {
+        let greater_than_or_equal = PredicatePlan {
             name: "gteq".to_owned(),
             argument: JsonValue::from(18),
         };
+        let size = PredicatePlan {
+            name: "size".to_owned(),
+            argument: JsonValue::from(3),
+        };
 
         assert_eq!(
-            predicate_message(&predicate),
+            predicate_message(&greater_than_or_equal),
             "must be greater than or equal to 18"
         );
+        assert_eq!(predicate_message(&size), "length must be 3");
     }
 
     #[test]

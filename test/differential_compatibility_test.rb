@@ -13,9 +13,12 @@ class DifferentialCompatibilityTest < Minitest::Test
     mode, encoded = ARGV
     payload = JSON.parse(encoded)
     if mode == "upstream"
+      project_lib = File.join(ENV.fetch("DRY_VALIDATION_RUST_PROJECT_ROOT"), "lib")
+      $LOAD_PATH.delete_if { |entry| File.expand_path(entry) == project_lib }
       gem "dry-validation", ENV.fetch("DRY_VALIDATION_UPSTREAM_VERSION")
     end
     require "dry/validation"
+    dry_validation_source = $LOADED_FEATURES.find { |feature| feature.end_with?("/dry/validation.rb") }
 
     def normalize(value)
       case value
@@ -39,18 +42,21 @@ class DifferentialCompatibilityTest < Minitest::Test
     begin
       trace = []
       contract = eval(payload.fetch("source"), binding, "differential-case.rb", 1)
-      result = contract.new(**payload.fetch("options", {})).call(
+      options = payload.fetch("options", {}).transform_keys(&:to_sym)
+      context = payload.fetch("context", {}).transform_keys(&:to_sym)
+      result = contract.new(**options).call(
         payload.fetch("input"),
-        payload.fetch("context", {})
+        context
       )
       puts JSON.generate(
         "engine" => mode,
         "dry_validation_version" => Gem.loaded_specs["dry-validation"]&.version&.to_s,
+        "dry_validation_source" => dry_validation_source,
         "success" => result.success?,
         "output" => normalize(result.to_h),
         "classes" => classes(result.to_h),
         "errors" => normalize(result.errors.to_h),
-        "context" => normalize(result.context.to_h),
+        "context" => normalize(result.context.each_pair.to_h),
         "trace" => trace
       )
     rescue StandardError => error
@@ -69,6 +75,13 @@ class DifferentialCompatibilityTest < Minitest::Test
 
       assert_equal UPSTREAM_VERSION, upstream.fetch("dry_validation_version"), fixture.fetch(:name)
       assert_nil rust.fetch("dry_validation_version"), fixture.fetch(:name)
+
+      if upstream["exception"] || rust["exception"]
+        assert_equal upstream["exception"], rust["exception"], fixture.fetch(:name)
+        next
+      end
+
+      assert_equal upstream_validation_source, upstream.fetch("dry_validation_source"), fixture.fetch(:name)
       assert_equal comparable_payload(upstream), comparable_payload(rust), fixture.fetch(:name)
     end
   end
@@ -91,9 +104,17 @@ class DifferentialCompatibilityTest < Minitest::Test
     capture = mode == "upstream" ? :capture_bundled : :capture_isolated
     stdout, stderr, status = send(
       capture,
-      { "DRY_VALIDATION_UPSTREAM_VERSION" => UPSTREAM_VERSION },
+      {
+        "DRY_VALIDATION_RUST_PROJECT_ROOT" => PROJECT_ROOT,
+        "DRY_VALIDATION_UPSTREAM_VERSION" => UPSTREAM_VERSION
+      },
       RbConfig.ruby, *ruby_load_path(mode), "-e", RUNNER, mode,
-      JSON.generate("source" => fixture.fetch(:source), "input" => fixture.fetch(:input))
+      JSON.generate(
+        "source" => fixture.fetch(:source),
+        "input" => fixture.fetch(:input),
+        "options" => fixture.fetch(:options, {}),
+        "context" => fixture.fetch(:context, {})
+      )
     )
     assert status.success?, stderr
     JSON.parse(stdout)
@@ -123,7 +144,14 @@ class DifferentialCompatibilityTest < Minitest::Test
   end
 
   def comparable_payload(payload)
-    payload.reject { |key, _| %w[engine dry_validation_version].include?(key) }
+    payload.reject { |key, _| %w[engine dry_validation_version dry_validation_source].include?(key) }
+  end
+
+  def upstream_validation_source
+    File.join(
+      Gem::Specification.find_by_name("dry-validation", UPSTREAM_VERSION).full_gem_path,
+      "lib/dry/validation.rb"
+    )
   end
 
   def differential_cases
@@ -158,8 +186,8 @@ class DifferentialCompatibilityTest < Minitest::Test
       schema_case("exact size predicate", 'params { required(:code).value(:string, size?: 3) }', { "code" => "AB" }),
       schema_case("minimum size predicate", 'params { required(:name).value(:string, min_size?: 3) }', { "name" => "Al" }),
       schema_case("maximum size predicate", 'params { required(:name).value(:string, max_size?: 3) }', { "name" => "Alex" }),
-      schema_case("odd predicate", 'params { required(:number).value(:integer, odd?: true) }', { "number" => "2" }),
-      schema_case("even predicate", 'params { required(:number).value(:integer, even?: true) }', { "number" => "3" }),
+      schema_case("odd predicate", 'params { required(:number).value(:integer, :odd?) }', { "number" => "2" }),
+      schema_case("even predicate", 'params { required(:number).value(:integer, :even?) }', { "number" => "3" }),
       schema_case("format predicate", 'params { required(:email).value(:string, format?: /\\A[^@]+@[^@]+\\z/) }', { "email" => "invalid" }),
       schema_case("included in predicate", 'params { required(:role).value(:string, included_in?: %w[admin user]) }', { "role" => "guest" }),
       schema_case("excluded from predicate", 'params { required(:role).value(:string, excluded_from?: %w[root admin]) }', { "role" => "root" }),

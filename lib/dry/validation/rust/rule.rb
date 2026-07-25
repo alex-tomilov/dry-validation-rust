@@ -4,10 +4,11 @@ module Dry
   module Validation
     module Rust
       class Rule
-        attr_reader :paths, :block, :macro_calls
+        attr_reader :paths, :default_path, :block, :macro_calls
 
-        def initialize(paths:, block: nil)
+        def initialize(paths:, default_path: paths.first || [], block: nil)
           @paths = paths
+          @default_path = default_path
           @block = block
           @macro_calls = []
           @each = false

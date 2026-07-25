@@ -6,10 +6,11 @@ module Dry
       class Evaluator
         attr_reader :contract, :result, :paths, :values, :context, :index, :failures
 
-        def initialize(contract:, result:, paths:, context:, index: nil)
+        def initialize(contract:, result:, paths:, default_path: paths.first || [], context:, index: nil)
           @contract = contract
           @result = result
           @paths = paths
+          @default_path = default_path
           @values = result.values
           @context = context
           @index = index
@@ -39,11 +40,11 @@ module Dry
         end
 
         def value
-          raw = Path.fetch(values.data, default_path)
+          raw = Path.fetch(values.data, value_path)
           raw.equal?(Path::Undefined) ? nil : raw
         end
 
-        def key?(name = default_path)
+        def key?(name = value_path)
           Path.key?(values.data, name)
         end
 
@@ -75,6 +76,10 @@ module Dry
         private
 
         def default_path
+          @default_path
+        end
+
+        def value_path
           paths.first || []
         end
 
