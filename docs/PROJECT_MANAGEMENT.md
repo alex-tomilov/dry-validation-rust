@@ -1,15 +1,15 @@
 # Project management
 
-The public outcome roadmap is [ROADMAP.md](ROADMAP.md). The executable Codex
-specifications live under `docs/codex/stages/`, and
+The public outcome roadmap is [ROADMAP.md](ROADMAP.md). The authoritative
+milestone specifications are the numbered files in `docs/codex/`, and
 `.github/project-management.yml` is the declarative source for optional GitHub
 issue/project synchronization.
 
 ## Working rules
 
-- Use one stable stage key (`T01`, `R03`, `G00`) per issue.
-- Work on one coherent slice at a time; a stage is an outcome area, not a single
-  giant pull request.
+- Use one stable milestone key (`A` through `G`) per managed roadmap issue.
+- Work on one coherent slice at a time; Milestone E is explicitly one selected
+  compatibility feature, not a single large implementation.
 - Move work to `Ready` only when current evidence, non-goals, dependencies,
   acceptance criteria, and rollback are explicit.
 - Compatibility claims need pinned separate-process differential evidence.
@@ -20,15 +20,18 @@ issue/project synchronization.
 
 ## Milestones
 
-| Milestone | Outcome | Gate |
-|---|---|---|
-| `0.1 prerelease - safe core` | Safe supported subset, robust verification, source package readiness | `G00` |
-| `0.2-0.3 - evidence and adoption` | Broader compatibility/delivery evidence, maintained adoption paths, and profiled improvements | `G01` |
-| `Future - batch and streaming experiments` | Optional Rust-owned processing experiments | No release commitment |
+| Key | Milestone | Outcome | Depends on |
+|---|---|---|---|
+| `A` | Trustworthy baseline | Pinned compatibility evidence, explicit unsupported forms, source-gem smoke test | — |
+| `B` | Common schema path | Dependable nested schema behavior for the documented subset | `A` |
+| `C` | Ordinary contract rules | Predictable supported rule execution and state isolation | `B` |
+| `D` | Performance proof | Reproducible evidence for favourable, neutral, and unfavourable workloads | `C` |
+| `E` | Migration-driven compatibility slice | One selected, upstream-evidenced migration blocker | `C` |
+| `F` | Packaging and platforms | Clean installation on a small verified support matrix | `A`, `C` |
+| `G` | Stable supported subset | Narrow 1.0 go/no-go decision based on prior evidence | `D`, `E`, `F` |
 
-The ordered stage list and dependencies are maintained in
-[ROADMAP.md](ROADMAP.md) and `.github/project-management.yml`; they are not
-duplicated here.
+The milestone files define their own detailed acceptance criteria and exit gates;
+this table only records the management order.
 
 ## Labels and board
 
@@ -57,6 +60,6 @@ script/sync-github-project-management --apply
 ```
 
 It creates or updates managed metadata and never deletes unknown remote objects.
-Roadmap issues use `<!-- dvr-roadmap:KEY -->` markers. Replacing the local roadmap
-does not automatically close obsolete remote issues; review those manually before
-any authorized synchronization.
+Roadmap issues use `<!-- dvr-roadmap:KEY -->` markers. Replacing the local
+roadmap does not automatically close obsolete remote issues; review those
+manually before any authorized synchronization.

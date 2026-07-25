@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require_relative "test_helper"
+require "bundler"
 require "json"
 require "open3"
 
@@ -229,12 +230,14 @@ class BaselineFixtureTest < Minitest::Test
   end
 
   def run_isolated_json(code)
-    stdout, stderr, status = Open3.capture3(
-      RbConfig.ruby,
-      "-I#{File.join(PROJECT_ROOT, 'lib')}",
-      "-e",
-      code
-    )
+    stdout, stderr, status = Bundler.with_unbundled_env do
+      Open3.capture3(
+        RbConfig.ruby,
+        "-I#{File.join(PROJECT_ROOT, 'lib')}",
+        "-e",
+        code
+      )
+    end
     assert status.success?, stderr
     JSON.parse(stdout)
   end

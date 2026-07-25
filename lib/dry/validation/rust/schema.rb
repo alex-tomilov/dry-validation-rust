@@ -237,7 +237,8 @@ module Dry
               when Symbol then definition.add_predicate(predicate)
               when Hash then predicate.each { |name, argument| definition.add_predicate(name, argument) }
               else
-                raise UnsupportedFeatureError, "unsupported type or predicate specification: #{predicate.inspect}"
+                raise UnsupportedFeatureError,
+                  "unsupported type or predicate specification: #{predicate.class.name}"
               end
             end
             predicates.each { |name, argument| definition.add_predicate(name, argument) }

@@ -3,8 +3,10 @@
 ## Target
 
 The public target for the `0.1.x` line is the common `dry-validation` contract
-surface, pinned to `dry-validation` 1.11.1 and `dry-schema` 1.16.0. This is not
-a claim of full behavioral compatibility.
+surface. The authoritative machine-readable pin is `dry-validation` 1.11.1 in
+the root `Gemfile`; its locked `dry-schema` dependency is 1.16.0. This is not a
+claim of full behavioral compatibility. `bundle exec rake compatibility:differential`
+executes the initial corpus against both engines in separate Ruby processes.
 
 Version, platform, and release-line support are documented in
 [SUPPORT_MATRIX.md](SUPPORT_MATRIX.md).
