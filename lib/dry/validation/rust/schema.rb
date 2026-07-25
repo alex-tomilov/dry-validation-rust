@@ -120,6 +120,16 @@ module Dry
             self
           end
 
+          def before(*_args, &_block)
+            raise UnsupportedFeatureError,
+              "schema before processor hooks are not supported by the native plan yet"
+          end
+
+          def after(*_args, &_block)
+            raise UnsupportedFeatureError,
+              "schema after processor hooks are not supported by the native plan yet"
+          end
+
           def compile
             Schema.new(mode: mode, fields: fields)
           end
