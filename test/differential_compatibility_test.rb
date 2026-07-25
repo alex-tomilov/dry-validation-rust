@@ -84,7 +84,9 @@ class DifferentialCompatibilityTest < Minitest::Test
   private
 
   def run_case(mode, fixture)
-    stdout, stderr, status = capture_isolated(
+    capture = mode == "upstream" ? :capture_bundled : :capture_isolated
+    stdout, stderr, status = send(
+      capture,
       { "DRY_VALIDATION_UPSTREAM_VERSION" => UPSTREAM_VERSION },
       RbConfig.ruby, *ruby_load_path(mode), "-e", RUNNER, mode,
       JSON.generate("source" => fixture.fetch(:source), "input" => fixture.fetch(:input))
@@ -103,13 +105,17 @@ class DifferentialCompatibilityTest < Minitest::Test
   end
 
   def ruby_load_path(mode)
-    return [] if mode == "upstream"
+    return ["-rbundler/setup"] if mode == "upstream"
 
     ["-I#{File.join(PROJECT_ROOT, "lib")}"]
   end
 
   def capture_isolated(environment, *command)
     Bundler.with_unbundled_env { Open3.capture3(environment, *command) }
+  end
+
+  def capture_bundled(environment, *command)
+    Open3.capture3(environment, *command)
   end
 
   def comparable_payload(payload)
