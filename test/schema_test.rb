@@ -42,6 +42,52 @@ class SchemaTest < Minitest::Test
     assert_equal({age: ["must be an integer"]}, result.errors.to_h)
   end
 
+  def test_key_handling_differs_by_schema_mode_and_filters_undeclared_keys
+    declaration = proc do
+      required(:profile).hash { required(:name).value(:string) }
+      required(:age).value(:integer)
+    end
+
+    params = build_contract { params(&declaration) }
+    json = build_contract { json(&declaration) }
+    schema = build_contract { schema(&declaration) }
+
+    mixed_keys = {"profile" => {name: "Jane", "ignored" => "value"}, age: 21, "ignored" => true}
+
+    assert_equal({profile: {name: "Jane"}, age: 21}, params.new.call(mixed_keys).to_h)
+    assert_equal({profile: {name: "Jane"}, age: 21}, json.new.call(mixed_keys).to_h)
+
+    schema_result = schema.new.call(mixed_keys)
+    assert_equal({age: 21}, schema_result.to_h)
+    assert_equal({profile: ["is missing"]}, schema_result.errors.to_h)
+  end
+
+  def test_schema_mode_requires_symbol_keys_at_each_nested_level
+    contract = build_contract do
+      schema do
+        required(:profile).hash { required(:name).value(:string) }
+      end
+    end
+
+    result = contract.new.call(profile: {"name" => "Jane"})
+
+    assert_equal({profile: {}}, result.to_h)
+    assert_equal({profile: {name: ["is missing"]}}, result.errors.to_h)
+  end
+
+  def test_duplicate_key_declarations_fail_explicitly
+    error = assert_raises(ArgumentError) do
+      build_contract do
+        params do
+          required(:name).value(:string)
+          required(:name).value(:integer)
+        end
+      end
+    end
+
+    assert_equal "key :name is already defined", error.message
+  end
+
   def test_required_optional_filled_and_maybe
     contract = build_contract do
       params do
