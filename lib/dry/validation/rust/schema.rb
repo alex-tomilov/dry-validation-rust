@@ -99,6 +99,36 @@ module Dry
           def normalized_type
             type == :datetime ? :date_time : type
           end
+
+          def deep_dup
+            self.class.new(name: name, required: required).tap do |copy|
+              copy.nullable = nullable
+              copy.filled = filled
+              copy.type = type
+              copy.member = member&.deep_dup
+              copy.children = children.map(&:deep_dup)
+              predicates.each do |predicate|
+                copy.predicates << Predicate.new(name: predicate.name, argument: duplicate_value(predicate.argument))
+              end
+            end
+          end
+
+          private
+
+          def duplicate_value(value)
+            case value
+            when Array
+              value.map { |item| duplicate_value(item) }
+            when Hash
+              value.each_with_object({}) do |(key, item), copy|
+                copy[duplicate_value(key)] = duplicate_value(item)
+              end
+            else
+              value.dup
+            end
+          rescue TypeError
+            value
+          end
         end
 
         class DSL
@@ -122,7 +152,13 @@ module Dry
               raise UnsupportedFeatureError, "only schemas built by Dry::Validation::Rust can be imported"
             end
 
-            fields.concat(schema.fields.map { |field| Marshal.load(Marshal.dump(field)) })
+            schema.fields.each do |field|
+              if fields.any? { |existing| existing.name == field.name }
+                raise ArgumentError, "key #{field.name.inspect} is already defined"
+              end
+
+              fields << field.deep_dup
+            end
             self
           end
 
@@ -205,7 +241,7 @@ module Dry
               member = FieldDefinition.new(name: nil, required: true)
               if member_type.is_a?(Schema)
                 member.type = :hash
-                member.children = member_type.fields.map { |field| Marshal.load(Marshal.dump(field)) }
+                member.children = member_type.fields.map(&:deep_dup)
               else
                 member.type = normalize_type(member_type)
               end
