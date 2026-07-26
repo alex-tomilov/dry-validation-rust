@@ -26,6 +26,11 @@ class DifferentialCompatibilityTest < Minitest::Test
         value.each_with_object({}) { |(key, child), result| result[key.nil? ? "__base__" : key.to_s] = normalize(child) }
       when Array then value.map { |child| normalize(child) }
       when Symbol then { "__symbol__" => value.to_s }
+      when Float
+        return { "__float__" => "NaN" } if value.nan?
+        return { "__float__" => value.infinite? == 1 ? "Infinity" : "-Infinity" } if value.infinite?
+
+        value
       else value
       end
     end
@@ -168,6 +173,7 @@ class DifferentialCompatibilityTest < Minitest::Test
       *key_mode_cases,
       schema_case("integer coercion", 'params { required(:age).value(:integer) }', { "age" => "42" }),
       schema_case("integer coercion failure", 'params { required(:age).value(:integer) }', { "age" => "forty-two" }),
+      *scalar_coercion_boundary_cases,
       schema_case("boolean coercion", 'params { required(:enabled).value(:bool) }', { "enabled" => "false" }),
       schema_case("boolean true coercion", 'params { required(:enabled).value(:bool) }', { "enabled" => "true" }),
       schema_case("float coercion", 'params { required(:ratio).value(:float) }', { "ratio" => "1.5" }),
@@ -297,6 +303,35 @@ class DifferentialCompatibilityTest < Minitest::Test
         "Class.new(Dry::Validation::Contract) do\nschema { required(:profile).hash { required(:name).value(:string) } }\nend",
         input_source: '{ profile: { "name" => "Jane" } }'
       )
+    ]
+  end
+
+  def scalar_coercion_boundary_cases
+    [
+      schema_case("integer accepts arbitrary precision", 'params { required(:value).value(:integer) }', { "value" => "9223372036854775808" }),
+      schema_case("integer accepts underscores and signs", 'params { required(:value).value(:integer) }', { "value" => "+1_024" }),
+      schema_case("integer rejects decimal syntax", 'params { required(:value).value(:integer) }', { "value" => "12.0" }),
+      schema_case("boolean accepts y", 'params { required(:value).value(:bool) }', { "value" => "Y" }),
+      schema_case("boolean accepts n", 'params { required(:value).value(:bool) }', { "value" => "n" }),
+      schema_case("boolean rejects unknown spelling", 'params { required(:value).value(:bool) }', { "value" => "maybe" }),
+      schema_case("true coerces boolean input", 'params { required(:value).value(:true) }', { "value" => "yes" }),
+      schema_case("true reports coerced false input", 'params { required(:value).value(:true) }', { "value" => "no" }),
+      schema_case("false coerces boolean input", 'params { required(:value).value(:false) }', { "value" => "n" }),
+      schema_case("false reports coerced true input", 'params { required(:value).value(:false) }', { "value" => "y" }),
+      schema_case("float accepts underscore separators", 'params { required(:value).value(:float) }', { "value" => "1_2" }),
+      schema_case("float permits numeric overflow", 'params { required(:value).value(:float) }', { "value" => "1e999" }),
+      schema_case("float rejects literal infinity", 'params { required(:value).value(:float) }', { "value" => "Infinity" }),
+      schema_case("float rejects abbreviated infinity", 'params { required(:value).value(:float) }', { "value" => "Inf" }),
+      schema_case("float rejects literal nan", 'params { required(:value).value(:float) }', { "value" => "NaN" }),
+      schema_case("decimal accepts underscore separators", 'params { required(:value).value(:decimal) }', { "value" => "1_2" }),
+      schema_case("decimal permits large finite exponents", 'params { required(:value).value(:decimal) }', { "value" => "1e999" }),
+      schema_case("decimal rejects infinity", 'params { required(:value).value(:decimal) }', { "value" => "Infinity" }),
+      schema_case("decimal rejects nan", 'params { required(:value).value(:decimal) }', { "value" => "NaN" }),
+      schema_case("date accepts date-time input", 'params { required(:value).value(:date) }', { "value" => "2026-07-12T10:00:00Z" }),
+      schema_case("date rejects invalid calendar date", 'params { required(:value).value(:date) }', { "value" => "2026-02-30" }),
+      schema_case("date time rejects invalid calendar date", 'params { required(:value).value(:date_time) }', { "value" => "2026-02-30T10:00:00Z" }),
+      schema_case("time accepts time-only input", 'params { required(:value).value(:time) }', { "value" => "10:00:00" }),
+      schema_case("symbol accepts empty string", 'params { required(:value).value(:symbol) }', { "value" => "" })
     ]
   end
 

@@ -272,6 +272,11 @@ fn process_value(
         }
     };
 
+    if !type_matches(ruby, classes, &field.kind, coerced) {
+        errors.push(NativeError::new(path, "type", type_message(&field.kind)));
+        return Ok(coerced);
+    }
+
     let filled_error = field.filled && empty_value(coerced);
     if filled_error {
         errors.push(NativeError::new(path, "filled", "must be filled"));
@@ -321,20 +326,21 @@ fn coerce(
         return Ok(None);
     };
     let source = string.to_string()?;
-    let trimmed = source.trim();
     let converted = match kind {
-        "integer" => trimmed
-            .parse::<i64>()
-            .ok()
-            .map(|number| ruby.integer_from_i64(number).as_value()),
-        "float" => trimmed
-            .parse::<f64>()
-            .ok()
-            .filter(|number| number.is_finite())
-            .map(|number| ruby.float_from_f64(number).as_value()),
-        "bool" => match trimmed.to_ascii_lowercase().as_str() {
-            "true" | "1" | "on" | "t" | "yes" => Some(ruby.qtrue().as_value()),
-            "false" | "0" | "off" | "f" | "no" => Some(ruby.qfalse().as_value()),
+        // Delegate numeric syntax to Ruby so Bignum values and underscore
+        // separators follow the pinned dry-types coercion path.
+        "integer" => ruby
+            .module_kernel()
+            .funcall::<_, _, Value>("Integer", (source.as_str(), 10))
+            .ok(),
+        "float" if non_finite_literal(&source) => None,
+        "float" => ruby
+            .module_kernel()
+            .funcall::<_, _, Value>("Float", (source.as_str(),))
+            .ok(),
+        "bool" | "true" | "false" => match source.to_ascii_lowercase().as_str() {
+            "true" | "1" | "on" | "t" | "yes" | "y" => Some(ruby.qtrue().as_value()),
+            "false" | "0" | "off" | "f" | "no" | "n" => Some(ruby.qfalse().as_value()),
             _ => None,
         },
         "symbol" => Some(ruby.to_symbol(&source).as_value()),
@@ -351,15 +357,27 @@ fn coerce(
         "time" => classes
             .time
             .expect("Time class is loaded for time fields")
-            .funcall::<_, _, Value>("iso8601", (source.as_str(),))
+            .funcall::<_, _, Value>("parse", (source.as_str(),))
             .ok(),
         "decimal" => ruby
             .module_kernel()
             .funcall::<_, _, Value>("BigDecimal", (source.as_str(),))
-            .ok(),
+            .ok()
+            .filter(|decimal| {
+                decimal
+                    .funcall::<_, _, bool>("finite?", ())
+                    .unwrap_or(false)
+            }),
         _ => None,
     };
     Ok(converted)
+}
+
+fn non_finite_literal(source: &str) -> bool {
+    matches!(
+        source.trim().to_ascii_lowercase().as_str(),
+        "infinity" | "+infinity" | "-infinity" | "inf" | "+inf" | "-inf" | "nan" | "+nan" | "-nan"
+    )
 }
 
 fn type_matches(ruby: &Ruby, classes: &RuntimeClasses, kind: &str, value: Value) -> bool {
