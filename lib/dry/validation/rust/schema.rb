@@ -70,7 +70,13 @@ module Dry
           end
 
           def add_predicate(name, argument = true)
-            predicates << Predicate.new(name: name.to_s.delete_suffix("?").to_sym, argument: argument)
+            normalized_name = name.to_s.delete_suffix("?").to_sym
+            unless (NATIVE_PREDICATES | RUBY_PREDICATES).include?(normalized_name)
+              raise UnsupportedFeatureError,
+                "predicate #{normalized_name.inspect} is not supported natively; move it to a contract rule"
+            end
+
+            predicates << Predicate.new(name: normalized_name, argument: argument)
           end
 
           def to_native_h
@@ -313,7 +319,11 @@ module Dry
 
           output, native_errors = engine.call(input)
           messages = native_errors.map do |path, code, text|
-            Message.new(text, path: path, code: code, source: :schema)
+            predicate, args = native_predicate_details(path, code)
+            Message.new(
+              text, path: path, code: code, source: :schema,
+              predicate: predicate, args: args
+            )
           end
           apply_ruby_predicates(fields, output, [], messages)
           SchemaResult.new(output, messages.freeze)
@@ -397,7 +407,36 @@ module Dry
                  when :not_eql then "must not be equal to #{predicate.argument}"
                  else "is invalid"
                  end
-          Message.new(text, path: path, code: predicate.name, source: :schema)
+          Message.new(
+            text, path: path, code: predicate.name, source: :schema,
+            predicate: "#{predicate.name}?", args: [predicate.argument]
+          )
+        end
+
+        def native_predicate_details(path, code)
+          field = field_at_path(fields, path)
+          predicate = field&.predicates&.find { |candidate| candidate.name == code.to_sym }
+          predicate ? [:"#{predicate.name}?", [predicate.argument]] : [nil, []]
+        end
+
+        def field_at_path(definitions, path)
+          definition = nil
+          remaining = path.dup
+
+          until remaining.empty?
+            part = remaining.shift
+            if part.is_a?(Integer)
+              return unless definition&.member
+
+              definition = definition.member
+            else
+              definition = definitions.find { |field| field.name == part.to_sym }
+              return unless definition
+            end
+            definitions = definition.children
+          end
+
+          definition
         end
       end
     end

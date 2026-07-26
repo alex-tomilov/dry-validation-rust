@@ -4,14 +4,16 @@ module Dry
   module Validation
     module Rust
       class Message
-        attr_reader :text, :path, :meta, :code, :source
+        attr_reader :text, :path, :meta, :code, :source, :predicate, :args
 
-        def initialize(text, path:, meta: {}, code: nil, source: :rule)
+        def initialize(text, path:, meta: {}, code: nil, source: :rule, predicate: nil, args: [])
           @text = text.to_s.freeze
           @path = Array(path).freeze
           @meta = meta.freeze
           @code = code&.to_sym
           @source = source
+          @predicate = predicate&.to_sym
+          @args = args.freeze
         end
 
         def base?
@@ -31,7 +33,10 @@ module Dry
         end
 
         def with_text(new_text)
-          self.class.new(new_text, path: path, meta: meta, code: code, source: source)
+          self.class.new(
+            new_text, path: path, meta: meta, code: code, source: source,
+            predicate: predicate, args: args
+          )
         end
 
         def to_s
