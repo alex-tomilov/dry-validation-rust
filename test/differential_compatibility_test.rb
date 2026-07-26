@@ -160,6 +160,7 @@ class DifferentialCompatibilityTest < Minitest::Test
       schema_case("required scalar missing", 'params { required(:name).value(:string) }', {}),
       schema_case("optional scalar omitted", 'params { optional(:name).value(:string) }', {}),
       schema_case("optional scalar supplied", 'params { optional(:name).value(:string) }', { "name" => "Jane" }),
+      *presence_semantics_cases,
       schema_case("integer coercion", 'params { required(:age).value(:integer) }', { "age" => "42" }),
       schema_case("integer coercion failure", 'params { required(:age).value(:integer) }', { "age" => "forty-two" }),
       schema_case("boolean coercion", 'params { required(:enabled).value(:bool) }', { "enabled" => "false" }),
@@ -240,6 +241,29 @@ class DifferentialCompatibilityTest < Minitest::Test
       { name: "predicate composition", source: 'Class.new(Dry::Validation::Contract) { params { required(:age).value(:integer) { gt? 18 } } }', message: /predicate composition/ },
       { name: "schema before processor hook", source: 'Class.new(Dry::Validation::Contract) { params { before(:value_coercer) { |input| input } } }', message: /schema before processor hooks/ },
       { name: "schema after processor hook", source: 'Class.new(Dry::Validation::Contract) { params { after(:value_coercer) { |input| input } } }', message: /schema after processor hooks/ }
+    ]
+  end
+
+  def presence_semantics_cases
+    [
+      schema_case("required value rejects nil", 'params { required(:name).value(:string) }', { "name" => nil }),
+      schema_case("required filled rejects nil", 'params { required(:name).filled(:string) }', { "name" => nil }),
+      schema_case("required maybe accepts nil", 'params { required(:name).maybe(:string) }', { "name" => nil }),
+      schema_case("optional value rejects supplied nil", 'params { optional(:name).value(:string) }', { "name" => nil }),
+      schema_case("optional filled rejects supplied nil", 'params { optional(:name).filled(:string) }', { "name" => nil }),
+      schema_case("optional maybe accepts nil", 'params { optional(:name).maybe(:string) }', { "name" => nil }),
+      schema_case("params value retains empty string", 'params { required(:name).value(:string) }', { "name" => "" }),
+      schema_case("params filled rejects empty string", 'params { required(:name).filled(:string) }', { "name" => "" }),
+      schema_case("params maybe converts empty string to nil", 'params { required(:name).maybe(:string) }', { "name" => "" }),
+      schema_case("params filled rejects empty array", 'params { required(:tags).filled(:array) }', { "tags" => [] }),
+      schema_case("params filled rejects empty hash", 'params { required(:metadata).filled(:hash) }', { "metadata" => {} }),
+      schema_case("json value rejects nil", 'json { required(:name).value(:string) }', { "name" => nil }),
+      schema_case("json filled rejects nil", 'json { required(:name).filled(:string) }', { "name" => nil }),
+      schema_case("json maybe accepts nil", 'json { required(:name).maybe(:string) }', { "name" => nil }),
+      schema_case("json filled rejects empty string", 'json { required(:name).filled(:string) }', { "name" => "" }),
+      schema_case("json maybe retains empty string", 'json { required(:name).maybe(:string) }', { "name" => "" }),
+      schema_case("schema required key is missing for string input", 'schema { required(:name).value(:string) }', {}),
+      schema_case("schema optional key is omitted for string input", 'schema { optional(:name).value(:string) }', {})
     ]
   end
 

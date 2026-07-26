@@ -56,6 +56,26 @@ class SchemaTest < Minitest::Test
     assert_equal({name: "", note: nil}, result.to_h)
   end
 
+  def test_schema_presence_semantics_for_symbol_keys_and_empty_containers
+    contract = build_contract do
+      schema do
+        required(:value).value(:string)
+        required(:filled).filled(:string)
+        required(:maybe).maybe(:string)
+        optional(:tags).filled(:array)
+        optional(:metadata).filled(:hash)
+      end
+    end
+
+    result = contract.new.call(value: nil, filled: nil, maybe: nil, tags: [], metadata: {})
+
+    assert_equal(
+      {value: ["must be a string"], filled: ["must be a string"], tags: ["must be filled"], metadata: ["must be filled"]},
+      result.errors.to_h
+    )
+    assert_equal({value: nil, filled: nil, maybe: nil, tags: [], metadata: {}}, result.to_h)
+  end
+
   def test_nested_hashes_and_arrays_are_coerced
     contract = build_contract do
       params do

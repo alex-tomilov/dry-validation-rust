@@ -248,7 +248,7 @@ fn process_value(
     errors: &mut Vec<NativeError>,
 ) -> Result<Value, Error> {
     if raw.is_nil() {
-        if field.filled {
+        if field.filled && (mode == Mode::Params || field.kind == "nil" || field.kind == "any") {
             errors.push(NativeError::new(path, "filled", "must be filled"));
         } else if !field.nullable && field.kind != "nil" && field.kind != "any" {
             errors.push(NativeError::new(path, "type", type_message(&field.kind)));
