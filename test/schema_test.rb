@@ -300,6 +300,56 @@ class SchemaTest < Minitest::Test
     assert_equal "must be greater than or equal to 18", result.errors.to_h[:age].first
   end
 
+  def test_predicate_errors_preserve_paths_codes_and_arguments
+    contract = build_contract do
+      params do
+        required(:age).value(:integer, gt?: 18)
+        required(:profile).hash do
+          required(:email).value(:string, format?: /\A[^@]+@[^@]+\z/)
+        end
+        required(:role).value(:string, included_in?: %w[admin user])
+      end
+    end
+
+    errors = contract.new.call(
+      age: "18", profile: {email: "invalid"}, role: "guest"
+    ).errors
+
+    assert_equal [[:age], [:profile, :email], [:role]], errors.map(&:path)
+    assert_equal %i[gt format included_in], errors.map(&:code)
+    assert_equal %i[gt? format? included_in?], errors.map(&:predicate)
+    assert_equal [[18], [/\A[^@]+@[^@]+\z/], [%w[admin user]]], errors.map(&:args)
+    assert_equal [{}, {}, {}], errors.map(&:meta)
+  end
+
+  def test_predicates_accept_valid_values_and_skip_wrong_types
+    contract = build_contract do
+      params do
+        required(:age).value(:integer, gt?: 18)
+        required(:email).value(:string, format?: /\A[^@]+@[^@]+\z/)
+      end
+    end
+
+    assert contract.new.call(age: "19", email: "jane@example.test").success?
+
+    error = contract.new.call(age: "not-a-number", email: 42).errors.first
+    assert_equal "must be an integer", error.text
+    assert_equal :type, error.code
+    assert_nil error.predicate
+    assert_equal [], error.args
+    assert_equal({}, error.meta)
+  end
+
+  def test_unknown_predicates_fail_when_the_schema_is_declared
+    error = assert_raises(Dry::Validation::Rust::UnsupportedFeatureError) do
+      build_contract do
+        params { required(:age).value(:integer, unknown?: 1) }
+      end
+    end
+
+    assert_equal "predicate :unknown is not supported natively; move it to a contract rule", error.message
+  end
+
   def test_filled_failure_skips_native_predicates
     contract = build_contract do
       params { required(:name).filled(:string, min_size?: 3) }
