@@ -165,6 +165,60 @@ class SchemaTest < Minitest::Test
     )
   end
 
+  def test_arrays_preserve_member_output_and_report_each_invalid_member_at_its_index
+    contract = build_contract do
+      params do
+        required(:scores).array(:integer)
+        required(:people).array(:hash) do
+          required(:id).value(:integer)
+          required(:profile).hash { required(:age).value(:integer) }
+        end
+      end
+    end
+
+    result = contract.new.call(
+      scores: ["bad", "2", "also bad"],
+      people: [
+        {id: "bad", profile: {age: "bad"}},
+        "not a hash",
+        {profile: {}}
+      ]
+    )
+
+    assert_equal(
+      {
+        scores: {0 => ["must be an integer"], 2 => ["must be an integer"]},
+        people: {
+          0 => {id: ["must be an integer"], profile: {age: ["must be an integer"]}},
+          1 => ["must be a hash"],
+          2 => {id: ["is missing"], profile: {age: ["is missing"]}}
+        }
+      },
+      result.errors.to_h
+    )
+    assert_equal(
+      {scores: ["bad", 2, "also bad"], people: [{id: "bad", profile: {age: "bad"}}, "not a hash", {profile: {}}]},
+      result.to_h
+    )
+  end
+
+  def test_arrays_reject_invalid_containers_and_accept_empty_arrays
+    contract = build_contract do
+      params do
+        required(:scores).array(:integer)
+        required(:people).array(:hash) { required(:id).value(:integer) }
+      end
+    end
+
+    invalid = contract.new.call(scores: "not an array", people: {})
+    empty = contract.new.call(scores: [], people: [])
+
+    assert_equal({scores: ["must be an array"], people: ["must be an array"]}, invalid.errors.to_h)
+    assert_equal({scores: "not an array", people: {}}, invalid.to_h)
+    assert empty.success?
+    assert_equal({scores: [], people: []}, empty.to_h)
+  end
+
   def test_nested_hashes_validate_multilevel_optional_fields_and_filter_keys
     contract = build_contract do
       params do

@@ -192,6 +192,7 @@ class DifferentialCompatibilityTest < Minitest::Test
       schema_case("primitive array coercion failure", 'params { required(:scores).array(:integer) }', { "scores" => ["1", "bad"] }),
       schema_case("array of hashes succeeds", 'params { required(:people).array(:hash) { required(:id).value(:integer) } }', { "people" => [{ "id" => "7" }] }),
       schema_case("array of hashes invalid", 'params { required(:people).array(:hash) { required(:id).value(:integer) } }', { "people" => [{ "id" => "bad" }] }),
+      *array_cases,
       schema_case("greater than predicate", 'params { required(:age).value(:integer, gt?: 18) }', { "age" => "18" }),
       schema_case("greater than or equal predicate", 'params { required(:age).value(:integer, gteq?: 18) }', { "age" => "18" }),
       schema_case("less than predicate", 'params { required(:age).value(:integer, lt?: 18) }', { "age" => "18" }),
@@ -362,6 +363,29 @@ class DifferentialCompatibilityTest < Minitest::Test
       schema_case("date time rejects invalid calendar date", 'params { required(:value).value(:date_time) }', { "value" => "2026-02-30T10:00:00Z" }),
       schema_case("time accepts time-only input", 'params { required(:value).value(:time) }', { "value" => "10:00:00" }),
       schema_case("symbol accepts empty string", 'params { required(:value).value(:symbol) }', { "value" => "" })
+    ]
+  end
+
+  def array_cases
+    nested_members = <<~'RUBY'.strip
+      params do
+        required(:people).array(:hash) do
+          required(:id).value(:integer)
+          required(:profile).hash { required(:age).value(:integer) }
+        end
+      end
+    RUBY
+
+    [
+      schema_case("array rejects invalid container", 'params { required(:scores).array(:integer) }', { "scores" => "not an array" }),
+      schema_case("array accepts empty members", 'params { required(:scores).array(:integer) }', { "scores" => [] }),
+      schema_case("array reports multiple primitive member failures", 'params { required(:scores).array(:integer) }', { "scores" => ["bad", "2", "also bad"] }),
+      schema_case("array hash member rejects non-hash", 'params { required(:people).array(:hash) { required(:id).value(:integer) } }', { "people" => ["not a hash"] }),
+      schema_case(
+        "array hash members retain stable nested index paths",
+        nested_members,
+        {"people" => [{"id" => "bad", "profile" => {"age" => "bad"}}, "not a hash", {"profile" => {}}]}
+      )
     ]
   end
 
