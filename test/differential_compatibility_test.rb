@@ -44,10 +44,12 @@ class DifferentialCompatibilityTest < Minitest::Test
       contract = eval(payload.fetch("source"), binding, "differential-case.rb", 1)
       options = payload.fetch("options", {}).transform_keys(&:to_sym)
       context = payload.fetch("context", {}).transform_keys(&:to_sym)
-      result = contract.new(**options).call(
-        payload.fetch("input"),
-        context
-      )
+      input = if payload.key?("input_source")
+                eval(payload.fetch("input_source"), binding, "differential-input.rb", 1)
+              else
+                payload.fetch("input")
+              end
+      result = contract.new(**options).call(input, context)
       puts JSON.generate(
         "engine" => mode,
         "dry_validation_version" => Gem.loaded_specs["dry-validation"]&.version&.to_s,
@@ -102,6 +104,13 @@ class DifferentialCompatibilityTest < Minitest::Test
 
   def run_case(mode, fixture)
     capture = mode == "upstream" ? :capture_bundled : :capture_isolated
+    payload = {
+      "source" => fixture.fetch(:source),
+      "options" => fixture.fetch(:options, {}),
+      "context" => fixture.fetch(:context, {})
+    }
+    payload["input"] = fixture.fetch(:input) if fixture.key?(:input)
+    payload["input_source"] = fixture.fetch(:input_source) if fixture.key?(:input_source)
     stdout, stderr, status = send(
       capture,
       {
@@ -109,12 +118,7 @@ class DifferentialCompatibilityTest < Minitest::Test
         "DRY_VALIDATION_UPSTREAM_VERSION" => UPSTREAM_VERSION
       },
       RbConfig.ruby, *ruby_load_path(mode), "-e", RUNNER, mode,
-      JSON.generate(
-        "source" => fixture.fetch(:source),
-        "input" => fixture.fetch(:input),
-        "options" => fixture.fetch(:options, {}),
-        "context" => fixture.fetch(:context, {})
-      )
+      JSON.generate(payload)
     )
     assert status.success?, stderr
     JSON.parse(stdout)
@@ -161,6 +165,7 @@ class DifferentialCompatibilityTest < Minitest::Test
       schema_case("optional scalar omitted", 'params { optional(:name).value(:string) }', {}),
       schema_case("optional scalar supplied", 'params { optional(:name).value(:string) }', { "name" => "Jane" }),
       *presence_semantics_cases,
+      *key_mode_cases,
       schema_case("integer coercion", 'params { required(:age).value(:integer) }', { "age" => "42" }),
       schema_case("integer coercion failure", 'params { required(:age).value(:integer) }', { "age" => "forty-two" }),
       schema_case("boolean coercion", 'params { required(:enabled).value(:bool) }', { "enabled" => "false" }),
@@ -267,6 +272,34 @@ class DifferentialCompatibilityTest < Minitest::Test
     ]
   end
 
+  def key_mode_cases
+    declaration = 'required(:profile).hash { required(:name).value(:string) }; required(:age).value(:integer)'
+    mixed_keys = '{ "profile" => { name: "Jane", "ignored" => "value" }, age: 21, "ignored" => true }'
+
+    [
+      source_case(
+        "params accepts mixed nested keys and filters undeclared keys",
+        "Class.new(Dry::Validation::Contract) do\nparams { #{declaration} }\nend",
+        input_source: mixed_keys
+      ),
+      source_case(
+        "json accepts mixed nested keys and filters undeclared keys",
+        "Class.new(Dry::Validation::Contract) do\njson { #{declaration} }\nend",
+        input_source: mixed_keys
+      ),
+      source_case(
+        "schema requires symbol keys and filters undeclared keys",
+        "Class.new(Dry::Validation::Contract) do\nschema { #{declaration} }\nend",
+        input_source: mixed_keys
+      ),
+      source_case(
+        "schema requires nested symbol keys",
+        "Class.new(Dry::Validation::Contract) do\nschema { required(:profile).hash { required(:name).value(:string) } }\nend",
+        input_source: '{ profile: { "name" => "Jane" } }'
+      )
+    ]
+  end
+
   def schema_case(name, declaration, input)
     { name: name, source: "Class.new(Dry::Validation::Contract) do\n#{declaration}\nend", input: input }
   end
@@ -285,13 +318,15 @@ class DifferentialCompatibilityTest < Minitest::Test
     )
   end
 
-  def source_case(name, source, input, options: {}, context: {})
-    {
+  def source_case(name, source, input = nil, input_source: nil, options: {}, context: {})
+    payload = {
       name: name,
       source: source,
-      input: input,
       options: options,
       context: context
     }
+    payload[:input] = input unless input.nil?
+    payload[:input_source] = input_source if input_source
+    payload
   end
 end
