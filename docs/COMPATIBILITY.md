@@ -62,10 +62,10 @@ Legend:
 | --- | --- | --- | --- |
 | `:any` | ✅ | ✅ | |
 | `:nil` | N/A | ✅ | |
-| `:bool` / `:true` / `:false` | ✅ | ✅ | Common boolean strings |
-| `:integer` | ✅ | ✅ | Signed 64-bit string path; Ruby Integer input accepted |
-| `:float` | ✅ | ✅ | Rejects non-finite parsed strings |
-| `:decimal` | ✅ | ✅ | BigDecimal |
+| `:bool` / `:true` / `:false` | ✅ | ✅ | `true/false`, `t/f`, `1/0`, `on/off`, `yes/no`, and `y/n` strings |
+| `:integer` | ✅ | ✅ | Ruby integer syntax, including arbitrary precision and underscores |
+| `:float` | ✅ | ✅ | Ruby float syntax, including numeric overflow; literal `Infinity` and `NaN` rejected |
+| `:decimal` | ✅ | ✅ | Finite BigDecimal values; infinities and NaN rejected |
 | `:string` | ✅ | ✅ | No non-string-to-string coercion |
 | `:symbol` | ✅ | ✅ | |
 | `:array` / `:hash` | ✅ | ✅ | |
@@ -76,9 +76,10 @@ Legend:
 | Enums/maps/intersections/sum types | ❌ | ❌ | |
 | Params hash-to-array coercion | ❌ | N/A | |
 
-Integer coercion is deliberately narrower than arbitrary Ruby `to_i`.
-Extremely large numeric strings currently report a type error instead of
-producing a Ruby Bignum. This must be expanded for full parity.
+The supported scalar corpus is differentially checked against the pinned
+upstream version for numeric boundaries, boolean spellings, temporal parsing,
+and symbols. This is a focused compatibility slice, not a claim of complete
+`dry-types` coercion parity.
 
 ## Schema predicates
 
