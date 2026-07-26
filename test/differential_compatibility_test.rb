@@ -187,6 +187,7 @@ class DifferentialCompatibilityTest < Minitest::Test
       schema_case("maybe converts blank params string", 'params { required(:name).maybe(:string) }', { "name" => "" }),
       schema_case("nested hash succeeds", 'params { required(:profile).hash { required(:age).value(:integer) } }', { "profile" => { "age" => "42" } }),
       schema_case("nested hash missing key", 'params { required(:profile).hash { required(:age).value(:integer) } }', { "profile" => {} }),
+      *nested_hash_cases,
       schema_case("primitive array succeeds", 'params { required(:scores).array(:integer) }', { "scores" => ["1", "2"] }),
       schema_case("primitive array coercion failure", 'params { required(:scores).array(:integer) }', { "scores" => ["1", "bad"] }),
       schema_case("array of hashes succeeds", 'params { required(:people).array(:hash) { required(:id).value(:integer) } }', { "people" => [{ "id" => "7" }] }),
@@ -302,6 +303,35 @@ class DifferentialCompatibilityTest < Minitest::Test
         "schema requires nested symbol keys",
         "Class.new(Dry::Validation::Contract) do\nschema { required(:profile).hash { required(:name).value(:string) } }\nend",
         input_source: '{ profile: { "name" => "Jane" } }'
+      )
+    ]
+  end
+
+  def nested_hash_cases
+    declaration = <<~'RUBY'.strip
+      params do
+        required(:account).hash do
+          required(:profile).hash do
+            required(:age).value(:integer)
+            optional(:nickname).maybe(:string)
+          end
+          optional(:settings).hash { optional(:timezone).value(:string) }
+        end
+      end
+    RUBY
+
+    [
+      schema_case(
+        "multilevel nested hash coerces and filters keys",
+        declaration,
+        {"account" => {"profile" => {"age" => "42", "ignored" => true}, "settings" => {"timezone" => "UTC", "ignored" => true}, "ignored" => true}}
+      ),
+      schema_case("nested hash missing parent", declaration, {"account" => {}}),
+      schema_case("nested hash rejects invalid parent", declaration, {"account" => {"profile" => "not a hash"}}),
+      source_case(
+        "nested hash accepts frozen input",
+        "Class.new(Dry::Validation::Contract) do\n#{declaration}\nend",
+        input_source: '{ "account" => { "profile" => { "age" => "42", "ignored" => true }, "ignored" => true }.freeze, "ignored" => true }.freeze'
       )
     ]
   end

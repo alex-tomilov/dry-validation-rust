@@ -165,6 +165,72 @@ class SchemaTest < Minitest::Test
     )
   end
 
+  def test_nested_hashes_validate_multilevel_optional_fields_and_filter_keys
+    contract = build_contract do
+      params do
+        required(:account).hash do
+          required(:profile).hash do
+            required(:age).value(:integer)
+            optional(:nickname).maybe(:string)
+          end
+          optional(:settings).hash do
+            optional(:timezone).value(:string)
+          end
+        end
+      end
+    end
+
+    result = contract.new.call(
+      "account" => {
+        "profile" => {"age" => "bad", "ignored" => true},
+        "settings" => {"timezone" => "UTC", "ignored" => true},
+        "ignored" => true
+      }
+    )
+
+    assert_equal({account: {profile: {age: ["must be an integer"]}}}, result.errors.to_h)
+    assert_equal({account: {profile: {age: "bad"}, settings: {timezone: "UTC"}}}, result.to_h)
+  end
+
+  def test_nested_hashes_report_missing_and_invalid_parent_containers
+    contract = build_contract do
+      params do
+        required(:account).hash do
+          required(:profile).hash { required(:age).value(:integer) }
+        end
+      end
+    end
+
+    missing_parent = contract.new.call("account" => {})
+    invalid_parent = contract.new.call("account" => {"profile" => "not a hash"})
+
+    assert_equal({account: {profile: ["is missing"]}}, missing_parent.errors.to_h)
+    assert_equal({account: {profile: ["must be a hash"]}}, invalid_parent.errors.to_h)
+    assert_equal({account: {profile: "not a hash"}}, invalid_parent.to_h)
+  end
+
+  def test_nested_hashes_accept_frozen_input_without_mutating_it
+    contract = build_contract do
+      params do
+        required(:account).hash do
+          required(:profile).hash { required(:age).value(:integer) }
+        end
+      end
+    end
+    profile = {"age" => "42", "ignored" => true}.freeze
+    account = {"profile" => profile, "ignored" => true}.freeze
+    input = {"account" => account, "ignored" => true}.freeze
+
+    result = contract.new.call(input)
+
+    assert result.success?
+    assert_equal({account: {profile: {age: 42}}}, result.to_h)
+    assert_equal({"account" => {"profile" => {"age" => "42", "ignored" => true}, "ignored" => true}, "ignored" => true}, input)
+    assert input.frozen?
+    assert account.frozen?
+    assert profile.frozen?
+  end
+
   def test_native_and_ruby_predicates
     contract = build_contract do
       params do
