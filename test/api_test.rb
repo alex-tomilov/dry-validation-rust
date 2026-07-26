@@ -55,6 +55,66 @@ class ApiTest < Minitest::Test
     assert contract.new.call(city: "Astana", name: "Alexey").success?
   end
 
+  def test_imported_schema_can_be_reused_without_state_leaking_between_contracts
+    address = Dry::Validation::Rust::Schema.Params do
+      required(:city).filled(:string)
+    end
+    first = build_contract { params(address) { required(:name).filled(:string) } }
+    second = build_contract { params(address) { required(:postal_code).value(:integer) } }
+
+    assert first.new.call(city: "Astana", name: "Alexey").success?
+    assert second.new.call(city: "Astana", postal_code: "010000").success?
+    assert_equal({city: ["is missing"], postal_code: ["is missing"]}, second.new.call(name: "Alexey").errors.to_h)
+  end
+
+  def test_inherited_schema_accepts_repeated_calls_with_deeply_frozen_input
+    parent = build_contract { params { required(:profile).hash { required(:age).value(:integer) } } }
+    child = Class.new(parent) { params { required(:active).value(:bool) } }
+    profile = {"age" => "42".freeze}.freeze
+    input = {"profile" => profile, "active" => "true".freeze}.freeze
+
+    first = child.new.call(input)
+    second = child.new.call(input)
+
+    assert_equal({profile: {age: 42}, active: true}, first.to_h)
+    assert_equal first.to_h, second.to_h
+    assert_equal({"profile" => {"age" => "42"}, "active" => "true"}, input)
+    assert input.frozen?
+    assert profile.frozen?
+  end
+
+  def test_duplicate_imported_key_declarations_fail_explicitly
+    name = Dry::Validation::Rust::Schema.Params { required(:name).filled(:string) }
+    conflicting_name = Dry::Validation::Rust::Schema.Params { required(:name).value(:integer) }
+
+    error = assert_raises(ArgumentError) do
+      build_contract { params(name, conflicting_name) }
+    end
+
+    assert_equal "key :name is already defined", error.message
+  end
+
+  def test_imported_nested_predicates_are_independent_from_the_source_schema
+    address = Dry::Validation::Rust::Schema.Params do
+      required(:profile).hash do
+        required(:name).filled(:string, included_in?: ["Alexey"])
+      end
+    end
+    dsl = Dry::Validation::Rust::Schema::DSL.new(mode: :params)
+    dsl.import(address)
+    imported_name = dsl.fields.first.children.first
+
+    refute_same address.fields.first, dsl.fields.first
+    refute_same address.fields.first.children.first, imported_name
+    refute_same address.fields.first.children.first.predicates.first.argument, imported_name.predicates.first.argument
+
+    imported_name.predicates.first.argument << "Jane"
+    imported = dsl.compile
+
+    assert_equal({profile: {name: ["must be one of: Alexey"]}}, address.call(profile: {name: "Jane"}).errors.to_h)
+    assert imported.call(profile: {name: "Jane"}).success?
+  end
+
   def test_side_by_side_namespace_does_not_define_exact_contract_alias
     code = <<~'RUBY'
       require "dry/validation/rust"
