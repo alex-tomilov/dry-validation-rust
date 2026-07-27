@@ -1,0 +1,11 @@
+{
+  "contract_name": "Dry::Validation::Rust::Contract",
+  "exact_alias_defined": false,
+  "loaded_upstream_dry_validation": false,
+  "success": true,
+  "output": {
+    "name": "Jane"
+  },
+  "errors": {
+  }
+}

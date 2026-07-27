@@ -1,0 +1,14 @@
+{
+  "success": false,
+  "output": {
+    "city": "",
+    "name": "Alexey"
+  },
+  "errors": {
+    "city": [
+      "must be filled"
+    ]
+  },
+  "context": {
+  }
+}

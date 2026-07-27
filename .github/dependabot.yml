@@ -1,0 +1,67 @@
+version: 2
+
+updates:
+  - package-ecosystem: bundler
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "08:00"
+      timezone: Etc/UTC
+    open-pull-requests-limit: 5
+    labels:
+      - "type:maintenance"
+      - "area:packaging"
+    groups:
+      ruby-development:
+        dependency-type: development
+        update-types:
+          - minor
+          - patch
+      ruby-native-bridge:
+        patterns:
+          - rb_sys
+          - rake-compiler-dock
+
+  - package-ecosystem: cargo
+    directory: /ext/dry_validation_rust
+    schedule:
+      interval: weekly
+      day: monday
+      time: "08:30"
+      timezone: Etc/UTC
+    open-pull-requests-limit: 5
+    labels:
+      - "type:maintenance"
+      - "area:rust-engine"
+    groups:
+      rust-native-bridge:
+        patterns:
+          - magnus
+          - rb-sys
+      rust-serde:
+        patterns:
+          - serde
+          - serde_json
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "09:00"
+      timezone: Etc/UTC
+    open-pull-requests-limit: 5
+    labels:
+      - "type:maintenance"
+      - "area:ci"
+    groups:
+      github-actions-minor-patch:
+        patterns:
+          - actions/*
+          - actions-rust-lang/*
+          - github/codeql-action/*
+          - ruby/setup-ruby
+        update-types:
+          - minor
+          - patch

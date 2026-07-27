@@ -1,0 +1,107 @@
+version: 1
+repository: alex-tomilov/dry-validation-rust
+integration_branch: develop
+labels_file: .github/labels.yml
+
+project:
+  owner: alex-tomilov
+  owner_type: user
+  title: dry-validation-rust roadmap
+  short_description: Evidence-backed supported subset, migration slices, and verified delivery
+  readme: |
+    <!-- dvr-project-management:v1 -->
+
+    This project is synchronized from `.github/project-management.yml`.
+    Work is grouped into the outcome-oriented Milestones A through G.
+  public: true
+  workflow_field: Status
+  workflow_options:
+    - name: Backlog
+      color: GRAY
+      description: Valid issue not selected for active work
+    - name: Ready
+      color: BLUE
+      description: Scoped, unblocked, and ready to implement
+    - name: In progress
+      color: YELLOW
+      description: Actively being implemented
+    - name: Review
+      color: PURPLE
+      description: Pull request open with verification evidence
+    - name: Blocked
+      color: RED
+      description: Waiting on a named dependency or decision
+    - name: Done
+      color: GREEN
+      description: Acceptance criteria met and merged
+  view:
+    name: Roadmap board
+    layout: board
+    filter: "is:issue"
+
+milestones:
+  - title: Milestone A - trustworthy baseline
+    description: Pin compatibility evidence, make unsupported forms explicit, and prove the source-gem path.
+  - title: Milestone B - common schema path
+    description: Make the documented common schema subset dependable for realistic nested payloads.
+  - title: Milestone C - ordinary contract rules
+    description: Make supported Ruby rule execution predictable, compatible, and isolated.
+  - title: Milestone D - performance proof
+    description: Measure favourable, neutral, and unfavourable workloads before optimization decisions.
+  - title: Milestone E - migration-driven compatibility slice
+    description: Deliver one selected, upstream-evidenced migration blocker at a time.
+  - title: Milestone F - packaging and platforms
+    description: Verify source-gem installation and a deliberately small supported platform matrix.
+  - title: Milestone G - stable supported subset
+    description: Make a narrow 1.0 go/no-go decision from executable evidence.
+
+roadmap:
+  - id: A
+    stage: Milestone A - Establish the trustworthy baseline
+    title: Establish the trustworthy baseline
+    spec: docs/codex/01_MILESTONE_A_TRUSTWORTHY_BASELINE.md
+    milestone: Milestone A - trustworthy baseline
+    labels: ["type:compatibility", "priority:p0", "area:compatibility", "area:packaging", "area:ci", "status:needs-design"]
+    dependencies: []
+  - id: B
+    stage: Milestone B - Dependable common schema path
+    title: Make the common schema path dependable
+    spec: docs/codex/02_MILESTONE_B_COMMON_SCHEMA.md
+    milestone: Milestone B - common schema path
+    labels: ["type:compatibility", "priority:p0", "area:ruby-dsl", "area:rust-engine", "area:compatibility", "status:blocked"]
+    dependencies: ["A"]
+  - id: C
+    stage: Milestone C - Dependable ordinary contract rules
+    title: Make ordinary contract rules dependable
+    spec: docs/codex/03_MILESTONE_C_ORDINARY_RULES.md
+    milestone: Milestone C - ordinary contract rules
+    labels: ["type:compatibility", "priority:p0", "area:rules", "area:ruby-dsl", "area:compatibility", "status:blocked"]
+    dependencies: ["B"]
+  - id: D
+    stage: Milestone D - Prove or disprove the performance case
+    title: Prove or disprove the performance case
+    spec: docs/codex/04_MILESTONE_D_PERFORMANCE_PROOF.md
+    milestone: Milestone D - performance proof
+    labels: ["type:performance", "priority:p1", "area:benchmark", "area:rust-engine", "status:blocked"]
+    dependencies: ["C"]
+  - id: E
+    stage: Milestone E - Implement one migration-driven compatibility slice
+    title: Implement one migration-driven compatibility slice
+    spec: docs/codex/05_MILESTONE_E_COMPATIBILITY_SLICE.md
+    milestone: Milestone E - migration-driven compatibility slice
+    labels: ["type:feature", "priority:p1", "area:compatibility", "area:ruby-dsl", "area:rust-engine", "status:blocked"]
+    dependencies: ["C"]
+  - id: F
+    stage: Milestone F - Package and platform hardening
+    title: Harden packaging and verified platforms
+    spec: docs/codex/06_MILESTONE_F_PACKAGING_AND_PLATFORMS.md
+    milestone: Milestone F - packaging and platforms
+    labels: ["type:maintenance", "priority:p1", "area:packaging", "area:ffi", "area:ci", "status:blocked"]
+    dependencies: ["A", "C"]
+  - id: G
+    stage: Milestone G - Stable supported subset
+    title: Establish the stable supported subset
+    spec: docs/codex/07_MILESTONE_G_STABLE_SUBSET.md
+    milestone: Milestone G - stable supported subset
+    labels: ["type:maintenance", "priority:p0", "area:compatibility", "area:benchmark", "area:packaging", "area:docs", "status:blocked"]
+    dependencies: ["D", "E", "F"]

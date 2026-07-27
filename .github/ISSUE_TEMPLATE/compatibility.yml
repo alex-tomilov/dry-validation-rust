@@ -1,0 +1,89 @@
+name: Compatibility mismatch
+description: Report a difference from the pinned upstream dry-validation behavior.
+title: "[Compatibility]: "
+labels:
+  - "type:compatibility"
+  - "area:compatibility"
+  - "status:needs-reproduction"
+  - "upstream-difference"
+assignees: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Run upstream and dry-validation-rust in separate processes. Exact mode cannot safely share a process with upstream gems.
+  - type: input
+    id: rust_gem_version
+    attributes:
+      label: dry-validation-rust version or commit
+    validations:
+      required: true
+  - type: input
+    id: upstream_versions
+    attributes:
+      label: Pinned upstream versions
+      description: Include both dry-validation and dry-schema versions.
+      placeholder: dry-validation 1.11.1, dry-schema 1.16.0
+    validations:
+      required: true
+  - type: input
+    id: ruby_platform
+    attributes:
+      label: Ruby and platform
+      description: Include Ruby version, OS, and architecture.
+    validations:
+      required: true
+  - type: dropdown
+    id: loading_mode
+    attributes:
+      label: dry-validation-rust loading mode
+      options:
+        - Safe side-by-side
+        - Exact compatibility
+    validations:
+      required: true
+  - type: textarea
+    id: contract_input
+    attributes:
+      label: Minimal contract and input
+      render: ruby
+    validations:
+      required: true
+  - type: textarea
+    id: upstream_output
+    attributes:
+      label: Upstream output
+      description: Include normalized values, errors, metadata, exceptions, or loading behavior.
+      render: text
+    validations:
+      required: true
+  - type: textarea
+    id: rust_output
+    attributes:
+      label: dry-validation-rust output
+      description: Include the corresponding complete output.
+      render: text
+    validations:
+      required: true
+  - type: textarea
+    id: expected_scope
+    attributes:
+      label: Why this should be compatible
+      description: Link the relevant compatibility row or explain why the behavior belongs in the supported subset.
+    validations:
+      required: true
+  - type: textarea
+    id: additional_context
+    attributes:
+      label: Additional context
+    validations:
+      required: false
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Submission checks
+      options:
+        - label: I ran the two implementations in separate processes.
+          required: true
+        - label: I checked docs/COMPATIBILITY.md for documented exclusions and differences.
+          required: true

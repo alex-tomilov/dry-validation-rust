@@ -1,0 +1,37 @@
+---
+name: Bug Fix
+
+description: >
+  Reproduce one defect, identify the root cause,
+  implement the smallest correct fix,
+  add regression coverage,
+  and avoid unrelated refactoring.
+
+  Do not use for feature development
+  or broad code cleanup.
+---
+
+# Skill: Bug fix
+
+Use this skill for one reproducible defect class.
+
+## Workflow
+
+1. Reproduce the defect with the smallest failing test or command.
+2. Identify the violated invariant and the narrowest root cause.
+3. Fix the cause, not only the observed symptom.
+4. Add a regression test at the lowest useful level.
+5. Check adjacent cases likely to share the root cause.
+6. Run focused and canonical verification.
+7. Update documentation only if previously documented behavior was wrong or the user-facing workaround changed.
+
+## Rules
+
+- Do not perform broad cleanup while fixing the defect.
+- Do not rewrite tests to match incorrect behavior.
+- Do not catch broad exceptions unless the public contract requires it.
+- Do not create a postmortem or ADR unless the defect reveals a durable cross-cutting design decision.
+
+## Delivery
+
+Report reproduction, root cause, fix, regression coverage, and remaining risk.

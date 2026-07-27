@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+cd "$(dirname "$0")/.."
+
+run() {
+  printf "\n==> %s\n" "$*"
+  "$@"
+}
+
+run bundle exec rake compile
+run bundle exec rake test
+run bundle exec rake dependency:versions
+run cargo fmt --check --manifest-path ext/dry_validation_rust/Cargo.toml
+run cargo test --manifest-path ext/dry_validation_rust/Cargo.toml
+run cargo clippy --manifest-path ext/dry_validation_rust/Cargo.toml --all-targets --all-features -- -D warnings
+run cargo check --manifest-path ext/dry_validation_rust/Cargo.toml --locked
+run bundle exec rake package:audit

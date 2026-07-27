@@ -1,0 +1,145 @@
+name: Roadmap implementation task
+description: Define a scoped implementation issue for an accepted roadmap item.
+title: "[Roadmap]: "
+labels:
+  - "status:needs-design"
+assignees: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this form for one reviewable implementation task. Split work that spans independent behavior, release gates, or ownership boundaries.
+  - type: input
+    id: roadmap_reference
+    attributes:
+      label: Roadmap reference
+      description: Use the stable milestone or issue key, such as A, C, or G.
+      placeholder: B
+    validations:
+      required: true
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      options:
+        - P0 - release-blocking correctness, security, or data safety
+        - P1 - important current-milestone work
+        - P2 - valuable but not on the critical path
+        - P3 - future or exploratory
+    validations:
+      required: true
+  - type: dropdown
+    id: milestone
+    attributes:
+      label: Milestone
+      options:
+        - 0.1 prerelease - safe core
+        - 0.2-0.3 - evidence and adoption
+        - Future - batch and streaming experiments
+    validations:
+      required: true
+  - type: dropdown
+    id: primary_area
+    attributes:
+      label: Primary area
+      options:
+        - Ruby DSL
+        - Rust engine
+        - FFI
+        - Rules
+        - Messages
+        - Compatibility
+        - Benchmark
+        - Packaging
+        - CI
+        - Documentation
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: State the specific defect, gap, or maintenance problem.
+    validations:
+      required: true
+  - type: textarea
+    id: user_impact
+    attributes:
+      label: User or maintainer impact
+      description: Explain who is affected and why the work matters now.
+    validations:
+      required: true
+  - type: textarea
+    id: current_behavior
+    attributes:
+      label: Current behavior and evidence
+      description: Include concrete code, tests, CI output, or documentation evidence.
+    validations:
+      required: true
+  - type: textarea
+    id: desired_behavior
+    attributes:
+      label: Desired behavior
+      description: Describe the observable outcome without widening adjacent scope.
+    validations:
+      required: true
+  - type: textarea
+    id: non_goals
+    attributes:
+      label: Non-goals
+      description: List related behavior that this issue will deliberately not implement.
+    validations:
+      required: true
+  - type: textarea
+    id: affected_files
+    attributes:
+      label: Expected affected files and ownership boundaries
+      description: Identify likely Ruby, Rust, FFI, test, CI, packaging, or documentation areas.
+    validations:
+      required: true
+  - type: textarea
+    id: implementation_notes
+    attributes:
+      label: Implementation notes
+      description: Record constraints, dependencies, compatibility evidence, and design direction.
+    validations:
+      required: true
+  - type: textarea
+    id: tests
+    attributes:
+      label: Test and verification plan
+      description: Include focused regression checks and the canonical verification command.
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance_criteria
+    attributes:
+      label: Acceptance criteria
+      description: Use independently verifiable completion conditions.
+    validations:
+      required: true
+  - type: textarea
+    id: dependencies
+    attributes:
+      label: Dependencies and blockers
+      description: Link prerequisite issues or state "None".
+    validations:
+      required: true
+  - type: textarea
+    id: risk_rollback
+    attributes:
+      label: Risks and rollback
+      description: Identify semantic, compatibility, safety, packaging, or operational risks and the rollback path.
+    validations:
+      required: true
+  - type: checkboxes
+    id: readiness
+    attributes:
+      label: Readiness checks
+      options:
+        - label: This issue is one coherent task and does not mean "make the project production ready."
+          required: true
+        - label: Dependencies and non-goals are explicit.
+          required: true
+        - label: Acceptance criteria can be verified without relying only on documentation claims.
+          required: true
