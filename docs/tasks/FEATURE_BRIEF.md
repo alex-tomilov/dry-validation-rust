@@ -14,11 +14,11 @@ Show the exact input/API and expected result.
 
 ## Included
 
-- 
+-
 
 ## Not included
 
-- 
+-
 
 ## Failure boundary
 
@@ -38,4 +38,4 @@ List focused and full commands.
 
 ## Follow-ups not implemented
 
-- 
+-

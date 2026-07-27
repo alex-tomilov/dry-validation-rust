@@ -20,14 +20,14 @@ executable API, not just a design sketch.
 The study used public repositories directly without a GitHub connector, fork,
 pull request, or other public mutation.
 
-| Project | Inspected revision | Version in source | Role |
-| --- | --- | --- | --- |
-| dry-validation | `e7dff1eddfa98a2bab3acd895535c29b1e0b294c` (2026-05-10) | 1.11.1 | Contract orchestration, rules, messages, result |
-| dry-schema | `9e17659aa2fe6629f770b2d02703663f2330ea76` (2026-05-10) | 1.16.0 | Input processing, types, predicates, errors |
-| dry-logic | `3326aefba07b6faa1535d823a22ef83dca92df85` (2026-05-10) | 1.6.0 | Predicate AST and operations |
-| dry-types | `f47a790d6319759237a59247f74e1072ed5098d1` (2026-05-04) | 1.9.1 | Types, coercions, constraints |
-| Magnus | `4e46772050e47cd6cd988fa935263cc5c583e388` plus released 0.8.2 | 0.8.2 used | High-level Rust/CRuby binding |
-| rb-sys | `94b205cd8425ebdc09d5682f14503b3f3756fa9b` | 0.9.128 used | CRuby API and extension build |
+| Project        | Inspected revision                                             | Version in source | Role                                            |
+| -------------- | -------------------------------------------------------------- | ----------------- | ----------------------------------------------- |
+| dry-validation | `e7dff1eddfa98a2bab3acd895535c29b1e0b294c` (2026-05-10)        | 1.11.1            | Contract orchestration, rules, messages, result |
+| dry-schema     | `9e17659aa2fe6629f770b2d02703663f2330ea76` (2026-05-10)        | 1.16.0            | Input processing, types, predicates, errors     |
+| dry-logic      | `3326aefba07b6faa1535d823a22ef83dca92df85` (2026-05-10)        | 1.6.0             | Predicate AST and operations                    |
+| dry-types      | `f47a790d6319759237a59247f74e1072ed5098d1` (2026-05-04)        | 1.9.1             | Types, coercions, constraints                   |
+| Magnus         | `4e46772050e47cd6cd988fa935263cc5c583e388` plus released 0.8.2 | 0.8.2 used        | High-level Rust/CRuby binding                   |
+| rb-sys         | `94b205cd8425ebdc09d5682f14503b3f3756fa9b`                     | 0.9.128 used      | CRuby API and extension build                   |
 
 At the time of inspection, the latest published `dry-validation` version was
 1.11.1 (2025-01-21), while current main had already raised its Ruby requirement
@@ -155,22 +155,22 @@ benchmarks against upstream are available.
 
 ## Feasibility by feature family
 
-| Family | Feasibility | Reason |
-| --- | --- | --- |
-| Key coercion/filtering | High | Deterministic tree processing |
-| Built-in scalar coercion | High | Clear conversion table |
-| Nested hashes/arrays | High | Natural typed Rust plan |
-| Built-in predicates | High | Deterministic operations |
-| Error paths/codes | High | Native structured accumulation |
-| Ruby rule blocks | Hybrid only | Arbitrary Ruby |
-| Injected dependencies | Ruby | Arbitrary object protocols and I/O |
-| Custom dry-types | Medium/low | Constructor may be arbitrary Ruby |
-| Custom predicates | Medium | Callback preserves behavior but not native speed |
-| YAML messages | Medium | Reimplementable with parity work |
-| I18n backend | Medium | Best delegated to Ruby initially |
-| Extensions/monads/hints | Medium | Separate compatibility adapters |
-| Processor before/after hooks | Ruby callback | Arbitrary transforms |
-| JRuby/TruffleRuby | Low for this extension | Magnus/rb-sys targets CRuby |
+| Family                       | Feasibility            | Reason                                           |
+| ---------------------------- | ---------------------- | ------------------------------------------------ |
+| Key coercion/filtering       | High                   | Deterministic tree processing                    |
+| Built-in scalar coercion     | High                   | Clear conversion table                           |
+| Nested hashes/arrays         | High                   | Natural typed Rust plan                          |
+| Built-in predicates          | High                   | Deterministic operations                         |
+| Error paths/codes            | High                   | Native structured accumulation                   |
+| Ruby rule blocks             | Hybrid only            | Arbitrary Ruby                                   |
+| Injected dependencies        | Ruby                   | Arbitrary object protocols and I/O               |
+| Custom dry-types             | Medium/low             | Constructor may be arbitrary Ruby                |
+| Custom predicates            | Medium                 | Callback preserves behavior but not native speed |
+| YAML messages                | Medium                 | Reimplementable with parity work                 |
+| I18n backend                 | Medium                 | Best delegated to Ruby initially                 |
+| Extensions/monads/hints      | Medium                 | Separate compatibility adapters                  |
+| Processor before/after hooks | Ruby callback          | Arbitrary transforms                             |
+| JRuby/TruffleRuby            | Low for this extension | Magnus/rb-sys targets CRuby                      |
 
 ## Legal and project identity
 

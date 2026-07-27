@@ -117,10 +117,10 @@ indexes. Explicit rule metadata is preserved as a Hash payload.
 
 ## Coercion modes
 
-| Mode | Key behavior | Value behavior |
-| --- | --- | --- |
-| `schema` | Symbol keys only | No coercion |
-| `json` | String or symbol input to symbol output | No scalar coercion |
+| Mode     | Key behavior                            | Value behavior                      |
+| -------- | --------------------------------------- | ----------------------------------- |
+| `schema` | Symbol keys only                        | No coercion                         |
+| `json`   | String or symbol input to symbol output | No scalar coercion                  |
 | `params` | String or symbol input to symbol output | Supported HTTP-like scalar coercion |
 
 Params coercions currently include integer, finite float, boolean, symbol,

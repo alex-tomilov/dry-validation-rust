@@ -20,15 +20,15 @@ issue/project synchronization.
 
 ## Milestones
 
-| Key | Milestone | Outcome | Depends on |
-|---|---|---|---|
-| `A` | Trustworthy baseline | Pinned compatibility evidence, explicit unsupported forms, source-gem smoke test | — |
-| `B` | Common schema path | Dependable nested schema behavior for the documented subset | `A` |
-| `C` | Ordinary contract rules | Predictable supported rule execution and state isolation | `B` |
-| `D` | Performance proof | Reproducible evidence for favourable, neutral, and unfavourable workloads | `C` |
-| `E` | Migration-driven compatibility slice | One selected, upstream-evidenced migration blocker | `C` |
-| `F` | Packaging and platforms | Clean installation on a small verified support matrix | `A`, `C` |
-| `G` | Stable supported subset | Narrow 1.0 go/no-go decision based on prior evidence | `D`, `E`, `F` |
+| Key | Milestone                            | Outcome                                                                          | Depends on    |
+| --- | ------------------------------------ | -------------------------------------------------------------------------------- | ------------- |
+| `A` | Trustworthy baseline                 | Pinned compatibility evidence, explicit unsupported forms, source-gem smoke test | —             |
+| `B` | Common schema path                   | Dependable nested schema behavior for the documented subset                      | `A`           |
+| `C` | Ordinary contract rules              | Predictable supported rule execution and state isolation                         | `B`           |
+| `D` | Performance proof                    | Reproducible evidence for favourable, neutral, and unfavourable workloads        | `C`           |
+| `E` | Migration-driven compatibility slice | One selected, upstream-evidenced migration blocker                               | `C`           |
+| `F` | Packaging and platforms              | Clean installation on a small verified support matrix                            | `A`, `C`      |
+| `G` | Stable supported subset              | Narrow 1.0 go/no-go decision based on prior evidence                             | `D`, `E`, `F` |
 
 The milestone files define their own detailed acceptance criteria and exit gates;
 this table only records the management order.
