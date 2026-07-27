@@ -325,7 +325,9 @@ fn coerce(
     let Some(string) = RString::from_value(value) else {
         return Ok(None);
     };
-    let source = string.to_string()?;
+    let Ok(source) = string.to_string() else {
+        return Ok(None);
+    };
     let converted = match kind {
         // Delegate numeric syntax to Ruby so Bignum values and underscore
         // separators follow the pinned dry-types coercion path.
