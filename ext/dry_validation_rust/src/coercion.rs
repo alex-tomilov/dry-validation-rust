@@ -16,7 +16,7 @@ pub(crate) fn coerce(
     if type_matches(ruby, classes, kind, value) {
         return Ok(Some(value));
     }
-    if mode != Mode::Params {
+    if !allows_literal_coercion(mode) {
         return Ok(None);
     }
 
@@ -38,11 +38,13 @@ pub(crate) fn coerce(
             .module_kernel()
             .funcall::<_, _, Value>("Float", (source.as_str(),))
             .ok(),
-        "bool" | "true" | "false" => match source.to_ascii_lowercase().as_str() {
-            "true" | "1" | "on" | "t" | "yes" | "y" => Some(ruby.qtrue().as_value()),
-            "false" | "0" | "off" | "f" | "no" | "n" => Some(ruby.qfalse().as_value()),
-            _ => None,
-        },
+        "bool" | "true" | "false" => params_boolean(&source).map(|value| {
+            if value {
+                ruby.qtrue().as_value()
+            } else {
+                ruby.qfalse().as_value()
+            }
+        }),
         "symbol" => Some(ruby.to_symbol(&source).as_value()),
         "date" => classes
             .date
@@ -71,6 +73,18 @@ pub(crate) fn coerce(
         _ => None,
     };
     Ok(converted)
+}
+
+fn params_boolean(source: &str) -> Option<bool> {
+    match source.to_ascii_lowercase().as_str() {
+        "true" | "1" | "on" | "t" | "yes" | "y" => Some(true),
+        "false" | "0" | "off" | "f" | "no" | "n" => Some(false),
+        _ => None,
+    }
+}
+
+fn allows_literal_coercion(mode: Mode) -> bool {
+    mode == Mode::Params
 }
 
 fn non_finite_literal(source: &str) -> bool {
@@ -127,5 +141,44 @@ pub(crate) fn empty_value(value: Value) -> bool {
         hash.is_empty()
     } else {
         false
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::plan::Mode;
+
+    #[test]
+    fn params_boolean_accepts_true_and_false_boundary_tokens() {
+        for (source, expected) in [
+            ("true", Some(true)),
+            ("false", Some(false)),
+            ("1", Some(true)),
+            ("0", Some(false)),
+            ("yes", Some(true)),
+            ("", None),
+            ("TRUE", Some(true)),
+        ] {
+            assert_eq!(params_boolean(source), expected, "token {source:?}");
+        }
+    }
+
+    #[test]
+    fn params_float_rejects_non_finite_literals_without_ruby() {
+        for source in ["Infinity", "-Infinity", "NaN", "+inf", " -NaN "] {
+            assert!(non_finite_literal(source), "literal {source:?}");
+        }
+
+        for source in ["0.0", "-0.0", "1e308", "1e309", ""] {
+            assert!(!non_finite_literal(source), "literal {source:?}");
+        }
+    }
+
+    #[test]
+    fn only_params_mode_enables_literal_coercion() {
+        assert!(allows_literal_coercion(Mode::Params));
+        assert!(!allows_literal_coercion(Mode::Json));
+        assert!(!allows_literal_coercion(Mode::Schema));
     }
 }
