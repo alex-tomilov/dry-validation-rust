@@ -29,18 +29,8 @@ pub(crate) fn apply_predicates(
                 None => false,
             },
             "min_size" | "max_size" | "size" => {
-                let expected = match predicate.argument {
-                    PredicateArg::Int(value) => usize::try_from(value).unwrap_or(0),
-                    _ => 0,
-                };
-                let actual = value
-                    .funcall::<_, _, usize>("size", ())
-                    .unwrap_or(usize::MAX);
-                match predicate.name.as_str() {
-                    "min_size" => actual >= expected,
-                    "max_size" => actual <= expected,
-                    _ => actual == expected,
-                }
+                let actual = value.funcall::<_, _, usize>("size", ()).ok();
+                size_predicate_valid(&predicate.name, actual, &predicate.argument)
             }
             "odd" => value.funcall::<_, _, bool>("odd?", ()).unwrap_or(false),
             "even" => value.funcall::<_, _, bool>("even?", ()).unwrap_or(false),
@@ -55,6 +45,25 @@ pub(crate) fn apply_predicates(
         }
     }
     Ok(())
+}
+
+fn size_predicate_valid(name: &str, actual: Option<usize>, argument: &PredicateArg) -> bool {
+    let Some(actual) = actual else {
+        return false;
+    };
+    let PredicateArg::Int(expected) = argument else {
+        return false;
+    };
+    let Ok(expected) = usize::try_from(*expected) else {
+        return false;
+    };
+
+    match name {
+        "min_size" => actual >= expected,
+        "max_size" => actual <= expected,
+        "size" => actual == expected,
+        _ => false,
+    }
 }
 
 fn predicate_scalar(ruby: &Ruby, argument: &PredicateArg) -> Option<Value> {
@@ -136,5 +145,38 @@ mod tests {
             predicate_message(&predicate),
             "length must be [true,\"two\"]"
         );
+    }
+
+    #[test]
+    fn size_predicates_accept_passing_values_at_boundaries() {
+        let expected = PredicateArg::Int(3);
+
+        assert!(size_predicate_valid("min_size", Some(3), &expected));
+        assert!(size_predicate_valid("max_size", Some(3), &expected));
+        assert!(size_predicate_valid("size", Some(3), &expected));
+    }
+
+    #[test]
+    fn size_predicates_reject_failing_values_and_missing_values() {
+        let expected = PredicateArg::Int(3);
+
+        assert!(!size_predicate_valid("min_size", Some(2), &expected));
+        assert!(!size_predicate_valid("max_size", Some(4), &expected));
+        assert!(!size_predicate_valid("size", Some(2), &expected));
+        assert!(!size_predicate_valid("size", None, &expected));
+    }
+
+    #[test]
+    fn size_predicates_reject_wrong_type_and_negative_arguments() {
+        assert!(!size_predicate_valid(
+            "size",
+            Some(3),
+            &PredicateArg::Str("3".to_owned())
+        ));
+        assert!(!size_predicate_valid(
+            "size",
+            Some(3),
+            &PredicateArg::Int(-1)
+        ));
     }
 }
