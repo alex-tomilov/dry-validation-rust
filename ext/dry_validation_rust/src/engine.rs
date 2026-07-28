@@ -8,6 +8,9 @@ use crate::{
     ruby_bridge::RuntimeClasses,
 };
 
+const MAX_TRAVERSAL_DEPTH: u16 = 128;
+const DEPTH_ERROR_CODE: &str = "depth";
+
 #[magnus::wrap(
     class = "Dry::Validation::Rust::Native::Engine",
     free_immediately,
@@ -17,6 +20,13 @@ use crate::{
 pub(crate) struct Engine {
     plan: SchemaPlan,
     plan_bytes: usize,
+}
+
+struct Traversal<'a> {
+    ruby: &'a Ruby,
+    classes: &'a RuntimeClasses,
+    mode: Mode,
+    errors: &'a mut Vec<NativeError>,
 }
 
 impl Engine {
@@ -31,15 +41,15 @@ impl Engine {
         let ruby = Ruby::get_with(input);
         let classes = RuntimeClasses::new(&ruby, &self.plan.fields)?;
         let mut errors = Vec::new();
-        let output = process_hash(
-            &ruby,
-            &classes,
-            self.plan.mode,
-            &self.plan.fields,
-            input,
-            &[],
-            &mut errors,
-        )?;
+        let output = {
+            let mut traversal = Traversal {
+                ruby: &ruby,
+                classes: &classes,
+                mode: self.plan.mode,
+                errors: &mut errors,
+            };
+            process_hash(&mut traversal, &self.plan.fields, input, &[], 0)?
+        };
         let ruby_errors = ruby.ary_new_capa(errors.len());
         for error in errors {
             let path = ruby.ary_new_capa(error.path.len());
@@ -83,27 +93,30 @@ impl Engine {
 }
 
 fn process_hash(
-    ruby: &Ruby,
-    classes: &RuntimeClasses,
-    mode: Mode,
+    traversal: &mut Traversal<'_>,
     fields: &[FieldPlan],
     input: RHash,
     prefix: &[PathPart],
-    errors: &mut Vec<NativeError>,
+    depth: u16,
 ) -> Result<RHash, Error> {
-    let output = ruby.hash_new_capa(fields.len());
+    let output = traversal.ruby.hash_new_capa(fields.len());
+    if !within_depth_limit(depth, prefix, traversal.errors) {
+        return Ok(output);
+    }
     for field in fields {
         let name = field.name.as_deref().unwrap_or_default();
         let mut path = clone_path(prefix);
         path.push(PathPart::Key(name.to_owned()));
-        let Some(raw) = lookup(input, ruby, mode, name) else {
+        let Some(raw) = lookup(input, traversal.ruby, traversal.mode, name) else {
             if field.required {
-                errors.push(NativeError::new(&path, "key", "is missing"));
+                traversal
+                    .errors
+                    .push(NativeError::new(&path, "key", "is missing"));
             }
             continue;
         };
-        let processed = process_value(ruby, classes, mode, field, raw, &path, errors)?;
-        output.aset(ruby.to_symbol(name), processed)?;
+        let processed = process_value(traversal, field, raw, &path, depth)?;
+        output.aset(traversal.ruby.to_symbol(name), processed)?;
     }
     Ok(output)
 }
@@ -119,66 +132,101 @@ fn lookup(input: RHash, ruby: &Ruby, mode: Mode, name: &str) -> Option<Value> {
 }
 
 fn process_value(
-    ruby: &Ruby,
-    classes: &RuntimeClasses,
-    mode: Mode,
+    traversal: &mut Traversal<'_>,
     field: &FieldPlan,
     raw: Value,
     path: &[PathPart],
-    errors: &mut Vec<NativeError>,
+    depth: u16,
 ) -> Result<Value, Error> {
+    if !within_depth_limit(depth, path, traversal.errors) {
+        return Ok(raw);
+    }
     if raw.is_nil() {
-        if field.filled && (mode == Mode::Params || field.kind == "nil" || field.kind == "any") {
-            errors.push(NativeError::new(path, "filled", "must be filled"));
+        if field.filled
+            && (traversal.mode == Mode::Params || field.kind == "nil" || field.kind == "any")
+        {
+            traversal
+                .errors
+                .push(NativeError::new(path, "filled", "must be filled"));
         } else if !field.nullable && field.kind != "nil" && field.kind != "any" {
-            errors.push(NativeError::new(path, "type", type_message(&field.kind)));
+            traversal
+                .errors
+                .push(NativeError::new(path, "type", type_message(&field.kind)));
         }
         return Ok(raw);
     }
     if field.nullable
-        && mode == Mode::Params
+        && traversal.mode == Mode::Params
         && RString::from_value(raw).is_some_and(|string| string.is_empty())
     {
-        return Ok(ruby.qnil().as_value());
+        return Ok(traversal.ruby.qnil().as_value());
     }
-    let coerced = match coerce(ruby, classes, mode, &field.kind, raw)? {
+    let coerced = match coerce(
+        traversal.ruby,
+        traversal.classes,
+        traversal.mode,
+        &field.kind,
+        raw,
+    )? {
         Some(value) => value,
         None => {
-            errors.push(NativeError::new(path, "type", type_message(&field.kind)));
+            traversal
+                .errors
+                .push(NativeError::new(path, "type", type_message(&field.kind)));
             return Ok(raw);
         }
     };
-    if !type_matches(ruby, classes, &field.kind, coerced) {
-        errors.push(NativeError::new(path, "type", type_message(&field.kind)));
+    if !type_matches(traversal.ruby, traversal.classes, &field.kind, coerced) {
+        traversal
+            .errors
+            .push(NativeError::new(path, "type", type_message(&field.kind)));
         return Ok(coerced);
     }
     let filled_error = field.filled && empty_value(coerced);
     if filled_error {
-        errors.push(NativeError::new(path, "filled", "must be filled"));
+        traversal
+            .errors
+            .push(NativeError::new(path, "filled", "must be filled"));
     }
     let mut value = coerced;
     if field.kind == "hash" && !field.children.is_empty() {
         if let Some(hash) = RHash::from_value(coerced) {
-            value =
-                process_hash(ruby, classes, mode, &field.children, hash, path, errors)?.as_value();
+            value = process_hash(traversal, &field.children, hash, path, depth + 1)?.as_value();
         }
     } else if field.kind == "array" {
         if let (Some(member), Some(array)) = (field.member.as_ref(), RArray::from_value(coerced)) {
-            let output = ruby.ary_new_capa(array.len());
+            let output = traversal.ruby.ary_new_capa(array.len());
             for (index, item) in array.into_iter().enumerate() {
                 let mut item_path = clone_path(path);
                 item_path.push(PathPart::Index(index));
                 output.push(process_value(
-                    ruby, classes, mode, member, item, &item_path, errors,
+                    traversal,
+                    member,
+                    item,
+                    &item_path,
+                    depth + 1,
                 )?)?;
             }
             value = output.as_value();
         }
     }
     if !filled_error {
-        apply_predicates(ruby, field, value, path, errors)?;
+        apply_predicates(traversal.ruby, field, value, path, traversal.errors)?;
     }
     Ok(value)
+}
+
+fn within_depth_limit(depth: u16, path: &[PathPart], errors: &mut Vec<NativeError>) -> bool {
+    if depth <= MAX_TRAVERSAL_DEPTH {
+        return true;
+    }
+
+    errors.push(NativeError::new(
+        path,
+        DEPTH_ERROR_CODE,
+        format!("schema nesting depth exceeds limit ({MAX_TRAVERSAL_DEPTH})"),
+    ));
+    false
 }
 
 #[cfg(test)]
@@ -202,5 +250,29 @@ mod tests {
         };
         assert_eq!(engine.field_count(), 2);
         assert_eq!(engine.plan_bytes(), json.len());
+    }
+
+    #[test]
+    fn nested_structure_over_128_levels_returns_a_depth_error() {
+        fn traverse_nested_structure(
+            depth: u16,
+            path: &mut Vec<PathPart>,
+            errors: &mut Vec<NativeError>,
+        ) {
+            if !within_depth_limit(depth, path, errors) || depth == 200 {
+                return;
+            }
+
+            path.push(PathPart::Key(format!("level_{depth}")));
+            traverse_nested_structure(depth + 1, path, errors);
+            path.pop();
+        }
+
+        let mut errors = Vec::new();
+        traverse_nested_structure(0, &mut Vec::new(), &mut errors);
+
+        assert_eq!(errors.len(), 1);
+        assert_eq!(errors[0].code, DEPTH_ERROR_CODE);
+        assert_eq!(errors[0].text, "schema nesting depth exceeds limit (128)");
     }
 }
