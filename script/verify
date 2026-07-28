@@ -9,10 +9,13 @@ run() {
 }
 
 run bundle exec rake compile
+run cargo fmt --check --manifest-path ext/dry_validation_rust/Cargo.toml
+run cargo test --locked --manifest-path ext/dry_validation_rust/Cargo.toml
+run cargo clippy --manifest-path ext/dry_validation_rust/Cargo.toml --all-targets --all-features -- -D warnings
+if ! run cargo audit --manifest-path ext/dry_validation_rust/Cargo.toml; then
+  printf "\nWARNING: cargo audit failed; continuing because Rust advisories are non-gating until actionable.\n" >&2
+fi
+run cargo check --manifest-path ext/dry_validation_rust/Cargo.toml --locked
 run bundle exec rake test
 run bundle exec rake dependency:versions
-run cargo fmt --check --manifest-path ext/dry_validation_rust/Cargo.toml
-run cargo test --manifest-path ext/dry_validation_rust/Cargo.toml
-run cargo clippy --manifest-path ext/dry_validation_rust/Cargo.toml --all-targets --all-features -- -D warnings
-run cargo check --manifest-path ext/dry_validation_rust/Cargo.toml --locked
 run bundle exec rake package:audit
