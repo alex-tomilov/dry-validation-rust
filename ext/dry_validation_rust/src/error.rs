@@ -1,4 +1,4 @@
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub(crate) enum PathPart {
     Key(String),
     Index(usize),
@@ -14,13 +14,7 @@ pub(crate) struct NativeError {
 impl NativeError {
     pub(crate) fn new(path: &[PathPart], code: impl Into<String>, text: impl Into<String>) -> Self {
         Self {
-            path: path
-                .iter()
-                .map(|part| match part {
-                    PathPart::Key(key) => PathPart::Key(key.clone()),
-                    PathPart::Index(index) => PathPart::Index(*index),
-                })
-                .collect(),
+            path: path.to_vec(),
             code: code.into(),
             text: text.into(),
         }
@@ -58,7 +52,18 @@ pub(crate) fn type_message(kind: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::type_message;
+    use super::{NativeError, PathPart, type_message};
+
+    #[test]
+    fn native_error_owns_a_clone_of_key_and_index_path_parts() {
+        let mut path = vec![PathPart::Key("profile".to_owned()), PathPart::Index(2)];
+        let error = NativeError::new(&path, "type", "must be a hash");
+        path[0] = PathPart::Key("changed".to_owned());
+
+        assert!(
+            matches!(&error.path[..], [PathPart::Key(key), PathPart::Index(2)] if key == "profile")
+        );
+    }
 
     #[test]
     fn type_messages_are_stable() {
