@@ -1,198 +1,124 @@
-# Milestone C — Dependable ordinary contract rules
+# Milestone C — Ordinary Rules Subset
 
-## Role of this task
+Status: 🔵 Active.
+Last updated: 2026-07-29.
 
-Make ordinary Ruby rule execution predictable after structural validation. Preserve Ruby semantics rather than attempting to translate arbitrary rule blocks into Rust.
+## Current State
 
-## Primary outcome
+| Area                          | Status         | Evidence                      |
+| ----------------------------- | -------------- | ----------------------------- |
+| Rule tests                    | ~10 scenarios  | `test/rules_test.rb`          |
+| Differential rule cases       | ~15 cases      | `test/fixtures/differential/` |
+| Dedicated 50-case rule corpus | ❌ Not started | —                             |
+| Dependency/isolation stress   | ❌ Not started | —                             |
+| Code-quality tasks C-Q1–C-Q4  | ❌ Pending     | See below                     |
 
-Common contract rules execute in upstream-compatible order, skip only when their dependencies require it, attach failures to compatible paths, and never leak state across calls.
+Estimated completion: ~20%.
 
-## Scope
+## Goal
 
-### Included
+Make ordinary rules (`rule` blocks, `key?`, `value()`, simple dependencies)
+behave compatibly for the common schema subset.
 
-- single-key rules;
-- multi-key rules;
-- nested paths;
-- dependency-based skipping;
-- `value`, `values`, and `key?` behavior already supported;
-- key and base failures;
-- schema/rule/base error query helpers;
-- `rule.each`;
-- contract methods called from rules;
-- inheritance;
-- options;
-- per-call context;
-- contract-local macros already supported.
+## Tasks
 
-### Explicitly excluded
+### C-1: Build a Dedicated Rule Corpus
 
-- compiling Ruby rule blocks into Rust;
-- parallel rule execution;
-- GVL-free ordinary validation;
-- translating arbitrary Ruby methods;
-- new macro extension architecture;
-- full upstream extension ecosystem.
+Create `test/fixtures/differential/rules/` with at least 50 cases.
 
-## Execution strategy
+Suggested distribution:
 
-Process one rule semantic class at a time:
+| Category                                    | Minimum Cases |
+| ------------------------------------------- | ------------- |
+| Single-key rules (`rule(:name)`)            | 10            |
+| Multi-key rules (`rule(:a, :b)`)            | 8             |
+| Nested-path rules (`rule(:address, :city)`) | 8             |
+| `key?` / `value()` guards                   | 6             |
+| Cross-key dependencies                      | 6             |
+| Rules on arrays (`rule(:items)`)            | 6             |
+| Rules with coercion interaction             | 6             |
 
-1. declaration order and simple failures;
-2. dependency resolution and skipping;
-3. nested/indexed paths and `rule.each`;
-4. error query helpers;
-5. exceptions and contract methods;
-6. options, context, macros, and inheritance;
-7. repeated/concurrent call isolation;
-8. boundary-crossing performance.
+Each case must run in an isolated subprocess against both this gem and
+pinned upstream, comparing output values and error messages.
 
-## Step 1 — Build the rule corpus
+### C-2: Rule Dependency and Isolation Stress
 
-Add at least 50 focused rule differential cases across successful and failing structural inputs.
+- Test that rules execute in definition order.
+- Test that a failing rule does not prevent subsequent rules from running.
+- Test that rules on missing keys behave identically to upstream.
+- Test that rules on coerced values see the coerced value, not the raw input.
 
-Capture where useful:
+### C-3: Wire Rule Corpus into CI
 
-- rule execution trace;
-- accessed keys;
-- produced errors;
-- final normalized values;
-- propagated exception class/message category.
+- Add rule fixtures to `compatibility.yml` workflow.
+- Ensure the rule corpus runs on every PR.
 
-Avoid snapshots of irrelevant internal objects.
+### C-Q1: Unify Predicate Evaluation
 
-## Step 2 — Declaration order
+**Problem:** Predicate evaluation logic exists in three places:
 
-Verify:
+1. Rust (`predicates.rs`) — native predicates.
+2. `Schema#predicate_valid?` (`schema.rb`) — Ruby-owned predicates.
+3. `Evaluator#execute_predicate_macro` (`evaluator.rb`) — duplicated predicate
+   logic for rule macros.
 
-- rules run in declaration order where upstream guarantees it;
-- multiple failures preserve compatible ordering when claimed;
-- base and key failures coexist correctly;
-- repeated invocation does not reorder compiled rules.
+**Task:** Extract a single `RubyPredicates.evaluate(name, value, argument)`
+method. Both `Schema` and `Evaluator` call it. The Rust side handles the native
+set; Ruby handles the rest through one canonical entry point.
 
-Do not sort errors or rules merely to make snapshots stable if upstream preserves meaningful order.
+**Acceptance:** No predicate logic duplicated across files. All existing tests
+pass. New unit tests for `RubyPredicates` cover boundary cases.
 
-## Step 3 — Dependency resolution and skipping
+### C-Q2: Unify `Undefined` Sentinels
 
-Build explicit cases proving:
+**Problem:** `Path::Undefined` and `Contract::Undefined` are two separate
+`frozen Object.new` sentinels. Identity checks (`equal?`) fail across them.
 
-- a failed required dependency suppresses its dependent rule;
-- a valid dependency allows execution;
-- an unrelated schema failure does not suppress the rule;
-- multi-key rules respond correctly when only some dependencies fail;
-- nested dependency prefixes are handled correctly;
-- missing optional values follow upstream semantics.
+**Task:** Define one `Dry::Validation::Rust::Undefined` and alias it in both
+`Path` and `Contract`.
 
-Implement the smallest dependency model needed for the supported rule forms. Reject unsupported dependency expressions.
+**Acceptance:** Single sentinel object. All existing tests pass.
 
-## Step 4 — Paths and `rule.each`
+### C-Q3: Fix `MessageSet#freeze`
 
-Cover:
+**Problem:** `MessageSet#freeze` calls `to_h.freeze` but discards the result.
+The frozen hash is immediately garbage-collected.
 
-- nested key failures;
-- base failures;
-- array index paths;
-- `rule.each` over valid members;
-- member-level structural failures;
-- empty arrays;
-- invalid array container;
-- adding failures to current item versus explicit paths.
+**Task:** Either cache the frozen hash in an ivar, or remove the no-op line.
+Add a comment explaining the design intent.
 
-Do not generalize into arbitrary path-expression AST support.
+**Acceptance:** `MessageSet#freeze` either caches or does not allocate.
+Test that `message_set.freeze.to_h.frozen?` is true.
 
-## Step 5 — Error query helpers
+### C-Q4: Split `schema.rb`
 
-Verify the currently supported forms of:
+**Problem:** `schema.rb` is 480 lines containing 5 classes: `SchemaResult`,
+`Schema`, `Schema::FieldDefinition`, `Schema::DSL`, `Schema::FieldBuilder`.
 
-- `schema_error?`;
-- `rule_error?`;
-- `base_rule_error?`;
-- any equivalent existing helper.
+**Task:** Split into:
 
-Test true and false cases, nested paths, and ordering interactions. Unsupported invocation signatures must raise explicitly.
+    lib/dry/validation/rust/
+    ├── schema.rb               # Schema class only
+    ├── schema/
+    │   ├── dsl.rb              # DSL + FieldBuilder
+    │   ├── field_definition.rb # FieldDefinition + Predicate struct
+    │   └── result.rb           # SchemaResult (or merge into result.rb)
 
-## Step 6 — Exceptions and Ruby method calls
+**Acceptance:** All existing tests pass. No file exceeds 200 lines.
+`require` graph is acyclic.
 
-Prove that:
+## Acceptance Criteria
 
-- an exception raised by user rule code propagates unchanged;
-- an exception is not converted into a validation failure;
-- contract helper methods can be called normally;
-- Ruby visibility and dispatch remain ordinary Ruby behavior;
-- Rust panics never cross the boundary.
+- [ ] 50+ rule fixture cases pass differentially against upstream.
+- [ ] Rule dependency and isolation stress tests pass.
+- [ ] Rule corpus runs in CI on every PR.
+- [ ] C-Q1: Predicate evaluation unified (no duplication).
+- [ ] C-Q2: Single `Undefined` sentinel.
+- [ ] C-Q3: `MessageSet#freeze` fixed.
+- [ ] C-Q4: `schema.rb` split into ≤4 files, each ≤200 lines.
+- [ ] `script/verify` passes.
 
-Do not rescue broad exceptions in the engine merely to normalize behavior.
+## Dependencies
 
-## Step 7 — Options, context, macros, and inheritance
-
-Cover existing supported behavior for:
-
-- required and optional options;
-- per-call context;
-- context mutation within one call;
-- no context leakage across calls;
-- inherited schema and rules;
-- contract-local macros;
-- macro arguments and failures within the supported form.
-
-Reject unsupported macro registration/global behavior rather than building a registry prematurely.
-
-## Step 8 — State isolation
-
-Stress:
-
-- repeated calls on the same contract instance;
-- multiple contract instances;
-- nested values and errors;
-- context and options;
-- threads under the GVL;
-- exceptions followed by successful calls.
-
-The goal is absence of leakage, not a claim of GVL-free parallelism.
-
-## Step 9 — Boundary-cost check
-
-When rule execution code changes, run a compact comparison of:
-
-- schema-heavy contract;
-- rule-heavy contract;
-- mixed contract.
-
-Record whether added Ruby/Rust crossings materially reduce performance. Do not optimize before evidence identifies a boundary problem.
-
-## Acceptance criteria
-
-- At least 50 focused rule differential cases exist.
-- Supported rules match upstream execution, skipping, and errors.
-- Failed dependencies suppress rules; unrelated failures do not.
-- User exceptions propagate unchanged.
-- Nested and indexed failure paths are compatible.
-- Options, context, macros, and inheritance do not leak state.
-- Repeated and threaded calls under the GVL remain isolated.
-- Unsupported rule and macro forms fail explicitly.
-
-## Required verification
-
-Run:
-
-- focused rule fixtures;
-- full rule differential corpus;
-- full Ruby suite;
-- Rust tests/lints if native execution changed;
-- thread/state stress cases;
-- representative mixed benchmarks when boundary behavior changed.
-
-## Stop conditions
-
-Stop and report when:
-
-- support requires compiling arbitrary Ruby code;
-- a macro form requires a general extension registry;
-- parallelism would require Ruby access without the GVL;
-- compatibility depends on undocumented upstream internals that cannot be characterized;
-- the task grows beyond one semantic class.
-
-## Exit gate
-
-Milestone C is complete only when ordinary supported contracts behave predictably enough for a realistic application experiment, not merely isolated examples.
+- Requires Milestone B (complete).
+- Blocks Milestone D.
