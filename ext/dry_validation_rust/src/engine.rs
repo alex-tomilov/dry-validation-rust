@@ -44,7 +44,7 @@ impl Engine {
 
     pub(crate) fn call(&self, input: RHash) -> Result<RArray, Error> {
         let ruby = Ruby::get_with(input);
-        let classes = RuntimeClasses::new(&ruby, &self.plan.fields)?;
+        let classes = RuntimeClasses::new(&ruby, &self.plan)?;
         let mut errors = Vec::new();
         let output = {
             let mut traversal = Traversal {
