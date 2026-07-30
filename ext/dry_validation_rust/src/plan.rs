@@ -89,10 +89,62 @@ impl<'de> Deserialize<'de> for PredicateArg {
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) enum PredicateOp {
+    Gt,
+    Gteq,
+    Lt,
+    Lteq,
+    MinSize,
+    MaxSize,
+    Size,
+    Odd,
+    Even,
+    Unsupported,
+}
+
+impl PredicateOp {
+    fn from_name(name: &str) -> Self {
+        match name {
+            "gt" => Self::Gt,
+            "gteq" => Self::Gteq,
+            "lt" => Self::Lt,
+            "lteq" => Self::Lteq,
+            "min_size" => Self::MinSize,
+            "max_size" => Self::MaxSize,
+            "size" => Self::Size,
+            "odd" => Self::Odd,
+            "even" => Self::Even,
+            _ => Self::Unsupported,
+        }
+    }
+}
+
+#[derive(Debug)]
 pub(crate) struct PredicatePlan {
     pub(crate) name: String,
+    pub(crate) op: PredicateOp,
     pub(crate) argument: PredicateArg,
+}
+
+impl<'de> Deserialize<'de> for PredicatePlan {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        struct RawPredicatePlan {
+            name: String,
+            argument: PredicateArg,
+        }
+
+        let raw = RawPredicatePlan::deserialize(deserializer)?;
+        Ok(Self {
+            op: PredicateOp::from_name(&raw.name),
+            name: raw.name,
+            argument: raw.argument,
+        })
+    }
 }
 
 #[derive(Debug, Deserialize)]
@@ -163,6 +215,7 @@ mod tests {
         assert_eq!(plan.fields.len(), 1);
         assert_eq!(plan.fields[0].name.as_deref(), Some("age"));
         assert_eq!(plan.fields[0].predicates[0].name, "gteq");
+        assert_eq!(plan.fields[0].predicates[0].op, PredicateOp::Gteq);
         assert_eq!(plan.fields[0].predicates[0].argument, PredicateArg::Int(18));
     }
 
@@ -219,5 +272,44 @@ mod tests {
             );
             assert!(serde_json::from_str::<SchemaPlan>(&json).is_err());
         }
+    }
+
+    #[test]
+    fn predicate_operations_are_resolved_during_deserialization() {
+        let json = r#"{
+          "engine_version": 1,
+          "mode": "params",
+          "fields": [{
+            "name": "value",
+            "required": true,
+            "nullable": false,
+            "filled": false,
+            "type": "integer",
+            "member": null,
+            "children": [],
+            "predicates": [
+              {"name": "gt", "argument": 1},
+              {"name": "min_size", "argument": 2},
+              {"name": "odd", "argument": true},
+              {"name": "custom", "argument": false}
+            ]
+          }]
+        }"#;
+        let plan: SchemaPlan = serde_json::from_str(json).expect("valid plan");
+        let operations: Vec<_> = plan.fields[0]
+            .predicates
+            .iter()
+            .map(|predicate| predicate.op)
+            .collect();
+
+        assert_eq!(
+            operations,
+            vec![
+                PredicateOp::Gt,
+                PredicateOp::MinSize,
+                PredicateOp::Odd,
+                PredicateOp::Unsupported,
+            ]
+        );
     }
 }
