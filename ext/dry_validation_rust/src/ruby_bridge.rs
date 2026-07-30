@@ -1,6 +1,6 @@
 use magnus::{Error, RClass, Ruby, prelude::*};
 
-use crate::plan::FieldPlan;
+use crate::plan::SchemaPlan;
 
 pub(crate) struct RuntimeClasses {
     pub(crate) date: Option<RClass>,
@@ -10,31 +10,29 @@ pub(crate) struct RuntimeClasses {
 }
 
 impl RuntimeClasses {
-    pub(crate) fn new(ruby: &Ruby, fields: &[FieldPlan]) -> Result<Self, Error> {
+    pub(crate) fn new(ruby: &Ruby, plan: &SchemaPlan) -> Result<Self, Error> {
         let object = ruby.class_object();
         Ok(Self {
-            date: fields_use_kind(fields, "date")
+            date: plan
+                .used_kinds
+                .contains("date")
                 .then(|| object.const_get("Date"))
                 .transpose()?,
-            date_time: fields_use_kind(fields, "date_time")
+            date_time: plan
+                .used_kinds
+                .contains("date_time")
                 .then(|| object.const_get("DateTime"))
                 .transpose()?,
-            time: fields_use_kind(fields, "time")
+            time: plan
+                .used_kinds
+                .contains("time")
                 .then(|| object.const_get("Time"))
                 .transpose()?,
-            big_decimal: fields_use_kind(fields, "decimal")
+            big_decimal: plan
+                .used_kinds
+                .contains("decimal")
                 .then(|| object.const_get("BigDecimal"))
                 .transpose()?,
         })
     }
-}
-
-fn fields_use_kind(fields: &[FieldPlan], kind: &str) -> bool {
-    fields.iter().any(|field| {
-        field.kind == kind
-            || fields_use_kind(&field.children, kind)
-            || field.member.as_ref().is_some_and(|member| {
-                member.kind == kind || fields_use_kind(&member.children, kind)
-            })
-    })
 }

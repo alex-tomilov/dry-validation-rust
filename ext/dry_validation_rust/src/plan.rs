@@ -3,7 +3,7 @@ use serde::{
     Deserialize,
     de::{Error as DeError, SeqAccess, Visitor},
 };
-use std::fmt;
+use std::{collections::HashSet, fmt};
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq)]
 #[serde(rename_all = "snake_case")]
@@ -167,10 +167,12 @@ pub(crate) struct SchemaPlan {
     pub(crate) engine_version: u32,
     pub(crate) mode: Mode,
     pub(crate) fields: Vec<FieldPlan>,
+    #[serde(skip)]
+    pub(crate) used_kinds: HashSet<String>,
 }
 
 pub(crate) fn parse_plan(ruby: &Ruby, json: &str) -> Result<SchemaPlan, Error> {
-    let plan: SchemaPlan = serde_json::from_str(json).map_err(|error| {
+    let mut plan: SchemaPlan = serde_json::from_str(json).map_err(|error| {
         Error::new(
             ruby.exception_arg_error(),
             format!("invalid native schema plan: {error}"),
@@ -185,7 +187,24 @@ pub(crate) fn parse_plan(ruby: &Ruby, json: &str) -> Result<SchemaPlan, Error> {
             ),
         ));
     }
+    plan.used_kinds = collect_used_kinds(&plan.fields);
     Ok(plan)
+}
+
+fn collect_used_kinds(fields: &[FieldPlan]) -> HashSet<String> {
+    fn collect(fields: &[FieldPlan], kinds: &mut HashSet<String>) {
+        for field in fields {
+            kinds.insert(field.kind.clone());
+            collect(&field.children, kinds);
+            if let Some(member) = &field.member {
+                collect(std::slice::from_ref(member.as_ref()), kinds);
+            }
+        }
+    }
+
+    let mut kinds = HashSet::new();
+    collect(fields, &mut kinds);
+    kinds
 }
 
 #[cfg(test)]
@@ -310,6 +329,41 @@ mod tests {
                 PredicateOp::Odd,
                 PredicateOp::Unsupported,
             ]
+        );
+    }
+
+    #[test]
+    fn used_kinds_include_nested_fields_and_members_once() {
+        let json = r#"{
+          "engine_version": 1,
+          "mode": "params",
+          "fields": [{
+            "name": "schedule", "required": true, "nullable": false, "filled": false,
+            "type": "hash", "member": null,
+            "children": [{
+              "name": "starts_on", "required": true, "nullable": false, "filled": false,
+              "type": "date", "member": null, "children": [], "predicates": []
+            }], "predicates": []
+          }, {
+            "name": "timestamps", "required": true, "nullable": false, "filled": false,
+            "type": "array",
+            "member": {
+              "name": null, "required": true, "nullable": false, "filled": false,
+              "type": "date_time", "member": null, "children": [], "predicates": []
+            }, "children": [], "predicates": []
+          }]
+        }"#;
+
+        let plan: SchemaPlan = serde_json::from_str(json).expect("valid plan");
+
+        assert_eq!(
+            collect_used_kinds(&plan.fields),
+            HashSet::from([
+                "hash".to_owned(),
+                "date".to_owned(),
+                "array".to_owned(),
+                "date_time".to_owned(),
+            ])
         );
     }
 }
