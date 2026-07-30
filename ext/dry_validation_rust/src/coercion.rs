@@ -76,10 +76,24 @@ pub(crate) fn coerce(
 }
 
 fn params_boolean(source: &str) -> Option<bool> {
-    match source.to_ascii_lowercase().as_str() {
-        "true" | "1" | "on" | "t" | "yes" | "y" => Some(true),
-        "false" | "0" | "off" | "f" | "no" | "n" => Some(false),
-        _ => None,
+    if source.eq_ignore_ascii_case("true")
+        || source == "1"
+        || source.eq_ignore_ascii_case("on")
+        || source.eq_ignore_ascii_case("t")
+        || source.eq_ignore_ascii_case("yes")
+        || source.eq_ignore_ascii_case("y")
+    {
+        Some(true)
+    } else if source.eq_ignore_ascii_case("false")
+        || source == "0"
+        || source.eq_ignore_ascii_case("off")
+        || source.eq_ignore_ascii_case("f")
+        || source.eq_ignore_ascii_case("no")
+        || source.eq_ignore_ascii_case("n")
+    {
+        Some(false)
+    } else {
+        None
     }
 }
 
