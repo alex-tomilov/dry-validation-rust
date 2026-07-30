@@ -52,6 +52,15 @@ module Dry
         NATIVE_PREDICATES = %i[gt gteq lt lteq min_size max_size size odd even].freeze
         RUBY_PREDICATES = %i[format included_in excluded_from eql not_eql].freeze
 
+        # Private Rust-to-Ruby error buffer format. Rust reads VERSION from
+        # this class so this is the single authority for its metadata.
+        NATIVE_ERROR_BUFFER_VERSION = 1
+        NATIVE_ERROR_BUFFER_HEADER_SIZE = 1
+        NATIVE_ERROR_RECORD_PATH_LENGTH_SIZE = 1
+        NATIVE_ERROR_RECORD_CODE_OFFSET = 0
+        NATIVE_ERROR_RECORD_TEXT_OFFSET = 1
+        NATIVE_ERROR_RECORD_TRAILER_SIZE = 2
+
         Predicate = Struct.new(:name, :argument, keyword_init: true)
 
         class FieldDefinition
@@ -354,13 +363,7 @@ module Dry
           raise ArgumentError, "Input must be a Hash. #{input.class} was given." unless input.is_a?(Hash)
 
           output, native_errors = engine.call(input)
-          messages = native_errors.map do |path, code, text|
-            predicate, args = native_predicate_details(path, code)
-            Message.new(
-              text, path: path, code: code, source: :schema,
-              predicate: predicate, args: args
-            )
-          end
+          messages = native_errors_to_messages(native_errors)
           apply_ruby_predicates(fields, output, [], messages)
           SchemaResult.new(output, messages.freeze)
         end
@@ -375,6 +378,45 @@ module Dry
         end
 
         private
+
+        def native_errors_to_messages(native_errors)
+          unless native_errors.fetch(0) == NATIVE_ERROR_BUFFER_VERSION
+            raise NativeExtensionError,
+              "unsupported native error buffer version: #{native_errors.first.inspect}"
+          end
+
+          messages = []
+          offset = NATIVE_ERROR_BUFFER_HEADER_SIZE
+
+          while offset < native_errors.length
+            path_length = native_errors.fetch(offset)
+            unless path_length.is_a?(Integer) && path_length >= 0
+              raise NativeExtensionError, "malformed native error buffer"
+            end
+
+            path_start = offset + NATIVE_ERROR_RECORD_PATH_LENGTH_SIZE
+            trailer_start = path_start + path_length
+            record_end = trailer_start + NATIVE_ERROR_RECORD_TRAILER_SIZE
+            raise NativeExtensionError, "malformed native error buffer" if record_end > native_errors.length
+
+            path = native_errors.slice(path_start, path_length)
+            code = native_errors.fetch(trailer_start + NATIVE_ERROR_RECORD_CODE_OFFSET)
+            text = native_errors.fetch(trailer_start + NATIVE_ERROR_RECORD_TEXT_OFFSET)
+            offset = record_end
+            unless path.all? { |part| part.is_a?(Symbol) || part.is_a?(Integer) } &&
+                   code.is_a?(Symbol) && text.is_a?(String)
+              raise NativeExtensionError, "malformed native error buffer"
+            end
+
+            predicate, args = native_predicate_details(path, code)
+            messages << Message.new(
+              text, path: path, code: code, source: :schema,
+              predicate: predicate, args: args
+            )
+          end
+
+          messages
+        end
 
         def paths_for(definitions, prefix = [])
           definitions.flat_map do |field|

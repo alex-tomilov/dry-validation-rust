@@ -1,4 +1,4 @@
-use magnus::{Error, RArray, RHash, RString, Ruby, Value, prelude::*};
+use magnus::{Error, Integer, RArray, RClass, RHash, RModule, RString, Ruby, Value, prelude::*};
 
 use crate::{
     coercion::{coerce, empty_value, type_matches},
@@ -55,20 +55,21 @@ impl Engine {
             };
             process_hash(&mut traversal, &self.plan.fields, input, &[], 0)?
         };
-        let ruby_errors = ruby.ary_new_capa(errors.len());
+        // Ruby owns this private format's version. Reading it here makes the
+        // encoder and decoder share one authority without duplicating a value.
+        let error_buffer_version = native_error_buffer_version(&ruby)?;
+        let ruby_errors = ruby.ary_new();
+        ruby_errors.push(error_buffer_version)?;
         for error in errors {
-            let path = ruby.ary_new_capa(error.path.len());
+            ruby_errors.push(error.path.len())?;
             for part in error.path {
                 match part {
-                    PathPart::Key(key) => path.push(ruby.to_symbol(key))?,
-                    PathPart::Index(index) => path.push(index)?,
+                    PathPart::Key(key) => ruby_errors.push(ruby.to_symbol(key))?,
+                    PathPart::Index(index) => ruby_errors.push(index)?,
                 }
             }
-            let tuple = ruby.ary_new_capa(3);
-            tuple.push(path)?;
-            tuple.push(ruby.to_symbol(error.code))?;
-            tuple.push(error.text)?;
-            ruby_errors.push(tuple)?;
+            ruby_errors.push(ruby.to_symbol(error.code))?;
+            ruby_errors.push(error.text)?;
         }
         let result = ruby.ary_new_capa(2);
         result.push(output)?;
@@ -95,6 +96,15 @@ impl Engine {
     pub(crate) fn plan_bytes(&self) -> usize {
         self.plan_bytes
     }
+}
+
+fn native_error_buffer_version(ruby: &Ruby) -> Result<usize, Error> {
+    let dry: RModule = ruby.class_object().const_get("Dry")?;
+    let validation: RModule = dry.const_get("Validation")?;
+    let rust: RModule = validation.const_get("Rust")?;
+    let schema: RClass = rust.const_get("Schema")?;
+    let version: Integer = schema.const_get("NATIVE_ERROR_BUFFER_VERSION")?;
+    version.to_usize()
 }
 
 fn process_hash(

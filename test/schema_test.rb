@@ -3,6 +3,34 @@
 require_relative "test_helper"
 
 class SchemaTest < Minitest::Test
+  def test_native_engine_uses_schema_error_buffer_version
+    schema = Dry::Validation::Rust::Schema.Params { required(:age).value(:integer) }
+
+    _output, native_errors = schema.engine.call(age: "invalid")
+
+    assert_equal Dry::Validation::Rust::Schema::NATIVE_ERROR_BUFFER_VERSION, native_errors.first
+  end
+
+  def test_native_error_buffer_rejects_unsupported_versions_and_truncated_records
+    schema = Dry::Validation::Rust::Schema.Params { required(:age).value(:integer) }
+    format_version = Dry::Validation::Rust::Schema::NATIVE_ERROR_BUFFER_VERSION
+
+    version_error = assert_raises(Dry::Validation::Rust::NativeExtensionError) do
+      schema.send(:native_errors_to_messages, [format_version + 1])
+    end
+    assert_equal "unsupported native error buffer version: #{format_version + 1}", version_error.message
+
+    malformed_error = assert_raises(Dry::Validation::Rust::NativeExtensionError) do
+      schema.send(:native_errors_to_messages, [format_version, 1, :age])
+    end
+    assert_equal "malformed native error buffer", malformed_error.message
+
+    invalid_value_error = assert_raises(Dry::Validation::Rust::NativeExtensionError) do
+      schema.send(:native_errors_to_messages, [format_version, 1, "age", :type, "must be an integer"])
+    end
+    assert_equal "malformed native error buffer", invalid_value_error.message
+  end
+
   def test_params_coerces_keys_and_scalar_values
     contract = build_contract do
       params do
