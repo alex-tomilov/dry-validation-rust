@@ -31,7 +31,7 @@ jobs:
           - "3.5"
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Install native build prerequisites on Linux
         if: runner.os == 'Linux'
@@ -73,7 +73,7 @@ jobs:
           - stable
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Install native build prerequisites
         run: sudo apt-get update && sudo apt-get install -y clang libclang-dev
@@ -106,7 +106,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Install native build prerequisites
         run: sudo apt-get update && sudo apt-get install -y clang libclang-dev
