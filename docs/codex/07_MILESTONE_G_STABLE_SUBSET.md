@@ -1,173 +1,111 @@
-# Milestone G — Stable supported subset
+# Milestone G — Stable Subset
 
-## Role of this task
+Status: ⚪ Not started.
+Last updated: 2026-07-29.
 
-Prepare a narrow, honest 1.0 contract. This is not a feature-completion milestone and not a claim of complete `dry-validation` parity.
+## Goal
 
-## Primary outcome
+Prepare a public release candidate with docs, examples, and support policy.
 
-The gem has a stable documented namespace, compatibility target, verified platforms, reproducible evidence, and no known silent mismatches inside its supported subset.
+## Tasks
 
-## Explicitly excluded
+### G-1: Documentation Review
 
-- implementing every deferred feature before 1.0;
-- claiming drop-in parity;
-- expanding the platform matrix during release preparation;
-- building elaborate governance systems;
-- publishing/tagging/releasing without explicit user instruction.
+- Review all documentation for accuracy against the final feature set.
+- Remove or update any claims not backed by evidence.
+- Ensure README, ARCHITECTURE.md, COMPATIBILITY.md, and MIGRATION.md are
+  consistent.
 
-## Step 1 — Freeze the actual supported surface
+### G-2: Example Suite
 
-Derive the stable surface from executable evidence, not aspirations.
+- Create `examples/` with runnable examples for each supported feature.
+- Each example must be tested in CI.
+- Include a "quick start" example that works in under 10 lines.
 
-Inventory:
+### G-3: Support Policy
 
-- public namespace/classes/methods actually used by examples and tests;
-- supported DSL forms;
-- supported result/error APIs;
-- supported Ruby/platform matrix;
-- exact upstream compatibility target;
-- explicit unsupported forms.
+- Define supported Ruby versions, Rust versions, and platforms.
+- Document in `SUPPORT.md`.
+- Define the deprecation policy for future releases.
 
-Do not freeze internal helpers or undocumented accidental APIs.
+### G-4: Security Review
 
-## Step 2 — Resolve silent mismatches
+- Run `cargo audit` and `bundle audit` clean.
+- Review FFI boundary for memory safety.
+- Ensure no `unsafe` blocks without justification comments.
+- Review recursion depth guard and input size limits.
 
-Search:
+### G-5: Release Candidate
 
-- differential failures;
-- skipped/expected-failure fixtures;
-- open compatibility issues;
-- migration experiment notes;
-- error normalization differences;
-- platform-specific failures.
+- Tag `v0.1.0-rc1`.
+- Publish pre-release gem.
+- Announce in relevant communities (Ruby Weekly, dry-rb Discourse).
 
-For each issue:
+### G-6: Post-Release Monitoring
 
-- fix it within the supported subset;
-- narrow support and fail explicitly; or
-- block 1.0 if the mismatch is critical and silent.
+- Monitor GitHub issues for the first 30 days.
+- Track installation counts on RubyGems.
+- Collect feedback on the compatibility slice.
 
-A known silent semantic mismatch cannot be deferred behind optimistic wording.
+### G-7: Community and Naming Review
 
-## Step 3 — Decide exact compatibility mode
+Before publication:
 
-Choose one outcome based on evidence:
+- **Naming/affiliation discussion with dry-rb / Hanakai maintainers.**
+  The name `dry-validation-rust` implies affiliation. Get explicit blessing
+  or adjust the name (e.g., `dry-validation-native`, `turbo-validation`).
+  Open a discussion on the dry-rb / hanami GitHub org or Discourse. Frame it
+  as "here's a feasibility study, I'd love feedback on the approach."
 
-1. keep exact mode experimental and opt-in;
-2. move exact mode to a separate compatibility package;
-3. remove exact mode from the stable product.
+- **"Why should I use this?" README section.** Add honest positioning:
 
-Evaluate:
+  > **When to consider this gem:**
+  >
+  > - You validate large arrays of nested hashes (e.g., bulk API imports)
+  >   and the schema path is a measurable bottleneck.
+  > - You want to keep your existing `dry-validation` contract syntax while
+  >   moving the hot path to native code.
+  > - You are willing to run a pre-release gem and report issues.
+  >
+  > **When to stay on upstream:**
+  >
+  > - You need i18n messages, hints, monads, or the full predicate library.
+  > - You need production support and semantic versioning guarantees.
 
-- constant/load-path conflicts;
-- coexistence with upstream;
-- maintenance burden;
-- user migration value;
-- risk of users assuming full parity.
+- **Governance right-sizing.** For a single-maintainer prototype, collapse
+  process docs (AGENTS.md, docs/codex/, docs/decisions/, docs/tasks/,
+  GOVERNANCE.md, PROJECT_MANAGEMENT.md) into a single `docs/PROCESS.md`
+  or remove them until the project has multiple contributors. Keep
+  CONTRIBUTING.md, SECURITY.md, CHANGELOG.md, and ARCHITECTURE.md.
 
-Do not make exact mode the default simply because it is technically possible.
+## Go/No-Go Questions
 
-## Step 4 — Realistic migration proof
+1. Does `script/verify` pass on all supported platforms?
+2. Are all benchmark claims backed by published results?
+3. Is the compatibility matrix accurate and complete?
+4. Are all unsupported features documented with clear errors?
+5. Is the migration guide tested by at least one external user?
+6. Are precompiled gems available for the primary platforms?
+7. Is the security review complete?
+8. Is the support policy documented?
+9. Is the changelog up to date?
+10. Is the release process documented?
+11. Is the naming/affiliation question resolved with dry-rb maintainers?
+12. Does the README honestly position the gem's strengths and limitations?
 
-Complete at least one realistic application or representative sample migration.
+## Acceptance Criteria
 
-Document concisely:
+- [ ] All documentation reviewed and accurate.
+- [ ] Example suite exists and is tested in CI.
+- [ ] Support policy documented.
+- [ ] Security review complete (cargo audit, bundle audit, FFI review).
+- [ ] Release candidate tagged and published.
+- [ ] Naming/affiliation resolved with dry-rb / Hanakai community.
+- [ ] README includes honest positioning section.
+- [ ] Governance documentation right-sized for project scale.
+- [ ] All 12 go/no-go questions answered "yes".
 
-- original contract patterns;
-- supported unchanged syntax;
-- required changes;
-- unsupported blockers;
-- compatibility results;
-- performance results;
-- rollback/coexistence strategy.
+## Dependencies
 
-Use an existing documentation location or one focused migration guide only if genuinely necessary. Do not create a collection of case-study documents.
-
-## Step 5 — Reproducible benchmark proof
-
-Re-run the representative Milestone D suite on the release candidate.
-
-Requirements:
-
-- all benchmark contracts pass differential checks;
-- environment and commands are recorded;
-- regressions from previous baselines are explained;
-- README claims are narrow and quantified;
-- rule-heavy or unfavourable cases are not hidden.
-
-## Step 6 — Public policy minimum
-
-Document only policies needed by actual users:
-
-- versioning expectations;
-- deprecation approach after 1.0;
-- supported Ruby/platform matrix;
-- security reporting route;
-- compatibility target and support boundary.
-
-Do not build a pre-1.0 deprecation framework retroactively. Do not require exhaustive `@since` annotations or API snapshot tests unless they protect a deliberately selected stable API and remain small.
-
-## Step 7 — Release-candidate verification
-
-From a clean checkout or CI artifact:
-
-- run canonical verification;
-- build the gem;
-- install in a clean consumer;
-- run differential corpus;
-- run representative benchmarks;
-- verify advertised platforms;
-- inspect package contents;
-- verify licenses/notices;
-- verify native load failure messages.
-
-Do not publish, tag, or create a release as part of this instruction.
-
-## Step 8 — 1.0 go/no-go review
-
-Answer explicitly:
-
-1. Is every supported behavior backed by executable evidence?
-2. Are there any known silent mismatches?
-3. Can users distinguish unsupported syntax immediately?
-4. Are advertised platforms verified?
-5. Is installation reproducible?
-6. Are performance claims representative and reproducible?
-7. Is the stable namespace intentionally selected?
-8. Is exact mode's status unambiguous?
-9. Has at least one realistic migration been attempted?
-10. Are critical correctness/security issues resolved?
-
-Any “no” must either block 1.0 or narrow the supported claim before release.
-
-## Acceptance criteria
-
-- No unresolved critical correctness issue exists.
-- No known silent mismatch exists inside the supported subset.
-- Unsupported forms fail explicitly.
-- Primary namespace and compatibility target are stable and documented.
-- Every advertised platform is verified.
-- A realistic migration has been documented.
-- Benchmark evidence is reproducible and honestly scoped.
-- Package/install smoke tests pass from the built gem.
-- Exact compatibility mode has a deliberate documented status.
-- Documentation contains no unsupported ambitious promises.
-
-## Delivery response
-
-Provide a concise release-readiness report containing:
-
-- go/no-go decision;
-- blockers, if any;
-- final supported subset;
-- exact-mode decision;
-- verification evidence;
-- claims that were narrowed or removed;
-- actions intentionally deferred after 1.0.
-
-Do not generate a large certification dossier.
-
-## Exit gate
-
-Milestone G is complete only when the code, executable evidence, packaging, and wording describe the same narrow product. A stable release is a supported subset, not the completion of the entire future backlog.
+- Requires Milestone F (complete).
+- Final milestone.

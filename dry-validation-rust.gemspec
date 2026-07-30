@@ -37,7 +37,7 @@ Gem::Specification.new do |spec|
   ].flatten.sort
   spec.require_paths = ["lib"]
   spec.extensions = ["ext/dry_validation_rust/extconf.rb"]
-  spec.add_runtime_dependency "bigdecimal", "~> 3.1"
+  spec.add_runtime_dependency "bigdecimal", ">= 3.1", "< 5.0"
   spec.add_runtime_dependency "rb_sys", "~> 0.9"
   spec.add_development_dependency "minitest", "~> 6.0"
   spec.add_development_dependency "mutex_m", "~> 0.2"

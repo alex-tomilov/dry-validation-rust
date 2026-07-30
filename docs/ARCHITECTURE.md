@@ -51,6 +51,21 @@ serious Magnus GC error: a raw Ruby `VALUE` hidden in a Rust `Vec` or
 
 The native object exposes `field_count` and `plan_bytes` for diagnostics.
 
+### Rust extension layout
+
+The native extension keeps the Magnus binding in `lib.rs` and separates plan parsing, traversal, coercion, predicate evaluation, errors, and GVL-bound Ruby calls into focused modules.
+
+```text
+ext/dry_validation_rust/src/
+├── lib.rs          # Magnus binding, module declarations, and re-exports
+├── plan.rs         # Plan deserialization, PredicateArg, and version check
+├── engine.rs       # Input traversal, output construction, errors, depth guard
+├── coercion.rs     # Mode-specific scalar coercion
+├── predicates.rs   # Native predicate evaluation
+├── error.rs        # Native errors, path parts, and error helpers
+└── ruby_bridge.rs  # GVL-bound calls into CRuby
+```
+
 ## Call phase
 
 ### Native schema processor
