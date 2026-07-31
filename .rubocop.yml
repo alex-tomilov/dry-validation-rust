@@ -1,3 +1,73 @@
 AllCops:
   TargetRubyVersion: 3.3
   NewCops: enable
+
+# Keep complexity limits meaningful for the library while excluding declarative
+# test cases and command orchestration from limits that do not aid readability.
+Metrics/AbcSize:
+  Max: 40
+  Exclude:
+    - 'Rakefile'
+    - 'benchmark/**/*'
+    - 'script/**/*'
+    - 'test/**/*'
+
+Metrics/BlockLength:
+  Max: 30
+
+Metrics/ClassLength:
+  Max: 200
+  Exclude:
+    - 'script/**/*'
+    - 'test/**/*'
+
+Metrics/CyclomaticComplexity:
+  Max: 16
+  Exclude:
+    - 'Rakefile'
+    - 'benchmark/**/*'
+    - 'script/**/*'
+    - 'test/**/*'
+
+Metrics/MethodLength:
+  Max: 30
+  Exclude:
+    - 'Rakefile'
+    - 'benchmark/**/*'
+    - 'script/**/*'
+    - 'test/**/*'
+
+Metrics/ParameterLists:
+  Max: 7
+
+Metrics/PerceivedComplexity:
+  Max: 16
+  Exclude:
+    - 'Rakefile'
+    - 'benchmark/**/*'
+    - 'script/**/*'
+    - 'test/**/*'
+
+Layout/LineLength:
+  Exclude:
+    - 'Rakefile'
+    - 'benchmark/**/*'
+    - 'script/**/*'
+    - 'test/**/*'
+
+Style/Documentation:
+  Enabled: false
+
+Gemspec/DevelopmentDependencies:
+  Enabled: false
+
+Naming/FileName:
+  Exclude:
+    - 'lib/dry-schema.rb'
+    - 'lib/dry-validation.rb'
+
+Naming/MethodName:
+  Exclude:
+    - 'lib/dry/validation.rb'
+    - 'lib/dry/validation/rust.rb'
+    - 'lib/dry/validation/rust/schema.rb'

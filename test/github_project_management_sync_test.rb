@@ -181,6 +181,10 @@ class GitHubProjectManagementSyncTest < Minitest::Test
       raise "unexpected client call: #{name}"
     end
 
+    def client.respond_to_missing?(_name, _include_private = false)
+      true
+    end
+
     status = Sync::CLI.new(
       ['--offline'],
       root: PROJECT_ROOT,
@@ -428,6 +432,7 @@ class GitHubProjectManagementSyncTest < Minitest::Test
     end
 
     def run(*command, stdin_data: nil)
+      _ = stdin_data
       @commands << command
       Sync::CommandRunner::Result.new(@stdout, '', Status.new)
     end
@@ -487,6 +492,7 @@ class GitHubProjectManagementSyncTest < Minitest::Test
     end
 
     def rest(_method, _path, body: nil, paginate: false)
+      _ = [body, paginate]
       []
     end
 
@@ -525,6 +531,7 @@ class GitHubProjectManagementSyncTest < Minitest::Test
     end
 
     def rest(_method, _path, body: nil, paginate: false)
+      _ = [body, paginate]
       []
     end
 

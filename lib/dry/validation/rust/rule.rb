@@ -11,13 +11,13 @@ module Dry
         def initialize(paths:, default_path: paths.first || [], block: nil)
           @paths = paths
           @default_path = default_path
-          set_block(block)
+          assign_block(block)
           @macro_calls = []
           @each = false
         end
 
         def validate(*macros, &new_block)
-          set_block(new_block) if new_block
+          assign_block(new_block) if new_block
           @macro_calls = parse_macros(macros)
           self
         end
@@ -26,7 +26,7 @@ module Dry
           raise ArgumentError, 'rule.each requires exactly one root key' unless paths.length == 1
 
           @each = true
-          set_block(new_block) if new_block
+          assign_block(new_block) if new_block
           @macro_calls = parse_macros(macros)
           self
         end
@@ -41,7 +41,7 @@ module Dry
 
         private
 
-        def set_block(block)
+        def assign_block(block)
           @block = block
           @keyword_params = block ? BlockKeywordParameters.extract(block) : BlockKeywordParameters::EMPTY
         end

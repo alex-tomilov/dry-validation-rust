@@ -1097,7 +1097,7 @@ module DryValidationRust
         end
 
         counts.sort_by { |kind, _count| kind.to_s }.each do |kind, count|
-          @output.puts format('  %-24s %d', kind, count)
+          @output.puts format('  %<kind>-24s %<count>d', kind: kind, count: count)
         end
         return unless @options[:verbose]
 

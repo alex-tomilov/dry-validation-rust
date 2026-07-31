@@ -88,7 +88,7 @@ module Dry
             @children_by_name[name.to_sym]
           end
 
-          def add_predicate(name, argument = true)
+          def add_predicate(name, argument: true)
             normalized_name = name.to_s.delete_suffix('?').to_sym
             unless (NATIVE_PREDICATES | RUBY_PREDICATES).include?(normalized_name)
               raise UnsupportedFeatureError,
@@ -250,7 +250,7 @@ module Dry
 
           def array(member_type = nil, **predicates, &block)
             definition.type = :array
-            predicates.each { |name, argument| definition.add_predicate(name, argument) }
+            predicates.each { |name, argument| definition.add_predicate(name, argument: argument) }
 
             if member_type
               member = FieldDefinition.new(name: nil, required: true)
@@ -284,7 +284,7 @@ module Dry
                          else
                            kwargs
                          end
-              definition.add_predicate(name, argument.nil? || argument)
+              definition.add_predicate(name, argument: argument.nil? || argument)
               return self
             end
 
@@ -304,13 +304,13 @@ module Dry
             remaining.each do |predicate|
               case predicate
               when Symbol then definition.add_predicate(predicate)
-              when Hash then predicate.each { |name, argument| definition.add_predicate(name, argument) }
+              when Hash then predicate.each { |name, argument| definition.add_predicate(name, argument: argument) }
               else
                 raise UnsupportedFeatureError,
                       "unsupported type or predicate specification: #{predicate.class.name}"
               end
             end
-            predicates.each { |name, argument| definition.add_predicate(name, argument) }
+            predicates.each { |name, argument| definition.add_predicate(name, argument: argument) }
           end
 
           def type_spec?(spec)
@@ -517,7 +517,7 @@ module Dry
 
           path.each do |part|
             if part.is_a?(Integer)
-              return unless definition&.member
+              return nil unless definition&.member
 
               definition = definition.member
             else
@@ -526,7 +526,7 @@ module Dry
                            else
                              definitions.find { |field| field.name == part.to_sym }
                            end
-              return unless definition
+              return nil unless definition
             end
           end
 
