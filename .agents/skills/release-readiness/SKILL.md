@@ -29,6 +29,8 @@ Use this skill only for an actual release candidate or explicit release-preparat
 - migration or upgrade notes when required;
 - reproducible version and build metadata;
 - known limitations and rollback path.
+- `bundle exec rubocop` passes when the release candidate includes Ruby source,
+  tests, tooling, or CI configuration changes.
 
 ## Rules
 

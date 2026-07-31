@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require "dry/validation"
+require 'dry/validation'
 
 class NewUserContract < Dry::Validation::Contract
   params do
@@ -14,15 +14,15 @@ class NewUserContract < Dry::Validation::Contract
   end
 
   rule(:age) do
-    key.failure("must be at least 18") if value < 18
+    key.failure('must be at least 18') if value < 18
   end
 end
 
 result = NewUserContract.new.call(
-  "email" => "jane@example.org",
-  "age" => "17",
-  "display_name" => "",
-  "addresses" => [{"city" => "Astana", "postcode" => "010000"}]
+  'email' => 'jane@example.org',
+  'age' => '17',
+  'display_name' => '',
+  'addresses' => [{ 'city' => 'Astana', 'postcode' => '010000' }]
 )
 
 warn result.inspect

@@ -1,7 +1,5 @@
 # frozen_string_literal: true
 
-require "set"
-
 module Dry
   module Validation
     module Rust
@@ -20,16 +18,16 @@ module Dry
             @config ||= Config.new
           end
 
-          def params(*external_schemas, &block)
-            define_schema(:params, external_schemas, &block)
+          def params(*external_schemas, &)
+            define_schema(:params, external_schemas, &)
           end
 
-          def json(*external_schemas, &block)
-            define_schema(:json, external_schemas, &block)
+          def json(*external_schemas, &)
+            define_schema(:json, external_schemas, &)
           end
 
-          def schema(*external_schemas, &block)
-            define_schema(:schema, external_schemas, &block)
+          def schema(*external_schemas, &)
+            define_schema(:schema, external_schemas, &)
           end
 
           def rule(*specs, &block)
@@ -56,6 +54,7 @@ module Dry
               optional: optional
             )
             attr_reader name
+
             self
           end
 
@@ -64,8 +63,8 @@ module Dry
             inherited.merge(@option_definitions ||= {})
           end
 
-          def register_macro(name, *args, &block)
-            macro_registry.register(name, *args, &block)
+          def register_macro(name, *, &)
+            macro_registry.register(name, *, &)
             self
           end
 
@@ -78,8 +77,8 @@ module Dry
             self
           end
 
-          def build(options = {}, &block)
-            Class.new(self, &block).new(**options)
+          def build(options = {}, &)
+            Class.new(self, &).new(**options)
           end
 
           def schema_definition
@@ -92,7 +91,10 @@ module Dry
 
           def define_schema(mode, external_schemas, &block)
             return schema_definition if external_schemas.empty? && block.nil?
-            raise DuplicateSchemaError, "Schema has already been defined" if instance_variable_defined?(:@schema_definition)
+            if instance_variable_defined?(:@schema_definition)
+              raise DuplicateSchemaError,
+                    'Schema has already been defined'
+            end
 
             builder = Schema::DSL.new(mode: mode)
             parent = superclass.schema_definition if superclass.respond_to?(:schema_definition)
@@ -116,7 +118,7 @@ module Dry
             return if invalid.empty?
 
             raise InvalidKeysError,
-              "#{name || self}.rule specifies keys that are not defined by the schema: #{invalid.inspect}"
+                  "#{name || self}.rule specifies keys that are not defined by the schema: #{invalid.inspect}"
           end
 
           def default_rule_path(specs, paths)
@@ -142,7 +144,7 @@ module Dry
           schema_result = schema.call(input)
           shared_context = default_context.merge(context)
           result = Result.new(schema_result, shared_context)
-          schema_error_paths = schema_result.messages.map(&:path).to_set
+          schema_error_paths = schema_result.messages.to_set(&:path)
           schema_error_path_prefixes = schema_error_paths.each_with_object(Set.new) do |error_path, prefixes|
             (0..error_path.length).each { |length| prefixes << error_path.take(length) }
           end
@@ -178,7 +180,10 @@ module Dry
         def initialize_options(provided)
           definitions = self.class.option_definitions
           unknown = provided.keys - definitions.keys
-          raise ArgumentError, "unknown keyword#{'s' if unknown.length > 1}: #{unknown.map(&:inspect).join(', ')}" if unknown.any?
+          if unknown.any?
+            raise ArgumentError,
+                  "unknown keyword#{'s' if unknown.length > 1}: #{unknown.map(&:inspect).join(', ')}"
+          end
 
           definitions.each_value do |definition|
             value = if provided.key?(definition.name)
@@ -208,7 +213,10 @@ module Dry
             default_path: rule.default_path,
             context: context
           )
-          evaluator.execute(rule.block, rule.macro_calls, keyword_params: rule.keyword_params).failures.each { |failure| result.add_error(failure) }
+          evaluator.execute(rule.block, rule.macro_calls,
+                            keyword_params: rule.keyword_params).failures.each do |failure|
+            result.add_error(failure)
+          end
         end
 
         def execute_each(rule, result, context)
@@ -228,7 +236,10 @@ module Dry
               context: context,
               index: index
             )
-            evaluator.execute(rule.block, rule.macro_calls, keyword_params: rule.keyword_params).failures.each { |failure| result.add_error(failure) }
+            evaluator.execute(rule.block, rule.macro_calls,
+                              keyword_params: rule.keyword_params).failures.each do |failure|
+              result.add_error(failure)
+            end
           end
         end
       end

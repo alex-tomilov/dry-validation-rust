@@ -1,14 +1,14 @@
 # frozen_string_literal: true
 
-require "fileutils"
-require "rake/testtask"
-require "rubygems/package_task"
-require "stringio"
-require "tmpdir"
-require "zlib"
+require 'fileutils'
+require 'rake/testtask'
+require 'rubygems/package_task'
+require 'stringio'
+require 'tmpdir'
+require 'zlib'
 
-EXTENSION_DIR = File.expand_path("ext/dry_validation_rust", __dir__)
-GEMSPEC_PATH = File.expand_path("dry-validation-rust.gemspec", __dir__)
+EXTENSION_DIR = File.expand_path('ext/dry_validation_rust', __dir__)
+GEMSPEC_PATH = File.expand_path('dry-validation-rust.gemspec', __dir__)
 PACKAGE_REQUIRED_FILES = %w[
   CHANGELOG.md
   LICENSE
@@ -30,19 +30,19 @@ PACKAGE_REQUIRED_FILES = %w[
   rust-toolchain.toml
 ].freeze
 PACKAGE_FORBIDDEN_PATTERNS = {
-  "secret or credential files" => %r{(^|/)(?:\.env(?:\.|$)|.*\.(?:pem|key|p12|pfx)|id_(?:rsa|dsa|ed25519)|master\.key|credentials\.ya?ml\.enc)\z}i,
-  "local build artifacts" => %r{\A(?:pkg|coverage|\.bundle|\.ruby-lsp)/|\Aext/dry_validation_rust/(?:target/|Makefile\z|mkmf\.log\z|native\.)|(?:\.gem|\.o|\.so|\.bundle|\.dylib|\.dll|\.log)\z},
-  "editor files" => %r{(^|/)(?:\.DS_Store|.*~|#.*#|\.#.*|.*\.sw[op])\z|(^|/)\.(?:idea|vscode)/},
-  "non-runtime project material" => %r{\A(?:benchmark|examples|docs/codex)/}
+  'secret or credential files' => %r{(^|/)(?:\.env(?:\.|$)|.*\.(?:pem|key|p12|pfx)|id_(?:rsa|dsa|ed25519)|master\.key|credentials\.ya?ml\.enc)\z}i,
+  'local build artifacts' => %r{\A(?:pkg|coverage|\.bundle|\.ruby-lsp)/|\Aext/dry_validation_rust/(?:target/|Makefile\z|mkmf\.log\z|native\.)|(?:\.gem|\.o|\.so|\.bundle|\.dylib|\.dll|\.log)\z},
+  'editor files' => %r{(^|/)(?:\.DS_Store|.*~|#.*#|\.#.*|.*\.sw[op])\z|(^|/)\.(?:idea|vscode)/},
+  'non-runtime project material' => %r{\A(?:benchmark|examples|docs/codex)/}
 }.freeze
 
 def package_file_list(gem_path)
   data_tar_gz = nil
 
-  File.open(gem_path, "rb") do |file|
+  File.open(gem_path, 'rb') do |file|
     Gem::Package::TarReader.new(file) do |gem_tar|
       gem_tar.each do |entry|
-        data_tar_gz = entry.read if entry.full_name == "data.tar.gz"
+        data_tar_gz = entry.read if entry.full_name == 'data.tar.gz'
       end
     end
   end
@@ -63,39 +63,39 @@ end
 def validate_package_files(gem_path, expected_files)
   files = package_file_list(gem_path)
 
-  puts "Package contents:"
-  puts files.map { |path| "  #{path}" }
+  puts 'Package contents:'
+  puts(files.map { |path| "  #{path}" })
 
   missing = PACKAGE_REQUIRED_FILES - files
-  raise "Package is missing required files: #{missing.join(", ")}" unless missing.empty?
+  raise "Package is missing required files: #{missing.join(', ')}" unless missing.empty?
 
   unexpected = files - expected_files
-  raise "Package contains files outside spec.files: #{unexpected.join(", ")}" unless unexpected.empty?
+  raise "Package contains files outside spec.files: #{unexpected.join(', ')}" unless unexpected.empty?
 
   omitted = expected_files - files
-  raise "Package omitted spec.files entries: #{omitted.join(", ")}" unless omitted.empty?
+  raise "Package omitted spec.files entries: #{omitted.join(', ')}" unless omitted.empty?
 
   PACKAGE_FORBIDDEN_PATTERNS.each do |label, pattern|
     matches = files.grep(pattern)
-    raise "Package contains #{label}: #{matches.join(", ")}" unless matches.empty?
+    raise "Package contains #{label}: #{matches.join(', ')}" unless matches.empty?
   end
 
   native_sources = files.grep(%r{\Aext/dry_validation_rust/src/.*\.rs\z})
-  raise "Package is missing native Rust source files" if native_sources.empty?
+  raise 'Package is missing native Rust source files' if native_sources.empty?
 
   files
 end
 
-def with_unbundled_environment(&block)
+def with_unbundled_environment(&)
   if defined?(Bundler)
-    Bundler.with_unbundled_env(&block)
+    Bundler.with_unbundled_env(&)
   else
     yield
   end
 end
 
 def rb_sys_gem_lib_path
-  File.join(Gem::Specification.find_by_name("rb_sys").full_gem_path, "lib")
+  File.join(Gem::Specification.find_by_name('rb_sys').full_gem_path, 'lib')
 end
 
 def smoke_installed_package(gem_path)
@@ -129,35 +129,35 @@ def smoke_installed_package(gem_path)
     abort failure.errors.to_h.inspect unless failure.failure? && failure.errors.to_h == {age: ["must be an adult"]}
   RUBY
 
-  Dir.mktmpdir("dry-validation-rust-gem-home") do |gem_home|
-    Dir.mktmpdir("dry-validation-rust-package-smoke") do |workdir|
+  Dir.mktmpdir('dry-validation-rust-gem-home') do |gem_home|
+    Dir.mktmpdir('dry-validation-rust-package-smoke') do |workdir|
       env = {
-        "GEM_HOME" => gem_home,
-        "GEM_PATH" => ([gem_home] + Gem.path).uniq.join(File::PATH_SEPARATOR),
-        "RB_SYS_GEM_LIB" => rb_sys_gem_lib_path
+        'GEM_HOME' => gem_home,
+        'GEM_PATH' => ([gem_home] + Gem.path).uniq.join(File::PATH_SEPARATOR),
+        'RB_SYS_GEM_LIB' => rb_sys_gem_lib_path
       }
 
       with_unbundled_environment do
-        sh env, "gem", "install", "--local", gem_path, "--no-document"
+        sh env, 'gem', 'install', '--local', gem_path, '--no-document'
         Dir.chdir(workdir) do
-          sh env, "ruby", "-e", ruby_code
+          sh env, 'ruby', '-e', ruby_code
         end
       end
     end
   end
 end
 
-desc "Compile the Rust extension"
+desc 'Compile the Rust extension'
 task :compile do
   Dir.chdir(EXTENSION_DIR) do
-    ruby "extconf.rb" if !File.exist?("Makefile") || File.mtime("extconf.rb") > File.mtime("Makefile")
-    sh "make"
+    ruby 'extconf.rb' if !File.exist?('Makefile') || File.mtime('extconf.rb') > File.mtime('Makefile')
+    sh 'make'
   end
 end
 
-Rake::TestTask.new(:test => :compile) do |task|
-  task.libs << "lib" << "test"
-  task.pattern = "test/**/*_test.rb"
+Rake::TestTask.new(test: :compile) do |task|
+  task.libs << 'lib' << 'test'
+  task.pattern = 'test/**/*_test.rb'
   task.warning = true
 end
 
@@ -165,19 +165,19 @@ spec = Gem::Specification.load(GEMSPEC_PATH)
 Gem::PackageTask.new(spec)
 
 namespace :package do
-  desc "Build and audit the source gem package"
+  desc 'Build and audit the source gem package'
   task :audit do
-    FileUtils.mkdir_p(File.expand_path("pkg", __dir__))
+    FileUtils.mkdir_p(File.expand_path('pkg', __dir__))
     gem_path = File.expand_path("pkg/#{spec.full_name}.gem", __dir__)
 
-    sh "gem", "build", GEMSPEC_PATH, "--output", gem_path
+    sh 'gem', 'build', GEMSPEC_PATH, '--output', gem_path
     validate_package_files(gem_path, spec.files.sort)
     smoke_installed_package(gem_path)
   end
 end
 
 namespace :dependency do
-  desc "Print dependency and tool versions for verification logs"
+  desc 'Print dependency and tool versions for verification logs'
   task :versions do
     puts "Ruby: #{RUBY_DESCRIPTION}"
     puts "RubyGems: #{Gem::VERSION}"
@@ -185,7 +185,7 @@ namespace :dependency do
 
     puts "\nBundled Ruby gems:"
     Gem.loaded_specs.values
-       .select { |loaded_spec| loaded_spec.full_gem_path.start_with?(File.expand_path(__dir__)) || loaded_spec.name == "dry-validation-rust" }
+       .select { |loaded_spec| loaded_spec.full_gem_path.start_with?(File.expand_path(__dir__)) || loaded_spec.name == 'dry-validation-rust' }
        .sort_by(&:name)
        .each { |loaded_spec| puts "  #{loaded_spec.name} #{loaded_spec.version}" }
 
@@ -193,18 +193,18 @@ namespace :dependency do
     Bundler.load.specs.sort_by(&:name).each { |locked_spec| puts "  #{locked_spec.name} #{locked_spec.version}" }
 
     puts "\nRust toolchain:"
-    sh "rustc", "--version"
-    sh "cargo", "--version"
+    sh 'rustc', '--version'
+    sh 'cargo', '--version'
 
     puts "\nRust dependency tree:"
-    sh "cargo", "tree", "--locked", "--manifest-path", "ext/dry_validation_rust/Cargo.toml", "--depth", "1"
+    sh 'cargo', 'tree', '--locked', '--manifest-path', 'ext/dry_validation_rust/Cargo.toml', '--depth', '1'
   end
 end
 
 namespace :compatibility do
-  desc "Run the pinned upstream differential corpus in isolated Ruby processes"
+  desc 'Run the pinned upstream differential corpus in isolated Ruby processes'
   task differential: :compile do
-    sh "bundle", "exec", "ruby", "-Ilib", "-Itest", "test/differential_compatibility_test.rb"
+    sh 'bundle', 'exec', 'ruby', '-Ilib', '-Itest', 'test/differential_compatibility_test.rb'
   end
 end
 

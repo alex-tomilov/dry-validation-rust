@@ -65,9 +65,11 @@ module Dry
         end
 
         def inspect
-          context.empty? ?
-            "#<#{self.class}#{to_h.inspect} errors=#{errors.to_h.inspect}>" :
+          if context.empty?
+            "#<#{self.class}#{to_h.inspect} errors=#{errors.to_h.inspect}>"
+          else
             "#<#{self.class}#{to_h.inspect} errors=#{errors.to_h.inspect} context=#{context.inspect}>"
+          end
         end
 
         def deconstruct_keys(keys)

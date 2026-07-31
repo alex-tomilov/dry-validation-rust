@@ -13,8 +13,8 @@ module Dry
           @options = options
         end
 
-        def each(&block)
-          messages.each(&block)
+        def each(&)
+          messages.each(&)
         end
 
         def [](key)
@@ -70,7 +70,7 @@ module Dry
         def full_message(message)
           return message if message.base?
 
-          label = message.path.map { |part| part.is_a?(Integer) ? part : part.to_s.tr("_", " ") }.join(" ")
+          label = message.path.map { |part| part.is_a?(Integer) ? part : part.to_s.tr('_', ' ') }.join(' ')
           message.with_text("#{label} #{message.text}")
         end
       end

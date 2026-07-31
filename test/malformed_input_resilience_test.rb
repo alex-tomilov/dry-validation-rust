@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require_relative "test_helper"
+require_relative 'test_helper'
 
 class MalformedInputResilienceTest < Minitest::Test
   CORPUS_SIZE = 64
@@ -27,14 +27,14 @@ class MalformedInputResilienceTest < Minitest::Test
 
     result = contract.new.call(age: invalid_utf8)
 
-    assert_equal({age: invalid_utf8}, result.to_h)
-    assert_equal({age: ["must be an integer"]}, result.errors.to_h)
+    assert_equal({ age: invalid_utf8 }, result.to_h)
+    assert_equal({ age: ['must be an integer'] }, result.errors.to_h)
   end
 
   def test_unsupported_declarations_fail_with_stable_errors
     declarations = [
       proc { build_contract { params { required(:age).value(:integer, unknown?: 1) } } },
-      proc { build_contract { params { before(:coerce) {} } } },
+      proc { build_contract { params { before(:coerce) { nil } } } },
       proc { build_contract { params { required(:age).value(:integer) { required(:child) } } } }
     ]
 
@@ -79,15 +79,15 @@ class MalformedInputResilienceTest < Minitest::Test
   end
 
   def malformed_value(random, depth)
-    values = [nil, true, false, -1, 0, 1, 1.5, "", "42", "not-a-value", :symbol, invalid_utf8]
+    values = [nil, true, false, -1, 0, 1, 1.5, '', '42', 'not-a-value', :symbol, invalid_utf8]
     return values.fetch(random.rand(values.length)) if depth.zero?
 
     case random.rand(4)
     when 0 then values.fetch(random.rand(values.length))
     when 1 then Array.new(random.rand(4)) { malformed_value(random, depth - 1) }
     when 2
-      Array.new(random.rand(4)).each_with_index.each_with_object({}) do |(_, index), hash|
-        hash[index.even? ? :value : "value"] = malformed_value(random, depth - 1)
+      Array.new(random.rand(4)).each_with_index.with_object({}) do |(_, index), hash|
+        hash[index.even? ? :value : 'value'] = malformed_value(random, depth - 1)
       end
     else Object.new
     end

@@ -29,13 +29,13 @@ module Dry
         end
 
         def payload
-          meta.empty? ? text : {text: text, **meta}
+          meta.empty? ? text : { text: text, **meta }
         end
 
         def with_text(new_text)
           self.class.new(
             new_text, path: path, meta: meta, code: code, source: source,
-            predicate: predicate, args: args
+                      predicate: predicate, args: args
           )
         end
 

@@ -26,6 +26,9 @@ Use this skill for one measured bottleneck.
 6. Measure affected and unaffected workloads.
 7. Keep the change only when value justifies complexity.
 8. Update public claims only when evidence supports them.
+9. If Ruby files, benchmarks, tooling, or CI configuration changed, run
+   `bundle exec rubocop` before reporting completion; resolve or explicitly
+   report any offenses.
 
 ## Required reporting
 

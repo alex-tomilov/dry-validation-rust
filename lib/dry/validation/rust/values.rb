@@ -29,12 +29,12 @@ module Dry
           Path.key?(data, key)
         end
 
-        def each(&block)
-          data.each(&block)
+        def each(&)
+          data.each(&)
         end
 
-        def fetch(*args, &block)
-          data.fetch(*args, &block)
+        def fetch(*, &)
+          data.fetch(*, &)
         end
 
         def to_h
