@@ -146,6 +146,7 @@ pub(crate) fn type_matches(
     }
 }
 
+#[inline]
 pub(crate) fn empty_value(value: Value) -> bool {
     if let Some(string) = RString::from_value(value) {
         string.is_empty()

@@ -1,7 +1,7 @@
 # Project Progress
 
 Status: living document.
-Last updated: 2026-07-29.
+Last updated: 2026-07-31.
 
 One-page project status for contributors, reviewers, and the maintainer.
 
@@ -11,7 +11,7 @@ One-page project status for contributors, reviewers, and the maintainer.
 | --- | ----------------------- | -------------- | ------------------------------------- |
 | A   | Trustworthy Baseline    | ✅ Complete    | PRs #48–#51                           |
 | B   | Common Schema Subset    | ✅ Complete    | PRs #49–#56, #65–#71                  |
-| C   | Ordinary Rules Subset   | 🔵 Active      | ~20% done; code-quality tasks pending |
+| C   | Ordinary Rules Subset   | 🔵 Active      | ~20% done; code-quality tasks pending; hot-helper inline hints applied 2026-07-31 |
 | D   | Performance Proof       | ⚪ Not started | Blocked on C                          |
 | E   | Compatibility Slice     | ⚪ Not started | Blocked on D                          |
 | F   | Packaging and Platforms | ⚪ Not started | Blocked on E                          |
