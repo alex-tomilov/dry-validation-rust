@@ -208,7 +208,7 @@ module Dry
             default_path: rule.default_path,
             context: context
           )
-          evaluator.execute(rule.block, rule.macro_calls).failures.each { |failure| result.add_error(failure) }
+          evaluator.execute(rule.block, rule.macro_calls, keyword_params: rule.keyword_params).failures.each { |failure| result.add_error(failure) }
         end
 
         def execute_each(rule, result, context)
@@ -228,7 +228,7 @@ module Dry
               context: context,
               index: index
             )
-            evaluator.execute(rule.block, rule.macro_calls).failures.each { |failure| result.add_error(failure) }
+            evaluator.execute(rule.block, rule.macro_calls, keyword_params: rule.keyword_params).failures.each { |failure| result.add_error(failure) }
           end
         end
       end

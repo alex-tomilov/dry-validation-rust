@@ -19,8 +19,8 @@ module Dry
           @base_failures = Failures.new
         end
 
-        def execute(block, macro_calls)
-          execute_block(block) if block
+        def execute(block, macro_calls, keyword_params: [])
+          execute_block(block, keyword_params) if block
           macro_calls.each { |call| execute_macro(call) }
           collect_failures
           self
@@ -83,12 +83,9 @@ module Dry
           paths.first || []
         end
 
-        def execute_block(block, macro: nil)
+        def execute_block(block, keyword_params, macro: nil)
           keyword_values = {context: context, index: index, macro: macro}
-          requested = block.parameters.filter_map do |kind, name|
-            name if %i[key keyreq].include?(kind) && keyword_values.key?(name)
-          end
-          kwargs = keyword_values.slice(*requested)
+          kwargs = keyword_values.slice(*keyword_params)
           kwargs.empty? ? instance_exec(&block) : instance_exec(**kwargs, &block)
         end
 
@@ -96,7 +93,7 @@ module Dry
           name, *args = call
           if contract.macro_registered?(name)
             macro = contract.resolve_macro(name).with(args)
-            execute_block(macro.block, macro: macro)
+            execute_block(macro.block, macro.keyword_params, macro: macro)
           else
             execute_predicate_macro(name, args)
           end
