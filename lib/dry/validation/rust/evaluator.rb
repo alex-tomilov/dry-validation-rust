@@ -6,7 +6,7 @@ module Dry
       class Evaluator
         attr_reader :contract, :result, :paths, :values, :context, :index, :failures
 
-        def initialize(contract:, result:, paths:, default_path: paths.first || [], context:, index: nil)
+        def initialize(contract:, result:, paths:, context:, default_path: paths.first || [], index: nil)
           @contract = contract
           @result = result
           @paths = paths
@@ -75,16 +75,14 @@ module Dry
 
         private
 
-        def default_path
-          @default_path
-        end
+        attr_reader :default_path
 
         def value_path
           paths.first || []
         end
 
         def execute_block(block, keyword_params, macro: nil)
-          keyword_values = {context: context, index: index, macro: macro}
+          keyword_values = { context: context, index: index, macro: macro }
           kwargs = keyword_values.slice(*keyword_params)
           kwargs.empty? ? instance_exec(&block) : instance_exec(**kwargs, &block)
         end
@@ -100,7 +98,7 @@ module Dry
         end
 
         def execute_predicate_macro(name, args)
-          normalized = name.to_s.delete_suffix("?").to_sym
+          normalized = name.to_s.delete_suffix('?').to_sym
           expected = args.length == 1 ? args.first : args
           valid = case normalized
                   when :gt then value > expected

@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require_relative "block_keyword_parameters"
+require_relative 'block_keyword_parameters'
 
 module Dry
   module Validation
@@ -23,7 +23,7 @@ module Dry
         end
 
         def each(*macros, &new_block)
-          raise ArgumentError, "rule.each requires exactly one root key" unless paths.length == 1
+          raise ArgumentError, 'rule.each requires exactly one root key' unless paths.length == 1
 
           @each = true
           set_block(new_block) if new_block

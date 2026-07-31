@@ -26,6 +26,9 @@ Use this skill to reproduce one behavior of an external library, protocol, API, 
 5. Make adjacent unsupported forms fail explicitly.
 6. Add differential or contract tests.
 7. Document the exact support boundary in the existing compatibility location.
+8. If Ruby files, tests, tooling, or CI configuration changed, run
+   `bundle exec rubocop` before reporting completion; resolve or explicitly
+   report any offenses.
 
 ## Rules
 

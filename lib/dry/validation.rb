@@ -1,10 +1,10 @@
 # frozen_string_literal: true
 
-require_relative "validation/rust"
+require_relative 'validation/rust'
 
 module Dry
   if const_defined?(:Schema, false) &&
-      !(const_get(:Schema, false).const_defined?(:RUST_COMPATIBILITY_LAYER, false))
+     !const_get(:Schema, false).const_defined?(:RUST_COMPATIBILITY_LAYER, false)
     raise LoadError, <<~MESSAGE
       dry-schema and dry-validation-rust cannot both own Dry::Schema in exact compatibility mode.
       Remove the upstream dry-schema/dry-validation gems, or use the side-by-side
@@ -18,16 +18,16 @@ module Dry
       VERSION = Validation::Rust::VERSION
 
       class << self
-        def Params(*external_schemas, &block)
-          Validation::Rust::Schema.Params(*external_schemas, &block)
+        def Params(*external_schemas, &)
+          Validation::Rust::Schema.Params(*external_schemas, &)
         end
 
-        def JSON(*external_schemas, &block)
-          Validation::Rust::Schema.JSON(*external_schemas, &block)
+        def JSON(*external_schemas, &)
+          Validation::Rust::Schema.JSON(*external_schemas, &)
         end
 
-        def define(*external_schemas, &block)
-          Validation::Rust::Schema.define(:schema, *external_schemas, &block)
+        def define(*external_schemas, &)
+          Validation::Rust::Schema.define(:schema, *external_schemas, &)
         end
       end
     end
@@ -50,12 +50,12 @@ module Dry
     VERSION = Rust::VERSION unless const_defined?(:VERSION, false)
 
     class << self
-      def Contract(options = {}, &block)
-        Rust.Contract(options, &block)
+      def Contract(options = {}, &)
+        Rust.Contract(options, &)
       end
 
-      def register_macro(name, *args, &block)
-        Rust.register_macro(name, *args, &block)
+      def register_macro(name, *, &)
+        Rust.register_macro(name, *, &)
       end
 
       def load_extensions(*names)

@@ -1,11 +1,11 @@
 # frozen_string_literal: true
 
-require "json"
-require "open3"
-require "optparse"
-require "pathname"
-require "uri"
-require "yaml"
+require 'json'
+require 'open3'
+require 'optparse'
+require 'pathname'
+require 'uri'
+require 'yaml'
 
 module DryValidationRust
   module GitHubProjectManagement
@@ -18,7 +18,7 @@ module DryValidationRust
     end
 
     class Manifest
-      PROJECT_MARKER = "<!-- dvr-project-management:v1 -->"
+      PROJECT_MARKER = '<!-- dvr-project-management:v1 -->'
 
       attr_reader :root, :data, :labels
 
@@ -26,84 +26,93 @@ module DryValidationRust
         @root = Pathname(root)
         @path = @root.join(path)
         @data = YAML.safe_load_file(@path)
-        labels_path = @root.join(@data.fetch("labels_file"))
+        labels_path = @root.join(@data.fetch('labels_file'))
         @labels = YAML.safe_load_file(labels_path)
         validate!
       end
 
       def repository
-        data.fetch("repository")
+        data.fetch('repository')
       end
 
       def repository_owner
-        repository.split("/", 2).fetch(0)
+        repository.split('/', 2).fetch(0)
       end
 
       def repository_name
-        repository.split("/", 2).fetch(1)
+        repository.split('/', 2).fetch(1)
       end
 
       def integration_branch
-        data.fetch("integration_branch")
+        data.fetch('integration_branch')
       end
 
       def project
-        data.fetch("project")
+        data.fetch('project')
       end
 
       def milestones
-        data.fetch("milestones")
+        data.fetch('milestones')
       end
 
       def roadmap
-        data.fetch("roadmap")
+        data.fetch('roadmap')
       end
 
       def label_names
-        labels.map { |label| label.fetch("name") }
+        labels.map { |label| label.fetch('name') }
       end
 
       def milestone_titles
-        milestones.map { |milestone| milestone.fetch("title") }
+        milestones.map { |milestone| milestone.fetch('title') }
       end
 
       def stage_path(item)
-        root.join(item.fetch("spec"))
+        root.join(item.fetch('spec'))
       end
 
       private
 
       def validate!
-        raise Error, "unsupported project-management manifest version" unless data.fetch("version") == 1
-        raise Error, "repository must use OWNER/REPO format" unless repository.match?(%r{\A[^/]+/[^/]+\z})
+        raise Error, 'unsupported project-management manifest version' unless data.fetch('version') == 1
+        raise Error, 'repository must use OWNER/REPO format' unless repository.match?(%r{\A[^/]+/[^/]+\z})
 
         duplicate_labels = duplicates(label_names)
-        raise Error, "duplicate labels: #{duplicate_labels.join(", ")}" unless duplicate_labels.empty?
+        raise Error, "duplicate labels: #{duplicate_labels.join(', ')}" unless duplicate_labels.empty?
 
         duplicate_milestones = duplicates(milestone_titles)
-        raise Error, "duplicate milestones: #{duplicate_milestones.join(", ")}" unless duplicate_milestones.empty?
+        raise Error, "duplicate milestones: #{duplicate_milestones.join(', ')}" unless duplicate_milestones.empty?
 
-        owner_type = project.fetch("owner_type")
-        raise Error, "unsupported project owner_type: #{owner_type.inspect}" unless owner_type == "user"
+        owner_type = project.fetch('owner_type')
+        raise Error, "unsupported project owner_type: #{owner_type.inspect}" unless owner_type == 'user'
 
-        ids = roadmap.map { |item| item.fetch("id") }
+        ids = roadmap.map { |item| item.fetch('id') }
         duplicate_ids = duplicates(ids)
-        raise Error, "duplicate roadmap ids: #{duplicate_ids.join(", ")}" unless duplicate_ids.empty?
-        raise Error, "project readme must contain #{PROJECT_MARKER}" unless project.fetch("readme").include?(PROJECT_MARKER)
+        raise Error, "duplicate roadmap ids: #{duplicate_ids.join(', ')}" unless duplicate_ids.empty?
+        unless project.fetch('readme').include?(PROJECT_MARKER)
+          raise Error,
+                "project readme must contain #{PROJECT_MARKER}"
+        end
 
         roadmap.each do |item|
-          unknown_labels = item.fetch("labels") - label_names
-          raise Error, "#{item.fetch("id")} uses unknown labels: #{unknown_labels.join(", ")}" unless unknown_labels.empty?
-          raise Error, "#{item.fetch("id")} uses an unknown milestone" unless milestone_titles.include?(item.fetch("milestone"))
-          raise Error, "#{item.fetch("id")} stage file does not exist" unless stage_path(item).file?
+          unknown_labels = item.fetch('labels') - label_names
+          unless unknown_labels.empty?
+            raise Error,
+                  "#{item.fetch('id')} uses unknown labels: #{unknown_labels.join(', ')}"
+          end
+          unless milestone_titles.include?(item.fetch('milestone'))
+            raise Error,
+                  "#{item.fetch('id')} uses an unknown milestone"
+          end
+          raise Error, "#{item.fetch('id')} stage file does not exist" unless stage_path(item).file?
         end
 
         known_ids = ids
         roadmap.each do |item|
-          unknown_dependencies = item.fetch("dependencies") - known_ids
+          unknown_dependencies = item.fetch('dependencies') - known_ids
           next if unknown_dependencies.empty?
 
-          raise Error, "#{item.fetch("id")} has unknown dependencies: #{unknown_dependencies.join(", ")}"
+          raise Error, "#{item.fetch('id')} has unknown dependencies: #{unknown_dependencies.join(', ')}"
         end
       end
 
@@ -119,24 +128,24 @@ module DryValidationRust
       end
 
       def assignment
-        clean_section(section("Assignment"))
+        clean_section(section('Assignment'))
       end
 
       def acceptance_criteria
-        value = section("Acceptance criteria")
+        value = section('Acceptance criteria')
         value = gate_checklist if value.empty?
         clean_section(value)
       end
 
       def non_goals
-        value = section("Scope control")
-        value = section("Implementation rule") if value.empty?
+        value = section('Scope control')
+        value = section('Implementation rule') if value.empty?
         clean_section(value)
       end
 
       def affected_files
-        value = section("Files")
-        return "Determine the focused file set from the current repository before editing." if value.empty?
+        value = section('Files')
+        return 'Determine the focused file set from the current repository before editing.' if value.empty?
 
         clean_section(value)
       end
@@ -145,21 +154,21 @@ module DryValidationRust
 
       def section(name)
         match = @text.match(/^## #{Regexp.escape(name)}\s*$\n(.*?)(?=^## |\z)/m)
-        match ? match[1] : ""
+        match ? match[1] : ''
       end
 
       def gate_checklist
         match = @text.match(/^# \d+\..*?\n(.*?)(?=^---\s*$|\z)/m)
-        match ? match[1] : ""
+        match ? match[1] : ''
       end
 
       def clean_section(value)
         cleaned = value
-          .gsub(/^>.*$\n?/, "")
-          .gsub(/^\*\*(?:Priority|Suggested branch|Dependencies):\*\*.*$\n?/, "")
-          .gsub(/^---\s*$\n?/, "")
-          .strip
-        cleaned.empty? ? "Follow the linked stage specification." : cleaned
+                  .gsub(/^>.*$\n?/, '')
+                  .gsub(/^\*\*(?:Priority|Suggested branch|Dependencies):\*\*.*$\n?/, '')
+                  .gsub(/^---\s*$\n?/, '')
+                  .strip
+        cleaned.empty? ? 'Follow the linked stage specification.' : cleaned
       end
     end
 
@@ -171,13 +180,13 @@ module DryValidationRust
       end
 
       def render
-        dependency_text = @item.fetch("dependencies")
-          .map { |dependency| "`#{dependency}`" }
-          .join(", ")
-        dependency_text = "None" if dependency_text.empty?
+        dependency_text = @item.fetch('dependencies')
+                               .map { |dependency| "`#{dependency}`" }
+                               .join(', ')
+        dependency_text = 'None' if dependency_text.empty?
 
         <<~MARKDOWN
-          <!-- dvr-roadmap:#{@item.fetch("id")} -->
+          <!-- dvr-roadmap:#{@item.fetch('id')} -->
 
           ## Problem
 
@@ -185,7 +194,7 @@ module DryValidationRust
 
           ## User or maintainer impact
 
-          This work is part of the `#{@item.fetch("milestone")}` milestone. It is tracked separately so correctness, compatibility, and release evidence can be reviewed without a broad production-readiness umbrella issue.
+          This work is part of the `#{@item.fetch('milestone')}` milestone. It is tracked separately so correctness, compatibility, and release evidence can be reviewed without a broad production-readiness umbrella issue.
 
           ## Current behavior and evidence
 
@@ -193,7 +202,7 @@ module DryValidationRust
 
           ## Desired behavior
 
-          Complete the focused `#{@item.fetch("id")}` task described by [`#{@item.fetch("stage")}`](https://github.com/#{@manifest.repository}/blob/#{@manifest.integration_branch}/#{@item.fetch("spec")}).
+          Complete the focused `#{@item.fetch('id')}` task described by [`#{@item.fetch('stage')}`](https://github.com/#{@manifest.repository}/blob/#{@manifest.integration_branch}/#{@item.fetch('spec')}).
 
           ## Non-goals
 
@@ -266,94 +275,104 @@ module DryValidationRust
       end
 
       def label_actions
-        return [] unless enabled?("labels")
+        return [] unless enabled?('labels')
 
         @manifest.labels.filter_map do |desired|
-          current = @snapshot.labels[desired.fetch("name")]
+          current = @snapshot.labels[desired.fetch('name')]
           if current.nil?
-            Action.new(:create_label, desired.fetch("name"), desired)
-          elsif current.slice("color", "description") != desired.slice("color", "description")
-            Action.new(:update_label, desired.fetch("name"), desired)
+            Action.new(:create_label, desired.fetch('name'), desired)
+          elsif current.slice('color', 'description') != desired.slice('color', 'description')
+            Action.new(:update_label, desired.fetch('name'), desired)
           end
         end
       end
 
       def milestone_actions
-        return [] unless enabled?("milestones")
+        return [] unless enabled?('milestones')
 
         @manifest.milestones.filter_map do |desired|
-          current = @snapshot.milestones[desired.fetch("title")]
+          current = @snapshot.milestones[desired.fetch('title')]
           if current.nil?
-            Action.new(:create_milestone, desired.fetch("title"), desired)
-          elsif current.fetch("description", "") != desired.fetch("description") || current.fetch("state") != "open"
-            Action.new(:update_milestone, desired.fetch("title"), desired)
+            Action.new(:create_milestone, desired.fetch('title'), desired)
+          elsif current.fetch('description', '') != desired.fetch('description') || current.fetch('state') != 'open'
+            Action.new(:update_milestone, desired.fetch('title'), desired)
           end
         end
       end
 
       def project_actions
-        return [] unless enabled?("project")
+        return [] unless enabled?('project')
 
         desired = @manifest.project
         current = @snapshot.project
         return missing_project_actions(desired) if current.nil?
 
         actions = []
-        metadata = desired.slice("title", "short_description", "readme", "public")
-        current_metadata = current.slice("title", "short_description", "readme", "public")
-        actions << Action.new(:update_project, desired.fetch("title"), metadata) if metadata != current_metadata
+        metadata = desired.slice('title', 'short_description', 'readme', 'public')
+        current_metadata = current.slice('title', 'short_description', 'readme', 'public')
+        actions << Action.new(:update_project, desired.fetch('title'), metadata) if metadata != current_metadata
 
-        desired_options = desired.fetch("workflow_options")
-        current_options = current.dig("workflow", "options") || []
-        actions << Action.new(:sync_workflow, desired.fetch("workflow_field"), {"options" => desired_options}) unless workflow_equal?(current_options, desired_options)
+        desired_options = desired.fetch('workflow_options')
+        current_options = current.dig('workflow', 'options') || []
+        unless workflow_equal?(
+          current_options, desired_options
+        )
+          actions << Action.new(:sync_workflow, desired.fetch('workflow_field'),
+                                { 'options' => desired_options })
+        end
 
-        view_name = desired.fetch("view").fetch("name")
-        view_names = current.fetch("views", []).map { |view| view.fetch("name") }
-        actions << Action.new(:create_project_view, view_name, desired.fetch("view")) unless view_names.include?(view_name)
+        view_name = desired.fetch('view').fetch('name')
+        view_names = current.fetch('views', []).map { |view| view.fetch('name') }
+        unless view_names.include?(view_name)
+          actions << Action.new(:create_project_view, view_name,
+                                desired.fetch('view'))
+        end
         actions
       end
 
       def missing_project_actions(desired)
         [
-          Action.new(:create_project, desired.fetch("title"), desired),
-          Action.new(:sync_workflow, desired.fetch("workflow_field"), {"options" => desired.fetch("workflow_options")}),
-          Action.new(:create_project_view, desired.fetch("view").fetch("name"), desired.fetch("view"))
+          Action.new(:create_project, desired.fetch('title'), desired),
+          Action.new(:sync_workflow, desired.fetch('workflow_field'),
+                     { 'options' => desired.fetch('workflow_options') }),
+          Action.new(:create_project_view, desired.fetch('view').fetch('name'), desired.fetch('view'))
         ]
       end
 
       def workflow_equal?(current, desired)
         desired.all? do |desired_option|
-          current_option = current.find { |candidate| candidate.fetch("name") == desired_option.fetch("name") }
-          current_option && current_option.slice("name", "color", "description") == desired_option.slice("name", "color", "description")
+          current_option = current.find { |candidate| candidate.fetch('name') == desired_option.fetch('name') }
+          current_option && current_option.slice('name', 'color',
+                                                 'description') == desired_option.slice('name', 'color', 'description')
         end
       end
 
       def issue_actions
-        return [] unless enabled?("issues")
+        return [] unless enabled?('issues')
 
         @manifest.roadmap.flat_map do |item|
-          current = @snapshot.issues[item.fetch("id")]
+          current = @snapshot.issues[item.fetch('id')]
           actions = []
           if current.nil?
-            actions << Action.new(:create_issue, item.fetch("id"), desired_issue(item))
+            actions << Action.new(:create_issue, item.fetch('id'), desired_issue(item))
           else
-            stable_labels = item.fetch("labels").reject { |label| label.start_with?("status:") }
-            missing_labels = stable_labels - current.fetch("labels")
-            wrong_milestone = current.fetch("milestone") != item.fetch("milestone")
-            wrong_title = current.fetch("title") != issue_title(item)
-            wrong_body = current.fetch("body", "") != IssueBody.new(@manifest, item).render
+            stable_labels = item.fetch('labels').reject { |label| label.start_with?('status:') }
+            missing_labels = stable_labels - current.fetch('labels')
+            wrong_milestone = current.fetch('milestone') != item.fetch('milestone')
+            wrong_title = current.fetch('title') != issue_title(item)
+            wrong_body = current.fetch('body', '') != IssueBody.new(@manifest, item).render
             if missing_labels.any? || wrong_milestone || wrong_title || wrong_body
               actions << Action.new(
                 :update_issue,
-                item.fetch("id"),
-                desired_issue(item).merge("labels" => stable_labels, "missing_labels" => missing_labels)
+                item.fetch('id'),
+                desired_issue(item).merge('labels' => stable_labels, 'missing_labels' => missing_labels)
               )
             end
           end
 
-          project_item = @snapshot.project&.dig("items", current&.fetch("node_id", nil))
-          if enabled?("project") && project_item.nil?
-            actions << Action.new(:add_project_item, item.fetch("id"), {"workflow" => "Backlog"})
+          project_item = @snapshot.project&.dig('items', current&.fetch('node_id', nil))
+          if enabled?('project') && project_item.nil?
+            actions << Action.new(:add_project_item, item.fetch('id'), { 'workflow' => 'Backlog' })
           end
           actions
         end
@@ -361,15 +380,15 @@ module DryValidationRust
 
       def desired_issue(item)
         {
-          "title" => issue_title(item),
-          "body" => IssueBody.new(@manifest, item).render,
-          "labels" => item.fetch("labels"),
-          "milestone" => item.fetch("milestone")
+          'title' => issue_title(item),
+          'body' => IssueBody.new(@manifest, item).render,
+          'labels' => item.fetch('labels'),
+          'milestone' => item.fetch('milestone')
         }
       end
 
       def issue_title(item)
-        "[#{item.fetch("id")}] #{item.fetch("title")}"
+        "[#{item.fetch('id')}] #{item.fetch('title')}"
       end
     end
 
@@ -388,7 +407,7 @@ module DryValidationRust
       end
 
       def auth_status!
-        result = @runner.run("gh", "auth", "status", "-h", "github.com")
+        result = @runner.run('gh', 'auth', 'status', '-h', 'github.com')
         return if result.status.success?
 
         raise Error, "GitHub CLI authentication failed:\n#{result.stderr.strip}"
@@ -396,13 +415,13 @@ module DryValidationRust
 
       def rest(method, path, body: nil, paginate: false)
         command = [
-          "gh", "api",
-          "-H", "Accept: application/vnd.github+json",
-          "-H", "X-GitHub-Api-Version: 2026-03-10",
-          "--method", method.to_s.upcase
+          'gh', 'api',
+          '-H', 'Accept: application/vnd.github+json',
+          '-H', 'X-GitHub-Api-Version: 2026-03-10',
+          '--method', method.to_s.upcase
         ]
-        command.concat(["--paginate", "--slurp"]) if paginate
-        command.concat(["--input", "-"]) if body
+        command.push('--paginate', '--slurp') if paginate
+        command.push('--input', '-') if body
         command << path
         result = @runner.run(*command, stdin_data: body && JSON.generate(body))
         raise_api_error(command, result) unless result.status.success?
@@ -412,15 +431,15 @@ module DryValidationRust
       end
 
       def graphql(query, variables = {})
-        payload = {"query" => query, "variables" => variables}
-        result = @runner.run("gh", "api", "graphql", "--input", "-", stdin_data: JSON.generate(payload))
-        raise_api_error(["gh", "api", "graphql"], result) unless result.status.success?
+        payload = { 'query' => query, 'variables' => variables }
+        result = @runner.run('gh', 'api', 'graphql', '--input', '-', stdin_data: JSON.generate(payload))
+        raise_api_error(%w[gh api graphql], result) unless result.status.success?
 
         parsed = JSON.parse(result.stdout)
-        errors = parsed["errors"]
-        raise Error, "GitHub GraphQL error: #{errors.map { |error| error["message"] }.join("; ")}" if errors&.any?
+        errors = parsed['errors']
+        raise Error, "GitHub GraphQL error: #{errors.map { |error| error['message'] }.join('; ')}" if errors&.any?
 
-        parsed.fetch("data")
+        parsed.fetch('data')
       end
 
       private
@@ -428,7 +447,7 @@ module DryValidationRust
       def raise_api_error(command, result)
         message = result.stderr.strip
         message = result.stdout.strip if message.empty?
-        raise Error, "#{command.join(" ")} failed: #{message}"
+        raise Error, "#{command.join(' ')} failed: #{message}"
       end
     end
 
@@ -537,34 +556,35 @@ module DryValidationRust
 
       def labels
         @client.rest(:get, "/repos/#{@manifest.repository}/labels?per_page=100", paginate: true).to_h do |label|
-          [label.fetch("name"), label.slice("color", "description")]
+          [label.fetch('name'), label.slice('color', 'description')]
         end
       end
 
       def milestones
-        @client.rest(:get, "/repos/#{@manifest.repository}/milestones?state=all&per_page=100", paginate: true).to_h do |milestone|
+        @client.rest(:get, "/repos/#{@manifest.repository}/milestones?state=all&per_page=100",
+                     paginate: true).to_h do |milestone|
           [
-            milestone.fetch("title"),
-            milestone.slice("number", "title", "description", "state")
+            milestone.fetch('title'),
+            milestone.slice('number', 'title', 'description', 'state')
           ]
         end
       end
 
       def issues
         remote = @client.rest(:get, "/repos/#{@manifest.repository}/issues?state=all&per_page=100", paginate: true)
-        remote.reject { |issue| issue.key?("pull_request") }.filter_map do |issue|
-          match = issue.fetch("body", "").match(/<!-- dvr-roadmap:([A-Z0-9]+) -->/)
+        remote.reject { |issue| issue.key?('pull_request') }.filter_map do |issue|
+          match = issue.fetch('body', '').match(/<!-- dvr-roadmap:([A-Z0-9]+) -->/)
           next unless match
 
           [
             match[1],
             {
-              "number" => issue.fetch("number"),
-              "node_id" => issue.fetch("node_id"),
-              "title" => issue.fetch("title"),
-              "body" => issue.fetch("body", ""),
-              "labels" => issue.fetch("labels").map { |label| label.fetch("name") },
-              "milestone" => issue["milestone"]&.fetch("title")
+              'number' => issue.fetch('number'),
+              'node_id' => issue.fetch('node_id'),
+              'title' => issue.fetch('title'),
+              'body' => issue.fetch('body', ''),
+              'labels' => issue.fetch('labels').map { |label| label.fetch('name') },
+              'milestone' => issue['milestone']&.fetch('title')
             }
           ]
         end.to_h
@@ -574,45 +594,49 @@ module DryValidationRust
         desired = @manifest.project
         data = @client.graphql(
           PROJECT_QUERY,
-          {"login" => desired.fetch("owner")}
+          { 'login' => desired.fetch('owner') }
         )
-        owner = data.fetch("user")
-        project = owner.fetch("projectsV2").fetch("nodes").find { |candidate| candidate.fetch("title") == desired.fetch("title") }
+        owner = data.fetch('user')
+        project = owner.fetch('projectsV2').fetch('nodes').find do |candidate|
+          candidate.fetch('title') == desired.fetch('title')
+        end
         return nil unless project
-        unless project["readme"].to_s.include?(Manifest::PROJECT_MARKER)
-          raise Error, "project title collision: #{desired.fetch("title").inspect} is not managed by this synchronizer"
+        unless project['readme'].to_s.include?(Manifest::PROJECT_MARKER)
+          raise Error, "project title collision: #{desired.fetch('title').inspect} is not managed by this synchronizer"
         end
 
-        project_id = project.fetch("id")
-        fields = @client.graphql(PROJECT_FIELDS_QUERY, {"projectId" => project_id}).fetch("node").fetch("fields").fetch("nodes")
+        project_id = project.fetch('id')
+        fields = @client.graphql(PROJECT_FIELDS_QUERY,
+                                 { 'projectId' => project_id }).fetch('node').fetch('fields').fetch('nodes')
         remote_items = @client.graphql(
           PROJECT_ITEMS_QUERY,
-          {"projectId" => project_id, "workflowField" => desired.fetch("workflow_field")}
-        ).fetch("node").fetch("items").fetch("nodes")
-        views = @client.graphql(PROJECT_VIEWS_QUERY, {"projectId" => project_id}).fetch("node").fetch("views").fetch("nodes")
+          { 'projectId' => project_id, 'workflowField' => desired.fetch('workflow_field') }
+        ).fetch('node').fetch('items').fetch('nodes')
+        views = @client.graphql(PROJECT_VIEWS_QUERY,
+                                { 'projectId' => project_id }).fetch('node').fetch('views').fetch('nodes')
 
-        workflow = fields.find { |field| field["name"] == desired.fetch("workflow_field") }
+        workflow = fields.find { |field| field['name'] == desired.fetch('workflow_field') }
         items = remote_items.filter_map do |item|
-          issue = item["content"]
+          issue = item['content']
           next unless issue
 
-          [issue.fetch("id"), {"item_id" => item.fetch("id"), "workflow" => item["workflowValue"]&.fetch("name")}]
+          [issue.fetch('id'), { 'item_id' => item.fetch('id'), 'workflow' => item['workflowValue']&.fetch('name') }]
         end.to_h
 
         {
-          "id" => project_id,
-          "number" => project.fetch("number"),
-          "title" => project.fetch("title"),
-          "short_description" => project["shortDescription"],
-          "readme" => project["readme"],
-          "public" => project.fetch("public"),
-          "workflow" => workflow && {
-            "id" => workflow.fetch("id"),
-            "database_id" => workflow["databaseId"],
-            "options" => workflow.fetch("options", [])
+          'id' => project_id,
+          'number' => project.fetch('number'),
+          'title' => project.fetch('title'),
+          'short_description' => project['shortDescription'],
+          'readme' => project['readme'],
+          'public' => project.fetch('public'),
+          'workflow' => workflow && {
+            'id' => workflow.fetch('id'),
+            'database_id' => workflow['databaseId'],
+            'options' => workflow.fetch('options', [])
           },
-          "views" => views,
-          "items" => items
+          'views' => views,
+          'items' => items
         }
       end
     end
@@ -742,20 +766,20 @@ module DryValidationRust
         @client.rest(
           :patch,
           "/repos/#{@manifest.repository}/labels/#{name}",
-          body: action.details.slice("color", "description").merge("new_name" => action.key)
+          body: action.details.slice('color', 'description').merge('new_name' => action.key)
         )
       end
 
       def create_milestone(action)
-        @client.rest(:post, "/repos/#{@manifest.repository}/milestones", body: action.details.merge("state" => "open"))
+        @client.rest(:post, "/repos/#{@manifest.repository}/milestones", body: action.details.merge('state' => 'open'))
       end
 
       def update_milestone(action)
         milestone = milestones.fetch(action.key)
         @client.rest(
           :patch,
-          "/repos/#{@manifest.repository}/milestones/#{milestone.fetch("number")}",
-          body: action.details.merge("state" => "open")
+          "/repos/#{@manifest.repository}/milestones/#{milestone.fetch('number')}",
+          body: action.details.merge('state' => 'open')
         )
       end
 
@@ -767,23 +791,23 @@ module DryValidationRust
         response = @client.graphql(
           CREATE_PROJECT,
           {
-            "ownerId" => owner.fetch("user").fetch("id"),
-            "repositoryId" => owner.fetch("repository").fetch("id"),
-            "title" => desired.fetch("title")
+            'ownerId' => owner.fetch('user').fetch('id'),
+            'repositoryId' => owner.fetch('repository').fetch('id'),
+            'title' => desired.fetch('title')
           }
         )
-        created = response.fetch("createProjectV2").fetch("projectV2")
+        created = response.fetch('createProjectV2').fetch('projectV2')
         @project_created = true
         @project = {
-          "id" => created.fetch("id"),
-          "number" => created.fetch("number"),
-          "title" => created.fetch("title"),
-          "short_description" => nil,
-          "readme" => nil,
-          "public" => false,
-          "workflow" => nil,
-          "views" => [],
-          "items" => {}
+          'id' => created.fetch('id'),
+          'number' => created.fetch('number'),
+          'title' => created.fetch('title'),
+          'short_description' => nil,
+          'readme' => nil,
+          'public' => false,
+          'workflow' => nil,
+          'views' => [],
+          'items' => {}
         }
         update_project
         project
@@ -795,11 +819,11 @@ module DryValidationRust
         @client.graphql(
           UPDATE_PROJECT,
           {
-            "projectId" => current.fetch("id"),
-            "title" => desired.fetch("title"),
-            "shortDescription" => desired.fetch("short_description"),
-            "readme" => desired.fetch("readme"),
-            "public" => desired.fetch("public")
+            'projectId' => current.fetch('id'),
+            'title' => desired.fetch('title'),
+            'shortDescription' => desired.fetch('short_description'),
+            'readme' => desired.fetch('readme'),
+            'public' => desired.fetch('public')
           }
         )
         clear_project_cache
@@ -809,21 +833,23 @@ module DryValidationRust
       def sync_workflow
         current_project = project || ensure_project
         desired = @manifest.project
-        field = project_fields(current_project.fetch("id")).find { |candidate| candidate["name"] == desired.fetch("workflow_field") }
+        field = project_fields(current_project.fetch('id')).find do |candidate|
+          candidate['name'] == desired.fetch('workflow_field')
+        end
         options = merged_workflow_options(
           field,
-          desired.fetch("workflow_options"),
+          desired.fetch('workflow_options'),
           preserve_unmanaged: !@project_created
         )
         if field
-          @client.graphql(UPDATE_FIELD, {"fieldId" => field.fetch("id"), "options" => options})
+          @client.graphql(UPDATE_FIELD, { 'fieldId' => field.fetch('id'), 'options' => options })
         else
           @client.graphql(
             CREATE_FIELD,
             {
-              "projectId" => current_project.fetch("id"),
-              "name" => desired.fetch("workflow_field"),
-              "options" => options
+              'projectId' => current_project.fetch('id'),
+              'name' => desired.fetch('workflow_field'),
+              'options' => options
             }
           )
         end
@@ -832,83 +858,85 @@ module DryValidationRust
 
       def create_project_view
         current_project = project || ensure_project
-        field = project_fields(current_project.fetch("id")).find { |candidate| candidate["name"] == @manifest.project.fetch("workflow_field") }
-        raise Error, "workflow field is missing after synchronization" unless field
+        field = project_fields(current_project.fetch('id')).find do |candidate|
+          candidate['name'] == @manifest.project.fetch('workflow_field')
+        end
+        raise Error, 'workflow field is missing after synchronization' unless field
 
-        desired = @manifest.project.fetch("view")
+        desired = @manifest.project.fetch('view')
         @client.rest(
           :post,
-          project_view_path(current_project.fetch("number")),
+          project_view_path(current_project.fetch('number')),
           body: {
-            "name" => desired.fetch("name"),
-            "layout" => desired.fetch("layout"),
-            "filter" => desired.fetch("filter"),
-            "visible_fields" => [field.fetch("databaseId")]
+            'name' => desired.fetch('name'),
+            'layout' => desired.fetch('layout'),
+            'filter' => desired.fetch('filter'),
+            'visible_fields' => [field.fetch('databaseId')]
           }
         )
         clear_project_cache
       end
 
       def project_view_path(project_number)
-        owner = URI.encode_www_form_component(@manifest.project.fetch("owner"))
+        owner = URI.encode_www_form_component(@manifest.project.fetch('owner'))
         "/users/#{owner}/projectsV2/#{project_number}/views"
       end
 
       def merged_workflow_options(field, desired_options, preserve_unmanaged: true)
-        existing_options = field&.fetch("options", []) || []
-        desired_names = desired_options.map { |option| option.fetch("name").downcase }
+        existing_options = field&.fetch('options', []) || []
+        desired_names = desired_options.map { |option| option.fetch('name').downcase }
         managed = desired_options.map do |option|
           existing = existing_options.find do |candidate|
-            candidate.fetch("name").casecmp?(option.fetch("name"))
+            candidate.fetch('name').casecmp?(option.fetch('name'))
           end
-          option.merge(existing ? {"id" => existing.fetch("id")} : {})
+          option.merge(existing ? { 'id' => existing.fetch('id') } : {})
         end
         unmanaged = if preserve_unmanaged
-          existing_options
-            .reject { |option| desired_names.include?(option.fetch("name").downcase) }
-            .map { |option| option.slice("id", "name", "color", "description") }
-        else
-          []
-        end
+                      existing_options
+                        .reject { |option| desired_names.include?(option.fetch('name').downcase) }
+                        .map { |option| option.slice('id', 'name', 'color', 'description') }
+                    else
+                      []
+                    end
         managed + unmanaged
       end
 
       def create_issue(action)
         details = action.details
-        milestone = milestones.fetch(details.fetch("milestone"))
+        milestone = milestones.fetch(details.fetch('milestone'))
         created = @client.rest(
           :post,
           "/repos/#{@manifest.repository}/issues",
           body: {
-            "title" => details.fetch("title"),
-            "body" => details.fetch("body"),
-            "labels" => details.fetch("labels"),
-            "milestone" => milestone.fetch("number")
+            'title' => details.fetch('title'),
+            'body' => details.fetch('body'),
+            'labels' => details.fetch('labels'),
+            'milestone' => milestone.fetch('number')
           }
         )
         @issues ||= {}
         @issues[action.key] = {
-          "number" => created.fetch("number"),
-          "node_id" => created.fetch("node_id"),
-          "title" => created.fetch("title"),
-          "labels" => created.fetch("labels").map { |label| label.fetch("name") },
-          "milestone" => created.fetch("milestone").fetch("title")
+          'number' => created.fetch('number'),
+          'node_id' => created.fetch('node_id'),
+          'title' => created.fetch('title'),
+          'labels' => created.fetch('labels').map { |label| label.fetch('name') },
+          'milestone' => created.fetch('milestone').fetch('title')
         }
       end
 
       def update_issue(action)
         issue = issues.fetch(action.key)
         details = action.details
-        milestone = milestones.fetch(details.fetch("milestone"))
-        labels = (issue.fetch("labels") + details.fetch("labels")).uniq
+        milestone = milestones.fetch(details.fetch('milestone'))
+        labels = (issue.fetch('labels') + details.fetch('labels')).uniq
         @client.rest(
           :patch,
-          "/repos/#{@manifest.repository}/issues/#{issue.fetch("number")}",
+          "/repos/#{@manifest.repository}/issues/#{issue.fetch('number')}",
           body: {
-            "title" => details.fetch("title"),
-            "body" => details.fetch("body"),
-            "labels" => labels,
-            "milestone" => milestone.fetch("number")
+            'title' => details.fetch('title'),
+            'body' => details.fetch('body'),
+            'labels' => labels,
+            'milestone' => milestone.fetch('number')
           }
         )
         clear_issue_cache
@@ -917,25 +945,27 @@ module DryValidationRust
       def ensure_project_item(action)
         current_project = project || ensure_project
         issue = issues.fetch(action.key)
-        item = current_project.fetch("items", {})[issue.fetch("node_id")]
+        item = current_project.fetch('items', {})[issue.fetch('node_id')]
         unless item
           response = @client.graphql(
             ADD_PROJECT_ITEM,
-            {"projectId" => current_project.fetch("id"), "contentId" => issue.fetch("node_id")}
+            { 'projectId' => current_project.fetch('id'), 'contentId' => issue.fetch('node_id') }
           )
-          item = {"item_id" => response.fetch("addProjectV2ItemById").fetch("item").fetch("id")}
+          item = { 'item_id' => response.fetch('addProjectV2ItemById').fetch('item').fetch('id') }
         end
 
-        fields = project_fields(current_project.fetch("id"))
-        workflow = fields.find { |field| field["name"] == @manifest.project.fetch("workflow_field") }
-        option = workflow.fetch("options").find { |candidate| candidate.fetch("name") == action.details.fetch("workflow") }
+        fields = project_fields(current_project.fetch('id'))
+        workflow = fields.find { |field| field['name'] == @manifest.project.fetch('workflow_field') }
+        option = workflow.fetch('options').find do |candidate|
+          candidate.fetch('name') == action.details.fetch('workflow')
+        end
         @client.graphql(
           SET_PROJECT_FIELD,
           {
-            "projectId" => current_project.fetch("id"),
-            "itemId" => item.fetch("item_id"),
-            "fieldId" => workflow.fetch("id"),
-            "optionId" => option.fetch("id")
+            'projectId' => current_project.fetch('id'),
+            'itemId' => item.fetch('item_id'),
+            'fieldId' => workflow.fetch('id'),
+            'optionId' => option.fetch('id')
           }
         )
         clear_project_cache
@@ -961,18 +991,18 @@ module DryValidationRust
         @owner_data ||= @client.graphql(
           OWNER_QUERY,
           {
-            "login" => @manifest.project.fetch("owner"),
-            "repoOwner" => @manifest.repository_owner,
-            "repoName" => @manifest.repository_name
+            'login' => @manifest.project.fetch('owner'),
+            'repoOwner' => @manifest.repository_owner,
+            'repoName' => @manifest.repository_name
           }
         )
       end
 
       def project_fields(project_id)
-        @client.graphql(PROJECT_FIELDS_QUERY, {"projectId" => project_id})
-          .fetch("node")
-          .fetch("fields")
-          .fetch("nodes")
+        @client.graphql(PROJECT_FIELDS_QUERY, { 'projectId' => project_id })
+               .fetch('node')
+               .fetch('fields')
+               .fetch('nodes')
       end
 
       def clear_issue_cache
@@ -985,7 +1015,7 @@ module DryValidationRust
     end
 
     class CLI
-      DEFAULT_MANIFEST = ".github/project-management.yml"
+      DEFAULT_MANIFEST = '.github/project-management.yml'
 
       def initialize(argv, root:, output: $stdout, error: $stderr, client: nil)
         @argv = argv
@@ -1004,15 +1034,15 @@ module DryValidationRust
 
       def run
         return 0 if parse! == :help
-        raise Error, "--offline cannot be combined with --apply" if @options[:offline] && @options[:apply]
+        raise Error, '--offline cannot be combined with --apply' if @options[:offline] && @options[:apply]
 
         manifest = Manifest.new(root: @root, path: @options[:manifest])
         snapshot = if @options[:offline]
-          Snapshot.empty
-        else
-          @client.auth_status!
-          LiveGitHub.new(@client, manifest).snapshot
-        end
+                     Snapshot.empty
+                   else
+                     @client.auth_status!
+                     LiveGitHub.new(@client, manifest).snapshot
+                   end
         actions = Planner.new(manifest, snapshot, components: @options[:components]).actions
         print_plan(actions)
 
@@ -1020,8 +1050,8 @@ module DryValidationRust
           Executor.new(@client, manifest).apply(actions)
           @output.puts "Applied #{actions.size} action(s)."
         else
-          @output.puts "Dry-run only. Re-run with --apply after reviewing the plan." unless @options[:offline]
-          @output.puts "Offline dry-run assumes no managed remote objects exist." if @options[:offline]
+          @output.puts 'Dry-run only. Re-run with --apply after reviewing the plan.' unless @options[:offline]
+          @output.puts 'Offline dry-run assumes no managed remote objects exist.' if @options[:offline]
         end
         0
       rescue OptionParser::ParseError, Error, KeyError, JSON::ParserError => e
@@ -1033,19 +1063,21 @@ module DryValidationRust
 
       def parse!
         parser = OptionParser.new do |options|
-          options.banner = "Usage: script/sync-github-project-management [options]"
-          options.on("--apply", "Apply the planned remote changes") { @options[:apply] = true }
-          options.on("--offline", "Plan against an empty remote without authentication") { @options[:offline] = true }
-          options.on("--only LIST", "Comma-separated: labels,milestones,project,issues") do |value|
-            components = value.split(",").map(&:strip)
+          options.banner = 'Usage: script/sync-github-project-management [options]'
+          options.on('--apply', 'Apply the planned remote changes') { @options[:apply] = true }
+          options.on('--offline', 'Plan against an empty remote without authentication') { @options[:offline] = true }
+          options.on('--only LIST', 'Comma-separated: labels,milestones,project,issues') do |value|
+            components = value.split(',').map(&:strip)
             unknown = components - Planner::MANAGED_COMPONENTS
-            raise OptionParser::InvalidArgument, "unknown components: #{unknown.join(", ")}" unless unknown.empty?
+            raise OptionParser::InvalidArgument, "unknown components: #{unknown.join(', ')}" unless unknown.empty?
 
             @options[:components] = components
           end
-          options.on("--manifest PATH", "Manifest path relative to the repository root") { |value| @options[:manifest] = value }
-          options.on("--verbose", "Print every planned action") { @options[:verbose] = true }
-          options.on("-h", "--help", "Show this help") do
+          options.on('--manifest PATH', 'Manifest path relative to the repository root') do |value|
+            @options[:manifest] = value
+          end
+          options.on('--verbose', 'Print every planned action') { @options[:verbose] = true }
+          options.on('-h', '--help', 'Show this help') do
             @output.puts options
             @help_requested = true
           end
@@ -1058,14 +1090,14 @@ module DryValidationRust
       def print_plan(actions)
         counts = actions.group_by(&:kind).transform_values(&:size)
         @output.puts "Repository: #{Manifest.new(root: @root, path: @options[:manifest]).repository}"
-        @output.puts "Mode: #{@options[:apply] ? "apply" : "dry-run"}#{@options[:offline] ? " (offline)" : ""}"
+        @output.puts "Mode: #{@options[:apply] ? 'apply' : 'dry-run'}#{' (offline)' if @options[:offline]}"
         if actions.empty?
-          @output.puts "No changes required."
+          @output.puts 'No changes required.'
           return
         end
 
         counts.sort_by { |kind, _count| kind.to_s }.each do |kind, count|
-          @output.puts format("  %-24s %d", kind, count)
+          @output.puts format('  %-24s %d', kind, count)
         end
         return unless @options[:verbose]
 

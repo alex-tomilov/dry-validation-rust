@@ -1,8 +1,8 @@
 # frozen_string_literal: true
 
-require_relative "test_helper"
-require "stringio"
-require_relative "../script/support/github_project_management"
+require_relative 'test_helper'
+require 'stringio'
+require_relative '../script/support/github_project_management'
 
 class GitHubProjectManagementSyncTest < Minitest::Test
   Sync = DryValidationRust::GitHubProjectManagement
@@ -13,12 +13,12 @@ class GitHubProjectManagementSyncTest < Minitest::Test
     refute_empty manifest.labels
     refute_empty manifest.milestones
     refute_empty manifest.roadmap
-    assert_equal manifest.roadmap.map { |item| item.fetch("id") }.uniq.size, manifest.roadmap.size
+    assert_equal manifest.roadmap.map { |item| item.fetch('id') }.uniq.size, manifest.roadmap.size
 
     manifest.roadmap.each do |item|
-      assert File.file?(manifest.stage_path(item)), item.fetch("id")
-      assert_empty item.fetch("labels") - manifest.label_names, item.fetch("id")
-      assert_includes manifest.milestone_titles, item.fetch("milestone"), item.fetch("id")
+      assert File.file?(manifest.stage_path(item)), item.fetch('id')
+      assert_empty item.fetch('labels') - manifest.label_names, item.fetch('id')
+      assert_includes manifest.milestone_titles, item.fetch('milestone'), item.fetch('id')
     end
   end
 
@@ -26,12 +26,13 @@ class GitHubProjectManagementSyncTest < Minitest::Test
     source = load_manifest
     manifest = Sync::Manifest.allocate
     manifest.instance_variable_set(:@root, source.root)
-    manifest.instance_variable_set(:@data, source.data.merge("project" => source.project.merge("owner_type" => "organization")))
+    manifest.instance_variable_set(:@data,
+                                   source.data.merge('project' => source.project.merge('owner_type' => 'organization')))
     manifest.instance_variable_set(:@labels, source.labels)
 
     error = assert_raises(Sync::Error) { manifest.send(:validate!) }
 
-    assert_includes error.message, "unsupported project owner_type"
+    assert_includes error.message, 'unsupported project owner_type'
   end
 
   def test_empty_remote_plan_creates_every_managed_object_without_deletions
@@ -49,7 +50,7 @@ class GitHubProjectManagementSyncTest < Minitest::Test
     assert_equal 1, counts.fetch(:create_project_view)
     assert_equal manifest.roadmap.size, counts.fetch(:create_issue)
     assert_equal manifest.roadmap.size, counts.fetch(:add_project_item)
-    refute actions.any? { |action| action.kind.to_s.start_with?("delete") }
+    refute(actions.any? { |action| action.kind.to_s.start_with?('delete') })
   end
 
   def test_fully_synchronized_remote_has_no_actions
@@ -62,68 +63,68 @@ class GitHubProjectManagementSyncTest < Minitest::Test
   def test_planner_updates_managed_metadata_without_removing_unmanaged_values
     manifest = load_manifest
     snapshot = synchronized_snapshot(manifest)
-    snapshot.labels["type:bug"]["description"] = "stale"
-    snapshot.labels["unmanaged"] = {"color" => "ffffff", "description" => "preserve me"}
+    snapshot.labels['type:bug']['description'] = 'stale'
+    snapshot.labels['unmanaged'] = { 'color' => 'ffffff', 'description' => 'preserve me' }
     first_milestone = manifest.milestone_titles.first
-    snapshot.milestones.fetch(first_milestone)["state"] = "closed"
-    snapshot.issues.fetch("A")["labels"] << "unmanaged"
+    snapshot.milestones.fetch(first_milestone)['state'] = 'closed'
+    snapshot.issues.fetch('A')['labels'] << 'unmanaged'
 
     actions = Sync::Planner.new(manifest, snapshot).actions
 
-    assert actions.any? { |action| action.kind == :update_label && action.key == "type:bug" }
-    assert actions.any? { |action| action.kind == :update_milestone && action.key == first_milestone }
-    refute actions.any? { |action| action.key == "unmanaged" }
-    refute actions.any? { |action| action.kind == :update_issue && action.key == "A" }
-    refute actions.any? { |action| action.kind.to_s.start_with?("delete") }
+    assert(actions.any? { |action| action.kind == :update_label && action.key == 'type:bug' })
+    assert(actions.any? { |action| action.kind == :update_milestone && action.key == first_milestone })
+    refute(actions.any? { |action| action.key == 'unmanaged' })
+    refute(actions.any? { |action| action.kind == :update_issue && action.key == 'A' })
+    refute(actions.any? { |action| action.kind.to_s.start_with?('delete') })
   end
 
   def test_planner_updates_a_stale_managed_issue_body
     manifest = load_manifest
     snapshot = synchronized_snapshot(manifest)
-    snapshot.issues.fetch("A")["body"] = "stale roadmap body"
+    snapshot.issues.fetch('A')['body'] = 'stale roadmap body'
 
     actions = Sync::Planner.new(manifest, snapshot).actions
 
-    assert actions.any? { |action| action.kind == :update_issue && action.key == "A" }
+    assert(actions.any? { |action| action.kind == :update_issue && action.key == 'A' })
   end
 
   def test_planner_preserves_existing_project_item_workflow
     manifest = load_manifest
     snapshot = synchronized_snapshot(manifest)
-    issue = snapshot.issues.fetch("C")
-    snapshot.project.fetch("items").fetch(issue.fetch("node_id"))["workflow"] = "Done"
+    issue = snapshot.issues.fetch('C')
+    snapshot.project.fetch('items').fetch(issue.fetch('node_id'))['workflow'] = 'Done'
 
     actions = Sync::Planner.new(manifest, snapshot).actions
 
-    refute actions.any? { |action| action.key == "C" && action.kind.to_s.include?("workflow") }
+    refute(actions.any? { |action| action.key == 'C' && action.kind.to_s.include?('workflow') })
     assert_empty actions
   end
 
   def test_planner_ignores_unmanaged_workflow_options
     manifest = load_manifest
     snapshot = synchronized_snapshot(manifest)
-    snapshot.project.fetch("workflow").fetch("options") << {
-      "id" => "UNMANAGED",
-      "name" => "Waiting",
-      "color" => "PINK",
-      "description" => "Owned outside the synchronizer"
+    snapshot.project.fetch('workflow').fetch('options') << {
+      'id' => 'UNMANAGED',
+      'name' => 'Waiting',
+      'color' => 'PINK',
+      'description' => 'Owned outside the synchronizer'
     }
 
     actions = Sync::Planner.new(manifest, snapshot).actions
 
-    refute actions.any? { |action| action.kind == :sync_workflow }
+    refute(actions.any? { |action| action.kind == :sync_workflow })
     assert_empty actions
   end
 
   def test_planner_does_not_restore_mutable_status_labels
     manifest = load_manifest
     snapshot = synchronized_snapshot(manifest)
-    issue = snapshot.issues.fetch("G")
-    issue["labels"].delete("status:blocked")
+    issue = snapshot.issues.fetch('G')
+    issue['labels'].delete('status:blocked')
 
     actions = Sync::Planner.new(manifest, snapshot).actions
 
-    refute actions.any? { |action| action.kind == :update_issue && action.key == "G" }
+    refute(actions.any? { |action| action.kind == :update_issue && action.key == 'G' })
     assert_empty actions
   end
 
@@ -132,7 +133,7 @@ class GitHubProjectManagementSyncTest < Minitest::Test
     actions = Sync::Planner.new(
       manifest,
       Sync::Snapshot.empty,
-      components: ["labels"]
+      components: ['labels']
     ).actions
 
     assert_equal manifest.labels.size, actions.size
@@ -144,7 +145,7 @@ class GitHubProjectManagementSyncTest < Minitest::Test
     actions = Sync::Planner.new(
       manifest,
       Sync::Snapshot.empty,
-      components: ["issues"]
+      components: ['issues']
     ).actions
 
     assert_equal manifest.roadmap.size, actions.size
@@ -153,23 +154,23 @@ class GitHubProjectManagementSyncTest < Minitest::Test
 
   def test_generated_issue_body_contains_quality_sections_and_stable_marker
     manifest = load_manifest
-    item = manifest.roadmap.find { |candidate| candidate.fetch("id") == "C" }
+    item = manifest.roadmap.find { |candidate| candidate.fetch('id') == 'C' }
     body = Sync::IssueBody.new(manifest, item).render
 
-    assert_includes body, "<!-- dvr-roadmap:C -->"
-    assert_includes body, "## Problem"
-    assert_includes body, "## User or maintainer impact"
-    assert_includes body, "## Current behavior and evidence"
-    assert_includes body, "## Desired behavior"
-    assert_includes body, "## Non-goals"
-    assert_includes body, "## Expected affected files and ownership boundaries"
-    assert_includes body, "## Implementation notes"
-    assert_includes body, "## Test and verification plan"
-    assert_includes body, "## Acceptance criteria"
-    assert_includes body, "## Dependencies and blockers"
-    assert_includes body, "## Risks and rollback"
-    assert_includes body, "`B`"
-    assert_includes body, "script/verify"
+    assert_includes body, '<!-- dvr-roadmap:C -->'
+    assert_includes body, '## Problem'
+    assert_includes body, '## User or maintainer impact'
+    assert_includes body, '## Current behavior and evidence'
+    assert_includes body, '## Desired behavior'
+    assert_includes body, '## Non-goals'
+    assert_includes body, '## Expected affected files and ownership boundaries'
+    assert_includes body, '## Implementation notes'
+    assert_includes body, '## Test and verification plan'
+    assert_includes body, '## Acceptance criteria'
+    assert_includes body, '## Dependencies and blockers'
+    assert_includes body, '## Risks and rollback'
+    assert_includes body, '`B`'
+    assert_includes body, 'script/verify'
   end
 
   def test_offline_cli_is_dry_run_and_does_not_use_client
@@ -181,7 +182,7 @@ class GitHubProjectManagementSyncTest < Minitest::Test
     end
 
     status = Sync::CLI.new(
-      ["--offline"],
+      ['--offline'],
       root: PROJECT_ROOT,
       output: output,
       error: error,
@@ -190,12 +191,12 @@ class GitHubProjectManagementSyncTest < Minitest::Test
 
     assert_equal 0, status
     assert_empty error.string
-    assert_includes output.string, "Mode: dry-run (offline)"
+    assert_includes output.string, 'Mode: dry-run (offline)'
     manifest = load_manifest
     assert_match(/create_label\s+#{manifest.labels.size}/, output.string)
     assert_match(/create_issue\s+#{manifest.roadmap.size}/, output.string)
     assert_match(/add_project_item\s+#{manifest.roadmap.size}/, output.string)
-    assert_includes output.string, "Offline dry-run assumes no managed remote objects exist."
+    assert_includes output.string, 'Offline dry-run assumes no managed remote objects exist.'
   end
 
   def test_cli_rejects_offline_apply
@@ -203,14 +204,14 @@ class GitHubProjectManagementSyncTest < Minitest::Test
     error = StringIO.new
 
     status = Sync::CLI.new(
-      ["--offline", "--apply"],
+      ['--offline', '--apply'],
       root: PROJECT_ROOT,
       output: output,
       error: error
     ).run
 
     assert_equal 1, status
-    assert_includes error.string, "--offline cannot be combined with --apply"
+    assert_includes error.string, '--offline cannot be combined with --apply'
   end
 
   def test_live_cli_reports_authentication_failure_without_applying
@@ -218,7 +219,7 @@ class GitHubProjectManagementSyncTest < Minitest::Test
     error = StringIO.new
     client = Object.new
     def client.auth_status!
-      raise DryValidationRust::GitHubProjectManagement::Error, "invalid test token"
+      raise DryValidationRust::GitHubProjectManagement::Error, 'invalid test token'
     end
 
     status = Sync::CLI.new(
@@ -230,8 +231,8 @@ class GitHubProjectManagementSyncTest < Minitest::Test
     ).run
 
     assert_equal 1, status
-    assert_includes error.string, "invalid test token"
-    refute_includes output.string, "Applied"
+    assert_includes error.string, 'invalid test token'
+    refute_includes output.string, 'Applied'
   end
 
   def test_help_exits_successfully
@@ -239,7 +240,7 @@ class GitHubProjectManagementSyncTest < Minitest::Test
     error = StringIO.new
 
     status = Sync::CLI.new(
-      ["--help"],
+      ['--help'],
       root: PROJECT_ROOT,
       output: output,
       error: error
@@ -247,19 +248,19 @@ class GitHubProjectManagementSyncTest < Minitest::Test
 
     assert_equal 0, status
     assert_empty error.string
-    assert_includes output.string, "Usage: script/sync-github-project-management"
+    assert_includes output.string, 'Usage: script/sync-github-project-management'
   end
 
   def test_rest_client_uses_versioned_github_api_headers
-    runner = RecordingRunner.new("[]")
+    runner = RecordingRunner.new('[]')
     client = Sync::GhClient.new(runner: runner)
 
-    assert_equal [], client.rest(:get, "/repos/example/project/labels")
+    assert_equal [], client.rest(:get, '/repos/example/project/labels')
 
     command = runner.commands.fetch(0)
-    assert_includes command, "Accept: application/vnd.github+json"
-    assert_includes command, "X-GitHub-Api-Version: 2026-03-10"
-    assert_includes command, "/repos/example/project/labels"
+    assert_includes command, 'Accept: application/vnd.github+json'
+    assert_includes command, 'X-GitHub-Api-Version: 2026-03-10'
+    assert_includes command, '/repos/example/project/labels'
   end
 
   def test_label_update_uses_new_name_and_preserves_no_delete_policy
@@ -267,11 +268,11 @@ class GitHubProjectManagementSyncTest < Minitest::Test
     executor = Sync::Executor.new(client, load_manifest)
     action = Sync::Action.new(
       :update_label,
-      "type:bug",
+      'type:bug',
       {
-        "name" => "type:bug",
-        "color" => "d73a4a",
-        "description" => "Updated description"
+        'name' => 'type:bug',
+        'color' => 'd73a4a',
+        'description' => 'Updated description'
       }
     )
 
@@ -279,33 +280,34 @@ class GitHubProjectManagementSyncTest < Minitest::Test
 
     call = client.rest_calls.fetch(0)
     assert_equal :patch, call.fetch(:method)
-    assert_includes call.fetch(:path), "type%3Abug"
-    assert_equal "type:bug", call.fetch(:body).fetch("new_name")
-    refute call.fetch(:body).key?("name")
+    assert_includes call.fetch(:path), 'type%3Abug'
+    assert_equal 'type:bug', call.fetch(:body).fetch('new_name')
+    refute call.fetch(:body).key?('name')
   end
 
   def test_issue_update_replaces_the_managed_body
     manifest = load_manifest
     client = RecordingApiClient.new
     executor = Sync::Executor.new(client, manifest)
-    item = manifest.roadmap.find { |candidate| candidate.fetch("id") == "A" }
+    item = manifest.roadmap.find { |candidate| candidate.fetch('id') == 'A' }
     details = Sync::IssueBody.new(manifest, item).render
     action = Sync::Action.new(
       :update_issue,
-      "A",
-      {"title" => "[A] #{item.fetch("title")}", "body" => details, "labels" => item.fetch("labels"), "milestone" => item.fetch("milestone")}
+      'A',
+      { 'title' => "[A] #{item.fetch('title')}", 'body' => details, 'labels' => item.fetch('labels'),
+        'milestone' => item.fetch('milestone') }
     )
 
     executor.instance_variable_set(:@issues, {
-      "A" => {"number" => 10, "node_id" => "ISSUE_A", "title" => "old", "body" => "old", "labels" => [], "milestone" => "old"}
-    })
+                                     'A' => { 'number' => 10, 'node_id' => 'ISSUE_A', 'title' => 'old', 'body' => 'old', 'labels' => [], 'milestone' => 'old' }
+                                   })
     executor.instance_variable_set(:@milestones, {
-      item.fetch("milestone") => {"number" => 6, "title" => item.fetch("milestone"), "description" => "", "state" => "open"}
-    })
+                                     item.fetch('milestone') => { 'number' => 6, 'title' => item.fetch('milestone'), 'description' => '', 'state' => 'open' }
+                                   })
 
     executor.send(:update_issue, action)
 
-    assert_equal details, client.rest_calls.fetch(0).fetch(:body).fetch("body")
+    assert_equal details, client.rest_calls.fetch(0).fetch(:body).fetch('body')
   end
 
   def test_user_project_view_path_uses_owner_login
@@ -313,8 +315,8 @@ class GitHubProjectManagementSyncTest < Minitest::Test
 
     path = executor.send(:project_view_path, 5)
 
-    assert_equal "/users/alex-tomilov/projectsV2/5/views", path
-    refute_includes path, "85821448"
+    assert_equal '/users/alex-tomilov/projectsV2/5/views', path
+    refute_includes path, '85821448'
   end
 
   def test_created_issue_is_cached_from_post_response
@@ -322,45 +324,45 @@ class GitHubProjectManagementSyncTest < Minitest::Test
     client = IssueCreationClient.new(manifest)
     executor = Sync::Executor.new(client, manifest)
     action = Sync::Planner.new(manifest, Sync::Snapshot.empty).actions.find do |candidate|
-      candidate.kind == :create_issue && candidate.key == "F"
+      candidate.kind == :create_issue && candidate.key == 'F'
     end
 
     executor.send(:create_issue, action)
-    issue = executor.send(:issues).fetch("F")
+    issue = executor.send(:issues).fetch('F')
 
-    assert_equal 41, issue.fetch("number")
-    assert_equal "ISSUE_F", issue.fetch("node_id")
-    refute client.rest_calls.any? { |call| call.fetch(:path).include?("/issues?") }
+    assert_equal 41, issue.fetch('number')
+    assert_equal 'ISSUE_F', issue.fetch('node_id')
+    refute(client.rest_calls.any? { |call| call.fetch(:path).include?('/issues?') })
   end
 
   def test_workflow_merge_preserves_unmanaged_options
     executor = Sync::Executor.new(RecordingApiClient.new, load_manifest)
     field = {
-      "options" => [
-        {"id" => "BACKLOG", "name" => "Backlog", "color" => "GRAY", "description" => "Old"},
-        {"id" => "WAITING", "name" => "Waiting", "color" => "PINK", "description" => "External"}
+      'options' => [
+        { 'id' => 'BACKLOG', 'name' => 'Backlog', 'color' => 'GRAY', 'description' => 'Old' },
+        { 'id' => 'WAITING', 'name' => 'Waiting', 'color' => 'PINK', 'description' => 'External' }
       ]
     }
-    desired = load_manifest.project.fetch("workflow_options")
+    desired = load_manifest.project.fetch('workflow_options')
 
     merged = executor.send(:merged_workflow_options, field, desired)
 
-    assert_equal "BACKLOG", merged.find { |option| option.fetch("name") == "Backlog" }.fetch("id")
+    assert_equal 'BACKLOG', merged.find { |option| option.fetch('name') == 'Backlog' }.fetch('id')
     assert_equal(
-      {"id" => "WAITING", "name" => "Waiting", "color" => "PINK", "description" => "External"},
-      merged.find { |option| option.fetch("name") == "Waiting" }
+      { 'id' => 'WAITING', 'name' => 'Waiting', 'color' => 'PINK', 'description' => 'External' },
+      merged.find { |option| option.fetch('name') == 'Waiting' }
     )
   end
 
   def test_workflow_merge_reuses_case_insensitive_option_and_can_prune_new_project_defaults
     executor = Sync::Executor.new(RecordingApiClient.new, load_manifest)
     field = {
-      "options" => [
-        {"id" => "IN_PROGRESS", "name" => "In Progress", "color" => "YELLOW", "description" => "Default"},
-        {"id" => "TODO", "name" => "Todo", "color" => "GRAY", "description" => "Default"}
+      'options' => [
+        { 'id' => 'IN_PROGRESS', 'name' => 'In Progress', 'color' => 'YELLOW', 'description' => 'Default' },
+        { 'id' => 'TODO', 'name' => 'Todo', 'color' => 'GRAY', 'description' => 'Default' }
       ]
     }
-    desired = load_manifest.project.fetch("workflow_options")
+    desired = load_manifest.project.fetch('workflow_options')
 
     merged = executor.send(
       :merged_workflow_options,
@@ -369,8 +371,8 @@ class GitHubProjectManagementSyncTest < Minitest::Test
       preserve_unmanaged: false
     )
 
-    assert_equal "IN_PROGRESS", merged.find { |option| option.fetch("name") == "In progress" }.fetch("id")
-    refute merged.any? { |option| option.fetch("name") == "Todo" }
+    assert_equal 'IN_PROGRESS', merged.find { |option| option.fetch('name') == 'In progress' }.fetch('id')
+    refute(merged.any? { |option| option.fetch('name') == 'Todo' })
   end
 
   def test_live_snapshot_rejects_unmarked_same_title_project
@@ -381,19 +383,19 @@ class GitHubProjectManagementSyncTest < Minitest::Test
       Sync::LiveGitHub.new(client, manifest).snapshot
     end
 
-    assert_includes error.message, "project title collision"
+    assert_includes error.message, 'project title collision'
   end
 
   def test_project_snapshot_uses_bounded_graphql_queries
     discovery = Sync::LiveGitHub::PROJECT_QUERY
 
-    assert_includes discovery, "projectsV2(first: 100)"
-    refute_includes discovery, "fields(first:"
-    refute_includes discovery, "items(first:"
-    refute_includes discovery, "views(first:"
-    assert_includes Sync::LiveGitHub::PROJECT_FIELDS_QUERY, "fields(first: 100)"
-    assert_includes Sync::LiveGitHub::PROJECT_ITEMS_QUERY, "fieldValueByName(name: $workflowField)"
-    assert_includes Sync::LiveGitHub::PROJECT_VIEWS_QUERY, "views(first: 100)"
+    assert_includes discovery, 'projectsV2(first: 100)'
+    refute_includes discovery, 'fields(first:'
+    refute_includes discovery, 'items(first:'
+    refute_includes discovery, 'views(first:'
+    assert_includes Sync::LiveGitHub::PROJECT_FIELDS_QUERY, 'fields(first: 100)'
+    assert_includes Sync::LiveGitHub::PROJECT_ITEMS_QUERY, 'fieldValueByName(name: $workflowField)'
+    assert_includes Sync::LiveGitHub::PROJECT_VIEWS_QUERY, 'views(first: 100)'
   end
 
   def test_live_snapshot_reconstructs_project_from_split_queries
@@ -402,10 +404,10 @@ class GitHubProjectManagementSyncTest < Minitest::Test
 
     project = Sync::LiveGitHub.new(client, manifest).snapshot.project
 
-    assert_equal "PROJECT", project.fetch("id")
-    assert_equal "STATUS", project.fetch("workflow").fetch("id")
-    assert_equal "Done", project.fetch("items").fetch("ISSUE").fetch("workflow")
-    assert_equal [{"name" => "Roadmap", "layout" => "TABLE_LAYOUT"}], project.fetch("views")
+    assert_equal 'PROJECT', project.fetch('id')
+    assert_equal 'STATUS', project.fetch('workflow').fetch('id')
+    assert_equal 'Done', project.fetch('items').fetch('ISSUE').fetch('workflow')
+    assert_equal [{ 'name' => 'Roadmap', 'layout' => 'TABLE_LAYOUT' }], project.fetch('views')
     assert_equal 4, client.graphql_calls.size
   end
 
@@ -427,7 +429,7 @@ class GitHubProjectManagementSyncTest < Minitest::Test
 
     def run(*command, stdin_data: nil)
       @commands << command
-      Sync::CommandRunner::Result.new(@stdout, "", Status.new)
+      Sync::CommandRunner::Result.new(@stdout, '', Status.new)
     end
   end
 
@@ -439,7 +441,7 @@ class GitHubProjectManagementSyncTest < Minitest::Test
     end
 
     def rest(method, path, body: nil, paginate: false)
-      @rest_calls << {method: method, path: path, body: body, paginate: paginate}
+      @rest_calls << { method: method, path: path, body: body, paginate: paginate }
       {}
     end
   end
@@ -453,9 +455,9 @@ class GitHubProjectManagementSyncTest < Minitest::Test
     end
 
     def rest(method, path, body: nil, paginate: false)
-      @rest_calls << {method: method, path: path, body: body, paginate: paginate}
-      return milestones if path.include?("/milestones?")
-      return created_issue(body) if method == :post && path.end_with?("/issues")
+      @rest_calls << { method: method, path: path, body: body, paginate: paginate }
+      return milestones if path.include?('/milestones?')
+      return created_issue(body) if method == :post && path.end_with?('/issues')
 
       []
     end
@@ -464,17 +466,17 @@ class GitHubProjectManagementSyncTest < Minitest::Test
 
     def milestones
       @manifest.milestones.each_with_index.map do |milestone, index|
-        milestone.merge("number" => index + 1, "state" => "open")
+        milestone.merge('number' => index + 1, 'state' => 'open')
       end
     end
 
     def created_issue(body)
       {
-        "number" => 41,
-        "node_id" => "ISSUE_F",
-        "title" => body.fetch("title"),
-        "labels" => body.fetch("labels").map { |name| {"name" => name} },
-        "milestone" => {"title" => @manifest.milestones.fetch(body.fetch("milestone") - 1).fetch("title")}
+        'number' => 41,
+        'node_id' => 'ISSUE_F',
+        'title' => body.fetch('title'),
+        'labels' => body.fetch('labels').map { |name| { 'name' => name } },
+        'milestone' => { 'title' => @manifest.milestones.fetch(body.fetch('milestone') - 1).fetch('title') }
       }
     end
   end
@@ -490,26 +492,26 @@ class GitHubProjectManagementSyncTest < Minitest::Test
 
     def graphql(_query, _variables = {})
       {
-        "user" => {
-          "id" => "USER",
-          "databaseId" => 1,
-          "projectsV2" => {
-            "nodes" => [
+        'user' => {
+          'id' => 'USER',
+          'databaseId' => 1,
+          'projectsV2' => {
+            'nodes' => [
               {
-                "id" => "PROJECT",
-                "number" => 1,
-                "title" => @manifest.project.fetch("title"),
-                "shortDescription" => nil,
-                "readme" => "Owned manually",
-                "public" => true,
-                "fields" => {"nodes" => []},
-                "items" => {"nodes" => []},
-                "views" => {"nodes" => []}
+                'id' => 'PROJECT',
+                'number' => 1,
+                'title' => @manifest.project.fetch('title'),
+                'shortDescription' => nil,
+                'readme' => 'Owned manually',
+                'public' => true,
+                'fields' => { 'nodes' => [] },
+                'items' => { 'nodes' => [] },
+                'views' => { 'nodes' => [] }
               }
             ]
           }
         },
-        "repository" => {"id" => "REPOSITORY"}
+        'repository' => { 'id' => 'REPOSITORY' }
       }
     end
   end
@@ -527,23 +529,23 @@ class GitHubProjectManagementSyncTest < Minitest::Test
     end
 
     def graphql(query, variables = {})
-      @graphql_calls << {query: query, variables: variables}
+      @graphql_calls << { query: query, variables: variables }
 
       case query
       when Sync::LiveGitHub::PROJECT_QUERY
         {
-          "user" => {
-            "id" => "USER",
-            "databaseId" => 1,
-            "projectsV2" => {
-              "nodes" => [
+          'user' => {
+            'id' => 'USER',
+            'databaseId' => 1,
+            'projectsV2' => {
+              'nodes' => [
                 {
-                  "id" => "PROJECT",
-                  "number" => 1,
-                  "title" => @manifest.project.fetch("title"),
-                  "shortDescription" => "Roadmap",
-                  "readme" => @manifest.project.fetch("readme"),
-                  "public" => true
+                  'id' => 'PROJECT',
+                  'number' => 1,
+                  'title' => @manifest.project.fetch('title'),
+                  'shortDescription' => 'Roadmap',
+                  'readme' => @manifest.project.fetch('readme'),
+                  'public' => true
                 }
               ]
             }
@@ -551,15 +553,15 @@ class GitHubProjectManagementSyncTest < Minitest::Test
         }
       when Sync::LiveGitHub::PROJECT_FIELDS_QUERY
         {
-          "node" => {
-            "fields" => {
-              "nodes" => [
+          'node' => {
+            'fields' => {
+              'nodes' => [
                 {
-                  "id" => "STATUS",
-                  "name" => @manifest.project.fetch("workflow_field"),
-                  "dataType" => "SINGLE_SELECT",
-                  "databaseId" => 2,
-                  "options" => [{"id" => "DONE", "name" => "Done", "color" => "GREEN", "description" => ""}]
+                  'id' => 'STATUS',
+                  'name' => @manifest.project.fetch('workflow_field'),
+                  'dataType' => 'SINGLE_SELECT',
+                  'databaseId' => 2,
+                  'options' => [{ 'id' => 'DONE', 'name' => 'Done', 'color' => 'GREEN', 'description' => '' }]
                 }
               ]
             }
@@ -567,68 +569,68 @@ class GitHubProjectManagementSyncTest < Minitest::Test
         }
       when Sync::LiveGitHub::PROJECT_ITEMS_QUERY
         {
-          "node" => {
-            "items" => {
-              "nodes" => [
+          'node' => {
+            'items' => {
+              'nodes' => [
                 {
-                  "id" => "ITEM",
-                  "content" => {"id" => "ISSUE", "number" => 1},
-                  "workflowValue" => {"name" => "Done"}
+                  'id' => 'ITEM',
+                  'content' => { 'id' => 'ISSUE', 'number' => 1 },
+                  'workflowValue' => { 'name' => 'Done' }
                 }
               ]
             }
           }
         }
       when Sync::LiveGitHub::PROJECT_VIEWS_QUERY
-        {"node" => {"views" => {"nodes" => [{"name" => "Roadmap", "layout" => "TABLE_LAYOUT"}]}}}
+        { 'node' => { 'views' => { 'nodes' => [{ 'name' => 'Roadmap', 'layout' => 'TABLE_LAYOUT' }] } } }
       else
-        raise "unexpected GraphQL query"
+        raise 'unexpected GraphQL query'
       end
     end
   end
 
   def load_manifest
-    Sync::Manifest.new(root: PROJECT_ROOT, path: ".github/project-management.yml")
+    Sync::Manifest.new(root: PROJECT_ROOT, path: '.github/project-management.yml')
   end
 
   def synchronized_snapshot(manifest)
     labels = manifest.labels.to_h do |label|
-      [label.fetch("name"), label.slice("color", "description")]
+      [label.fetch('name'), label.slice('color', 'description')]
     end
     milestones = manifest.milestones.each_with_index.to_h do |milestone, index|
       [
-        milestone.fetch("title"),
-        milestone.merge("number" => index + 1, "state" => "open")
+        milestone.fetch('title'),
+        milestone.merge('number' => index + 1, 'state' => 'open')
       ]
     end
     issues = manifest.roadmap.each_with_index.to_h do |item, index|
       [
-        item.fetch("id"),
+        item.fetch('id'),
         {
-          "number" => index + 1,
-          "node_id" => "ISSUE_#{item.fetch("id")}",
-          "title" => "[#{item.fetch("id")}] #{item.fetch("title")}",
-          "body" => Sync::IssueBody.new(manifest, item).render,
-          "labels" => item.fetch("labels").dup,
-          "milestone" => item.fetch("milestone")
+          'number' => index + 1,
+          'node_id' => "ISSUE_#{item.fetch('id')}",
+          'title' => "[#{item.fetch('id')}] #{item.fetch('title')}",
+          'body' => Sync::IssueBody.new(manifest, item).render,
+          'labels' => item.fetch('labels').dup,
+          'milestone' => item.fetch('milestone')
         }
       ]
     end
     project = {
-      "id" => "PROJECT",
-      "number" => 1,
-      "title" => manifest.project.fetch("title"),
-      "short_description" => manifest.project.fetch("short_description"),
-      "readme" => manifest.project.fetch("readme"),
-      "public" => manifest.project.fetch("public"),
-      "workflow" => {
-        "id" => "WORKFLOW",
-        "database_id" => 100,
-        "options" => manifest.project.fetch("workflow_options").map(&:dup)
+      'id' => 'PROJECT',
+      'number' => 1,
+      'title' => manifest.project.fetch('title'),
+      'short_description' => manifest.project.fetch('short_description'),
+      'readme' => manifest.project.fetch('readme'),
+      'public' => manifest.project.fetch('public'),
+      'workflow' => {
+        'id' => 'WORKFLOW',
+        'database_id' => 100,
+        'options' => manifest.project.fetch('workflow_options').map(&:dup)
       },
-      "views" => [{"name" => manifest.project.fetch("view").fetch("name")}],
-      "items" => issues.to_h do |_key, issue|
-        [issue.fetch("node_id"), {"item_id" => "ITEM_#{issue.fetch("number")}", "workflow" => "Backlog"}]
+      'views' => [{ 'name' => manifest.project.fetch('view').fetch('name') }],
+      'items' => issues.to_h do |_key, issue|
+        [issue.fetch('node_id'), { 'item_id' => "ITEM_#{issue.fetch('number')}", 'workflow' => 'Backlog' }]
       end
     }
 

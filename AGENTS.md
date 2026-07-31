@@ -89,6 +89,11 @@ These are agent guardrails, not rigid team policy. Exceed them only when the tas
 
 Tests should protect observable behavior, important regressions, safety boundaries, integration contracts, and packaging where relevant.
 
+Before reporting a code-changing task as complete, run `bundle exec rubocop`
+when Ruby source, tests, tooling, or CI configuration changed. Treat any
+RuboCop failure as unfinished work: fix the offenses or report the remaining
+baseline explicitly instead of claiming completion.
+
 Prefer:
 
 - focused unit tests for local behavior;

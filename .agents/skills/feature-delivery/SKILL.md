@@ -33,6 +33,8 @@ If some input is absent, infer the narrowest useful scope from the issue and exi
 4. Implement the direct path.
 5. Add explicit validation or failure behavior at adjacent unsupported boundaries.
 6. Run focused checks, then the repository's canonical verification.
+   If Ruby files, tooling, or CI configuration changed, also run
+   `bundle exec rubocop` and resolve or explicitly report any offenses.
 7. Update only documentation whose truth changed.
 8. Report follow-up ideas without implementing them.
 

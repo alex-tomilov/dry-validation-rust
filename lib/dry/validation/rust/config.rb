@@ -32,7 +32,7 @@ module Dry
         def validate_keys=(value)
           if value
             raise UnsupportedFeatureError,
-              "config.validate_keys is not implemented in 0.1.0.pre1"
+                  'config.validate_keys is not implemented in 0.1.0.pre1'
           end
 
           @validate_keys = false

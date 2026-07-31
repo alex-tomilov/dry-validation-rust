@@ -5,9 +5,9 @@ module Dry
     module Rust
       class Failures
         IDENTIFIER_MESSAGES = {
-          acceptance: "must be accepted",
-          invalid: "is invalid",
-          taken: "is already taken"
+          acceptance: 'must be accepted',
+          invalid: 'is invalid',
+          taken: 'is already taken'
         }.freeze
 
         attr_reader :path, :messages
@@ -34,11 +34,11 @@ module Dry
           when String
             [interpolate(message, tokens), nil, {}]
           when Symbol
-            [interpolate(IDENTIFIER_MESSAGES.fetch(message, message.to_s.tr("_", " ")), tokens), message, {}]
+            [interpolate(IDENTIFIER_MESSAGES.fetch(message, message.to_s.tr('_', ' ')), tokens), message, {}]
           when Hash
             raw_text = message.fetch(:text)
             text, code, = normalize(raw_text, tokens)
-            [text, code, message.reject { |key, _| key == :text }]
+            [text, code, message.except(:text)]
           else
             [message.to_s, nil, {}]
           end

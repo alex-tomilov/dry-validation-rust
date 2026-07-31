@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require_relative "block_keyword_parameters"
+require_relative 'block_keyword_parameters'
 
 module Dry
   module Validation
@@ -18,7 +18,7 @@ module Dry
         end
 
         def register(name, *args, &block)
-          raise ArgumentError, "a macro block is required" unless block
+          raise ArgumentError, 'a macro block is required' unless block
 
           keyword_params = BlockKeywordParameters.extract(block)
           @entries[name.to_sym] = Macro.new(

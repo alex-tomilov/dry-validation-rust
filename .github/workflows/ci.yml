@@ -53,6 +53,9 @@ jobs:
           toolchain: 1.85.0
           components: rustfmt, clippy
 
+      - name: RuboCop
+        run: bundle exec rubocop
+
       - name: Compile native extension
         run: bundle exec rake compile
 

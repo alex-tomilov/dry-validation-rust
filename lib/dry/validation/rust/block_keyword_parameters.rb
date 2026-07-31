@@ -10,7 +10,7 @@ module Dry
 
         def extract(block)
           block.parameters.filter_map do |kind, name|
-            name if kind == :key || kind == :keyreq
+            name if %i[key keyreq].include?(kind)
           end.freeze
         end
       end

@@ -1,12 +1,12 @@
 # frozen_string_literal: true
 
-require_relative "test_helper"
-require "bundler"
-require "json"
-require "open3"
+require_relative 'test_helper'
+require 'bundler'
+require 'json'
+require 'open3'
 
 class BaselineFixtureTest < Minitest::Test
-  FIXTURE_DIR = File.expand_path("fixtures/baseline", __dir__)
+  FIXTURE_DIR = File.expand_path('fixtures/baseline', __dir__)
 
   def test_behavior_matches_baseline_fixtures
     baseline_cases.each do |name, runner|
@@ -18,18 +18,18 @@ class BaselineFixtureTest < Minitest::Test
 
   def baseline_cases
     {
-      "shallow_params" => method(:shallow_params),
-      "nested_hash" => method(:nested_hash),
-      "primitive_array" => method(:primitive_array),
-      "array_of_hashes" => method(:array_of_hashes),
-      "ruby_predicate" => method(:ruby_predicate),
-      "rule_failure" => method(:rule_failure),
-      "rule_each" => method(:rule_each),
-      "options_and_context" => method(:options_and_context),
-      "inherited_schema" => method(:inherited_schema),
-      "imported_schema" => method(:imported_schema),
-      "side_by_side_loading" => method(:side_by_side_loading),
-      "exact_loading" => method(:exact_loading)
+      'shallow_params' => method(:shallow_params),
+      'nested_hash' => method(:nested_hash),
+      'primitive_array' => method(:primitive_array),
+      'array_of_hashes' => method(:array_of_hashes),
+      'ruby_predicate' => method(:ruby_predicate),
+      'rule_failure' => method(:rule_failure),
+      'rule_each' => method(:rule_each),
+      'options_and_context' => method(:options_and_context),
+      'inherited_schema' => method(:inherited_schema),
+      'imported_schema' => method(:imported_schema),
+      'side_by_side_loading' => method(:side_by_side_loading),
+      'exact_loading' => method(:exact_loading)
     }
   end
 
@@ -39,10 +39,10 @@ class BaselineFixtureTest < Minitest::Test
 
   def result_payload(result)
     {
-      "success" => result.success?,
-      "output" => normalize(result.to_h),
-      "errors" => normalize(result.errors.to_h),
-      "context" => normalize(result.context)
+      'success' => result.success?,
+      'output' => normalize(result.to_h),
+      'errors' => normalize(result.errors.to_h),
+      'context' => normalize(result.context)
     }
   end
 
@@ -50,7 +50,7 @@ class BaselineFixtureTest < Minitest::Test
     case value
     when Hash
       value.each_with_object({}) do |(key, child), normalized|
-        normalized[key.nil? ? "__base__" : key.to_s] = normalize(child)
+        normalized[key.nil? ? '__base__' : key.to_s] = normalize(child)
       end
     when Array
       value.map { |child| normalize(child) }
@@ -70,7 +70,7 @@ class BaselineFixtureTest < Minitest::Test
       end
     end
 
-    result_payload(contract.new.call("age" => "42", "enabled" => "false", "nickname" => ""))
+    result_payload(contract.new.call('age' => '42', 'enabled' => 'false', 'nickname' => ''))
   end
 
   def nested_hash
@@ -83,7 +83,7 @@ class BaselineFixtureTest < Minitest::Test
       end
     end
 
-    result_payload(contract.new.call("profile" => {"name" => "", "age" => "bad"}))
+    result_payload(contract.new.call('profile' => { 'name' => '', 'age' => 'bad' }))
   end
 
   def primitive_array
@@ -91,7 +91,7 @@ class BaselineFixtureTest < Minitest::Test
       params { required(:scores).array(:integer) }
     end
 
-    result_payload(contract.new.call("scores" => ["1", "bad", "3"]))
+    result_payload(contract.new.call('scores' => %w[1 bad 3]))
   end
 
   def array_of_hashes
@@ -106,9 +106,9 @@ class BaselineFixtureTest < Minitest::Test
 
     result_payload(
       contract.new.call(
-        "people" => [
-          {"id" => "7", "email" => "jane@example.org"},
-          {"id" => "bad", "email" => ""}
+        'people' => [
+          { 'id' => '7', 'email' => 'jane@example.org' },
+          { 'id' => 'bad', 'email' => '' }
         ]
       )
     )
@@ -119,16 +119,16 @@ class BaselineFixtureTest < Minitest::Test
       params { required(:email).value(:string, format?: /\A[^@]+@[^@]+\z/) }
     end
 
-    result_payload(contract.new.call("email" => "bad"))
+    result_payload(contract.new.call('email' => 'bad'))
   end
 
   def rule_failure
     contract = build_contract do
       params { required(:age).value(:integer) }
-      rule(:age) { key.failure("must be an adult") if value < 18 }
+      rule(:age) { key.failure('must be an adult') if value < 18 }
     end
 
-    result_payload(contract.new.call("age" => "17"))
+    result_payload(contract.new.call('age' => '17'))
   end
 
   def rule_each
@@ -139,36 +139,36 @@ class BaselineFixtureTest < Minitest::Test
       end
     end
 
-    result_payload(contract.new.call("numbers" => ["1", "0", "-2"]))
+    result_payload(contract.new.call('numbers' => ['1', '0', '-2']))
   end
 
   def options_and_context
     repository = Object.new
-    def repository.taken?(value) = value == "used"
+    def repository.taken?(value) = value == 'used'
 
     contract = build_contract do
       option :repository
       params { required(:name).filled(:string) }
       rule(:name) do |context:|
         context[:checked] = true
-        key.failure("is taken") if repository.taken?(value)
+        key.failure('is taken') if repository.taken?(value)
       end
     end
 
-    result_payload(contract.new(repository: repository).call({"name" => "used"}, {request_id: 7}))
+    result_payload(contract.new(repository: repository).call({ 'name' => 'used' }, { request_id: 7 }))
   end
 
   def inherited_schema
     parent = build_contract do
       params { required(:name).filled(:string) }
-      rule(:name) { key.failure("is blocked") if value == "blocked" }
+      rule(:name) { key.failure('is blocked') if value == 'blocked' }
     end
     child = Class.new(parent) do
       params { required(:age).value(:integer) }
-      rule(:age) { key.failure("too young") if value < 18 }
+      rule(:age) { key.failure('too young') if value < 18 }
     end
 
-    result_payload(child.new.call("name" => "blocked", "age" => "10"))
+    result_payload(child.new.call('name' => 'blocked', 'age' => '10'))
   end
 
   def imported_schema
@@ -179,11 +179,11 @@ class BaselineFixtureTest < Minitest::Test
       params(address) { required(:name).filled(:string) }
     end
 
-    result_payload(contract.new.call("city" => "", "name" => "Alexey"))
+    result_payload(contract.new.call('city' => '', 'name' => 'Alexey'))
   end
 
   def side_by_side_loading
-    code = <<~'RUBY'
+    code = <<~RUBY
       require "json"
       require "dry/validation/rust"
 
@@ -206,7 +206,7 @@ class BaselineFixtureTest < Minitest::Test
   end
 
   def exact_loading
-    code = <<~'RUBY'
+    code = <<~RUBY
       require "json"
       require "dry/validation"
 
@@ -234,7 +234,7 @@ class BaselineFixtureTest < Minitest::Test
       Open3.capture3(
         RbConfig.ruby,
         "-I#{File.join(PROJECT_ROOT, 'lib')}",
-        "-e",
+        '-e',
         code
       )
     end

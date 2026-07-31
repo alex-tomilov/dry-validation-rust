@@ -11,13 +11,13 @@ module Dry
           case spec
           when nil then []
           when Symbol then [spec]
-          when String then spec.split(".").map!(&:to_sym)
+          when String then spec.split('.').map!(&:to_sym)
           when Array then spec.dup
           when Hash
             key, value = spec.first
             [key, *parse(value)]
           else
-            raise ArgumentError, "+spec+ must be a Symbol, String, Array, or Hash"
+            raise ArgumentError, '+spec+ must be a Symbol, String, Array, or Hash'
           end
         end
 

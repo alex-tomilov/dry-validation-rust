@@ -1,18 +1,20 @@
 # frozen_string_literal: true
 
-require_relative "test_helper"
+require_relative 'test_helper'
 
 class PackageMetadataTest < Minitest::Test
   def test_gemspec_has_public_project_metadata
-    assert_equal "https://github.com/alex-tomilov/dry-validation-rust", spec.homepage
+    assert_equal 'https://github.com/alex-tomilov/dry-validation-rust', spec.homepage
     refute_match(/private experimental gem/i, spec.description)
 
-    assert_equal "true", spec.metadata.fetch("rubygems_mfa_required")
-    assert_equal "https://github.com/alex-tomilov/dry-validation-rust", spec.metadata.fetch("source_code_uri")
-    assert_equal "https://github.com/alex-tomilov/dry-validation-rust/blob/main/CHANGELOG.md", spec.metadata.fetch("changelog_uri")
-    assert_equal "https://github.com/alex-tomilov/dry-validation-rust/blob/main/README.md", spec.metadata.fetch("documentation_uri")
-    assert_equal "https://github.com/alex-tomilov/dry-validation-rust/issues", spec.metadata.fetch("bug_tracker_uri")
-    refute spec.metadata.key?("funding_uri")
+    assert_equal 'true', spec.metadata.fetch('rubygems_mfa_required')
+    assert_equal 'https://github.com/alex-tomilov/dry-validation-rust', spec.metadata.fetch('source_code_uri')
+    assert_equal 'https://github.com/alex-tomilov/dry-validation-rust/blob/main/CHANGELOG.md',
+                 spec.metadata.fetch('changelog_uri')
+    assert_equal 'https://github.com/alex-tomilov/dry-validation-rust/blob/main/README.md',
+                 spec.metadata.fetch('documentation_uri')
+    assert_equal 'https://github.com/alex-tomilov/dry-validation-rust/issues', spec.metadata.fetch('bug_tracker_uri')
+    refute spec.metadata.key?('funding_uri')
   end
 
   def test_source_gem_manifest_keeps_runtime_and_notice_files
@@ -60,6 +62,6 @@ class PackageMetadataTest < Minitest::Test
   private
 
   def spec
-    @spec ||= Gem::Specification.load(File.join(PROJECT_ROOT, "dry-validation-rust.gemspec"))
+    @spec ||= Gem::Specification.load(File.join(PROJECT_ROOT, 'dry-validation-rust.gemspec'))
   end
 end
