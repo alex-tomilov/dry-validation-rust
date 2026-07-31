@@ -328,6 +328,18 @@ class SchemaTest < Minitest::Test
     assert_equal "must be greater than or equal to 18", result.errors.to_h[:age].first
   end
 
+  def test_ruby_predicates_are_skipped_for_paths_with_native_errors
+    contract = build_contract do
+      params do
+        required(:email).value(:string, format?: /\A[^@]+@[^@]+\z/)
+      end
+    end
+
+    result = contract.new.call(email: 42)
+
+    assert_equal({email: ["must be a string"]}, result.errors.to_h)
+  end
+
   def test_predicate_errors_preserve_paths_codes_and_arguments
     contract = build_contract do
       params do

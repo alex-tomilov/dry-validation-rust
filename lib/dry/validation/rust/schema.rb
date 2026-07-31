@@ -4,6 +4,7 @@ require "json"
 require "date"
 require "time"
 require "bigdecimal"
+require "set"
 
 module Dry
   module Validation
@@ -428,6 +429,11 @@ module Dry
         end
 
         def apply_ruby_predicates(definitions, data, prefix, messages)
+          error_paths = messages.map(&:path).to_set
+          apply_ruby_predicates_at(definitions, data, prefix, messages, error_paths)
+        end
+
+        def apply_ruby_predicates_at(definitions, data, prefix, messages, error_paths)
           return unless data.is_a?(Hash)
 
           definitions.each do |field|
@@ -435,32 +441,34 @@ module Dry
 
             path = [*prefix, field.name]
             value = data[field.name]
-            unless schema_error_at?(messages, path)
+            unless error_paths.include?(path)
               field.predicates.each do |predicate|
                 next if NATIVE_PREDICATES.include?(predicate.name)
 
                 valid = predicate_valid?(predicate, value)
-                messages << predicate_message(predicate, path) unless valid
+                unless valid
+                  messages << predicate_message(predicate, path)
+                  error_paths << path
+                end
               end
             end
 
-            apply_ruby_predicates(field.children, value, path, messages) if value.is_a?(Hash)
+            apply_ruby_predicates_at(field.children, value, path, messages, error_paths) if value.is_a?(Hash)
             next unless value.is_a?(Array) && field.member
 
             value.each_with_index do |member_value, index|
               member_path = [*path, index]
               field.member.predicates.each do |predicate|
-                next if NATIVE_PREDICATES.include?(predicate.name) || schema_error_at?(messages, member_path)
+                next if NATIVE_PREDICATES.include?(predicate.name) || error_paths.include?(member_path)
 
-                messages << predicate_message(predicate, member_path) unless predicate_valid?(predicate, member_value)
+                unless predicate_valid?(predicate, member_value)
+                  messages << predicate_message(predicate, member_path)
+                  error_paths << member_path
+                end
               end
-              apply_ruby_predicates(field.member.children, member_value, member_path, messages)
+              apply_ruby_predicates_at(field.member.children, member_value, member_path, messages, error_paths)
             end
           end
-        end
-
-        def schema_error_at?(messages, path)
-          messages.any? { |message| message.path == path }
         end
 
         def predicate_valid?(predicate, value)
