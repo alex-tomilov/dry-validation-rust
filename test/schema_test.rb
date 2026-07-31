@@ -362,6 +362,26 @@ class SchemaTest < Minitest::Test
     assert_equal [{}, {}, {}], errors.map(&:meta)
   end
 
+  def test_native_predicate_errors_resolve_fields_through_nested_hashes_and_array_members
+    contract = build_contract do
+      params do
+        required(:account).hash do
+          required(:profile).hash do
+            required(:age).value(:integer, gt?: 18)
+          end
+        end
+        required(:people).array(:hash) do
+          required(:score).value(:integer, lt?: 10)
+        end
+      end
+    end
+
+    errors = contract.new.call(account: {profile: {age: "18"}}, people: [{score: "10"}]).errors
+
+    assert_equal %i[gt? lt?], errors.map(&:predicate)
+    assert_equal [[18], [10]], errors.map(&:args)
+  end
+
   def test_predicates_accept_valid_values_and_skip_wrong_types
     contract = build_contract do
       params do

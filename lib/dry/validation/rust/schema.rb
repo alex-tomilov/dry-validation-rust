@@ -65,7 +65,8 @@ module Dry
         Predicate = Struct.new(:name, :argument, keyword_init: true)
 
         class FieldDefinition
-          attr_accessor :name, :required, :nullable, :filled, :type, :member, :children
+          attr_accessor :name, :required, :nullable, :filled, :type, :member
+          attr_reader :children
           attr_reader :predicates
 
           def initialize(name:, required:)
@@ -76,7 +77,17 @@ module Dry
             @type = :any
             @member = nil
             @children = []
+            @children_by_name = {}
             @predicates = []
+          end
+
+          def children=(children)
+            @children = children
+            @children_by_name = children.to_h { |child| [child.name, child] }
+          end
+
+          def child_at(name)
+            @children_by_name[name.to_sym]
           end
 
           def add_predicate(name, argument = true)
@@ -507,19 +518,20 @@ module Dry
 
         def field_at_path(definitions, path)
           definition = nil
-          remaining = path.dup
 
-          until remaining.empty?
-            part = remaining.shift
+          path.each do |part|
             if part.is_a?(Integer)
               return unless definition&.member
 
               definition = definition.member
             else
-              definition = definitions.find { |field| field.name == part.to_sym }
+              definition = if definition
+                             definition.child_at(part)
+                           else
+                             definitions.find { |field| field.name == part.to_sym }
+                           end
               return unless definition
             end
-            definitions = definition.children
           end
 
           definition
