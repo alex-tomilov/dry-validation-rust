@@ -168,6 +168,32 @@ class RulesTest < Minitest::Test
     assert_equal({request_id: 7, checked: true}, result.context)
   end
 
+  def test_rule_keyword_parameters_are_cached_when_the_rule_is_defined
+    block = proc { |context:| context[:rule_executed] = true }
+    contract = build_contract do
+      params { required(:name).filled(:string) }
+      rule(:name).validate(&block)
+    end
+    block.define_singleton_method(:parameters) { raise "rule block was introspected during evaluation" }
+
+    result = contract.new.call({name: "Ada"}, {})
+
+    assert_equal true, result.context[:rule_executed]
+  end
+
+  def test_macro_keyword_parameters_are_cached_when_the_macro_is_registered
+    block = proc { |macro:| key.failure("must equal #{macro.args.fetch(0)}") unless value == macro.args.fetch(0) }
+    contract = build_contract do
+      register_macro(:equals, &block)
+      params { required(:name).filled(:string) }
+      rule(:name).validate(equals: "Ada")
+    end
+    macro = contract.macro_registry.fetch(:equals)
+    macro.block.define_singleton_method(:parameters) { raise "macro block was introspected during evaluation" }
+
+    assert_equal({name: ["must equal Ada"]}, contract.new.call(name: "Grace").errors.to_h)
+  end
+
   def test_global_and_class_macros
     macro_name = :test_even_number
     Dry::Validation::Rust.register_macro(macro_name) do
