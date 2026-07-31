@@ -29,6 +29,34 @@ class RulesTest < Minitest::Test
     assert_equal({age: ["must be an integer"]}, result.errors.to_h)
   end
 
+  def test_rule_is_skipped_when_a_schema_error_is_below_its_dependency
+    calls = []
+    contract = build_contract do
+      params { required(:address).hash { required(:city).value(:integer) } }
+      rule(:address) { calls << :called }
+      define_method(:calls) { calls }
+    end
+
+    instance = contract.new
+    instance.call(address: {city: "bad"})
+
+    assert_empty instance.calls
+  end
+
+  def test_rule_is_skipped_when_a_schema_error_is_above_its_dependency
+    calls = []
+    contract = build_contract do
+      params { required(:address).hash { required(:city).value(:integer) } }
+      rule("address.city") { calls << :called }
+      define_method(:calls) { calls }
+    end
+
+    instance = contract.new
+    instance.call({})
+
+    assert_empty instance.calls
+  end
+
   def test_multi_key_rule_values_and_base_failure
     contract = build_contract do
       params do

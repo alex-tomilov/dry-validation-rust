@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require "set"
+
 module Dry
   module Validation
     module Rust
@@ -140,12 +142,16 @@ module Dry
           schema_result = schema.call(input)
           shared_context = default_context.merge(context)
           result = Result.new(schema_result, shared_context)
+          schema_error_paths = schema_result.messages.map(&:path).to_set
+          schema_error_path_prefixes = schema_error_paths.each_with_object(Set.new) do |error_path, prefixes|
+            (0..error_path.length).each { |length| prefixes << error_path.take(length) }
+          end
 
           self.class.rules.each do |rule|
             if rule.each?
               execute_each(rule, result, shared_context)
             else
-              next if rule.paths.any? { |path| dependency_error?(schema_result, path) }
+              next if rule.paths.any? { |path| dependency_error?(schema_error_paths, schema_error_path_prefixes, path) }
 
               execute_rule(rule, result, shared_context)
             end
@@ -188,10 +194,10 @@ module Dry
           end
         end
 
-        def dependency_error?(schema_result, path)
-          schema_result.messages.any? do |message|
-            Path.prefix?(message.path, path) || Path.prefix?(path, message.path)
-          end
+        def dependency_error?(schema_error_paths, schema_error_path_prefixes, path)
+          return true if schema_error_path_prefixes.include?(path)
+
+          path.length.downto(0).any? { |length| schema_error_paths.include?(path.take(length)) }
         end
 
         def execute_rule(rule, result, context)
