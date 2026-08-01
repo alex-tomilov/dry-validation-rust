@@ -1,7 +1,7 @@
-use magnus::{Error, Integer, RArray, RClass, RHash, RModule, RString, Ruby, Value, prelude::*};
+use magnus::{Error, Integer, RArray, RClass, RHash, RModule, Ruby, Value, prelude::*};
 
 use crate::{
-    coercion::{coerce, empty_value, type_matches},
+    coercion::{coerce, empty_value, null_if_empty_nullable_param, type_matches},
     error::{NativeError, PathPart, clone_path, type_message},
     plan::{FieldPlan, Mode, SchemaPlan, parse_plan},
     predicates::apply_predicates,
@@ -175,11 +175,10 @@ fn process_value(
     if validate_nil_value(traversal, field, raw, path) {
         return Ok(raw);
     }
-    if field.nullable
-        && traversal.mode == Mode::Params
-        && RString::from_value(raw).is_some_and(|string| string.is_empty())
+    if let Some(nil) =
+        null_if_empty_nullable_param(traversal.ruby, traversal.mode, field.nullable, raw)
     {
-        return Ok(traversal.ruby.qnil().as_value());
+        return Ok(nil);
     }
 
     let coerced = match coerce_and_validate_type(traversal, field, raw, path)? {
