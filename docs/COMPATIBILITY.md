@@ -145,6 +145,7 @@ the same field already has a type/structural error.
 | `to_h` / `[]` / `key?` / `values`     | ✅     |                                                    |
 | `errors.to_h`                         | ✅     | Nested hashes and integer indexes                  |
 | Enumerable errors                     | ✅     |                                                    |
+| Mutable `errors.messages` collection  | 🟡     | Read-only view; mutate a set through `#add`        |
 | `errors[:path]`                       | ✅     | Prefix filter                                      |
 | `errors.filter(:base?)`               | ✅     | Also `schema?` and `rule?`                         |
 | `errors(full: true)`                  | 🟡     | Simple humanized paths                             |
