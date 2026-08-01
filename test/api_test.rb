@@ -4,6 +4,9 @@ require_relative 'test_helper'
 require 'open3'
 
 class ApiTest < Minitest::Test
+  CONCURRENCY_THREAD_COUNT = 50
+  CONCURRENCY_CALLS_PER_THREAD = 1_000
+
   def test_native_plan_metadata
     contract = build_contract do
       params do
@@ -204,7 +207,7 @@ class ApiTest < Minitest::Test
     assert_match(/validate_keys/, error.message)
   end
 
-  def test_compiled_contract_is_thread_safe_under_parallel_calls
+  def test_compiled_contract_remains_isolated_during_concurrent_valid_and_invalid_calls
     contract = build_contract do
       params do
         required(:id).value(:integer)
@@ -213,15 +216,46 @@ class ApiTest < Minitest::Test
     end.new
 
     failures = Queue.new
-    threads = 8.times.map do |thread_id|
+    threads = CONCURRENCY_THREAD_COUNT.times.map do |thread_id|
       Thread.new do
-        100.times do |index|
-          result = contract.call('id' => ((thread_id * 100) + index).to_s, 'tags' => %w[a b])
-          failures << result unless result.success? && result[:id].is_a?(Integer)
+        random = Random.new(thread_id + 1)
+        CONCURRENCY_CALLS_PER_THREAD.times do |index|
+          input, expected_output, expected_errors = concurrent_contract_case(random, thread_id, index)
+          result = contract.call(input)
+
+          next if result.to_h == expected_output && result.errors.to_h == expected_errors
+
+          failures << {
+            thread: thread_id,
+            iteration: index,
+            input: input,
+            output: result.to_h,
+            errors: result.errors.to_h
+          }
         end
+      rescue StandardError => e
+        failures << { thread: thread_id, error: "#{e.class}: #{e.message}" }
       end
     end
     threads.each(&:join)
-    assert failures.empty?
+
+    failure = failures.pop unless failures.empty?
+    assert_nil failure, "concurrent contract calls failed: #{failure.inspect}"
+  end
+
+  private
+
+  def concurrent_contract_case(random, thread_id, index)
+    tags = Array.new(random.rand(1..3)) { "tag-#{thread_id}-#{index}-#{random.rand(1_000_000)}" }
+
+    if random.rand(2).zero?
+      id = random.rand(1_000_000)
+      input = { 'id' => id.to_s, 'tags' => tags }
+      [input, { id: id, tags: tags }, {}]
+    else
+      id = "invalid-#{thread_id}-#{index}-#{random.rand(1_000_000)}"
+      input = { 'id' => id, 'tags' => tags }
+      [input, { id: id, tags: tags }, { id: ['must be an integer'] }]
+    end
   end
 end
