@@ -104,6 +104,9 @@ jobs:
       - name: Check Rust lockfile build
         run: cargo check --locked --manifest-path ext/dry_validation_rust/Cargo.toml
 
+      - name: Check Rust package manifest
+        run: cargo package --list --manifest-path ext/dry_validation_rust/Cargo.toml
+
   loading-modes:
     name: Loading modes and installed gem
     runs-on: ubuntu-latest
