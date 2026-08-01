@@ -3,6 +3,30 @@
 require_relative 'test_helper'
 
 class SchemaTest < Minitest::Test
+  TRAVERSAL_DEPTH_LIMIT = 128
+
+  def test_schema_at_the_nesting_limit_preserves_the_entire_output
+    schema = Dry::Validation::Rust::Schema.Params(&nested_schema(TRAVERSAL_DEPTH_LIMIT))
+
+    result = schema.call(nested_input(TRAVERSAL_DEPTH_LIMIT))
+
+    assert result.success?
+    assert_equal nested_output(TRAVERSAL_DEPTH_LIMIT), result.to_h
+  end
+
+  def test_schema_above_the_nesting_limit_reports_a_depth_error
+    nesting_depth = TRAVERSAL_DEPTH_LIMIT + 1
+    schema = Dry::Validation::Rust::Schema.Params(&nested_schema(nesting_depth))
+
+    result = schema.call(nested_input(nesting_depth))
+    error = result.messages.first
+
+    assert_equal :depth, error.code
+    assert_equal "schema nesting depth exceeds limit (#{TRAVERSAL_DEPTH_LIMIT})", error.text
+    assert_equal (0..TRAVERSAL_DEPTH_LIMIT).map { |level| :"level_#{level}" }, error.path
+    assert_equal nested_output(TRAVERSAL_DEPTH_LIMIT, {}), result.to_h
+  end
+
   def test_native_engine_uses_schema_error_buffer_version
     schema = Dry::Validation::Rust::Schema.Params { required(:age).value(:integer) }
 
@@ -464,5 +488,25 @@ class SchemaTest < Minitest::Test
     contract = build_contract { params { required(:name).filled(:string) } }
     error = assert_raises(ArgumentError) { contract.new.call([]) }
     assert_match(/Input must be a Hash/, error.message)
+  end
+
+  private
+
+  def nested_schema(nesting_depth, level = 0)
+    return proc { required(:"level_#{level}").value(:integer) } if level == nesting_depth
+
+    child_schema = nested_schema(nesting_depth, level + 1)
+    proc { required(:"level_#{level}").hash(&child_schema) }
+  end
+
+  def nested_input(nesting_depth)
+    nested_output(nesting_depth, '42', key_type: :string)
+  end
+
+  def nested_output(nesting_depth, value = 42, key_type: :symbol)
+    nesting_depth.downto(0).reduce(value) do |nested, level|
+      key = key_type == :symbol ? :"level_#{level}" : "level_#{level}"
+      { key => nested }
+    end
   end
 end
