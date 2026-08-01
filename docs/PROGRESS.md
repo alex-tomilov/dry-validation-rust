@@ -1,7 +1,7 @@
 # Project Progress
 
 Status: living document.
-Last updated: 2026-07-31.
+Last updated: 2026-08-01.
 
 One-page project status for contributors, reviewers, and the maintainer.
 
@@ -35,7 +35,7 @@ One-page project status for contributors, reviewers, and the maintainer.
 - Rust engine split into 6 modules (plan, engine, coercion, predicates, error, ruby_bridge).
 - Typed `PredicateArg` enum.
 - Recursion depth guard (default 128).
-- 28 Rust unit tests.
+- 18 Rust unit tests, including native coercion boundary cases.
 - 64-input malformed-input resilience corpus.
 - `cargo test` and `cargo clippy` in CI.
 
@@ -62,7 +62,7 @@ One-page project status for contributors, reviewers, and the maintainer.
 | Ruby source files          | ~16                    |
 | Rust source files          | 7 (lib.rs + 6 modules) |
 | Ruby test files            | ~12                    |
-| Rust unit tests            | 28                     |
+| Rust unit tests            | 18                     |
 | Differential fixture cases | 80+                    |
 | Malformed-input corpus     | 64                     |
 | CI workflows               | 5                      |

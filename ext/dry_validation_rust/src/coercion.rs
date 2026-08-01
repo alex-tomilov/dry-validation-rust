@@ -101,6 +101,18 @@ fn allows_literal_coercion(mode: Mode) -> bool {
     mode == Mode::Params
 }
 
+pub(crate) fn null_if_empty_nullable_param(
+    ruby: &Ruby,
+    mode: Mode,
+    nullable: bool,
+    value: Value,
+) -> Option<Value> {
+    (nullable
+        && mode == Mode::Params
+        && RString::from_value(value).is_some_and(|string| string.is_empty()))
+    .then(|| ruby.qnil().as_value())
+}
+
 fn non_finite_literal(source: &str) -> bool {
     matches!(
         source.trim().to_ascii_lowercase().as_str(),
@@ -163,6 +175,18 @@ pub(crate) fn empty_value(value: Value) -> bool {
 mod tests {
     use super::*;
     use crate::plan::Mode;
+    use magnus::{Error, RClass};
+
+    fn runtime_classes(ruby: &Ruby) -> Result<RuntimeClasses, Error> {
+        ruby.eval::<Value>("require 'date'; require 'bigdecimal'")?;
+        let object = ruby.class_object();
+        Ok(RuntimeClasses {
+            date: Some(object.const_get::<_, RClass>("Date")?),
+            date_time: Some(object.const_get::<_, RClass>("DateTime")?),
+            time: Some(object.const_get::<_, RClass>("Time")?),
+            big_decimal: Some(object.const_get::<_, RClass>("BigDecimal")?),
+        })
+    }
 
     #[test]
     fn params_boolean_accepts_true_and_false_boundary_tokens() {
@@ -195,5 +219,59 @@ mod tests {
         assert!(allows_literal_coercion(Mode::Params));
         assert!(!allows_literal_coercion(Mode::Json));
         assert!(!allows_literal_coercion(Mode::Schema));
+    }
+
+    #[test]
+    fn params_coercion_handles_native_boundary_edge_cases() {
+        Ruby::init(|ruby| {
+            let classes = runtime_classes(ruby)?;
+
+            assert!(ruby.eval::<Value>("Date.iso8601('2026-02-30')").is_err());
+            assert!(
+                coerce(
+                    ruby,
+                    &classes,
+                    Mode::Params,
+                    "date",
+                    ruby.str_new("2026-02-30").as_value(),
+                )?
+                .is_none()
+            );
+
+            for source in ["Infinity", "-Infinity", "NaN"] {
+                assert!(
+                    coerce(
+                        ruby,
+                        &classes,
+                        Mode::Params,
+                        "decimal",
+                        ruby.str_new(source).as_value(),
+                    )?
+                    .is_none()
+                );
+            }
+
+            let empty = ruby.str_new("").as_value();
+            assert!(
+                null_if_empty_nullable_param(ruby, Mode::Params, true, empty)
+                    .expect("nullable params empty string should normalize")
+                    .is_nil()
+            );
+            assert!(null_if_empty_nullable_param(ruby, Mode::Json, true, empty).is_none());
+
+            let source = "роль/админ?!";
+            let value = coerce(
+                ruby,
+                &classes,
+                Mode::Params,
+                "symbol",
+                ruby.str_new(source).as_value(),
+            )?
+            .expect("symbol source should coerce");
+            assert_eq!(Symbol::from_value(value).unwrap().name()?.as_ref(), source);
+
+            Ok(())
+        })
+        .expect("embedded Ruby coercion edge cases should pass");
     }
 }
