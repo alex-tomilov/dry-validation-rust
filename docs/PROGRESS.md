@@ -76,7 +76,6 @@ One-page project status for contributors, reviewers, and the maintainer.
 - Governance documentation may be disproportionate to project scale.
 - Naming/affiliation with dry-rb not yet discussed (Milestone G).
 - `edition = "2024"` / `rust-version = "1.85"` may exclude contributors.
-- `MessageSet#to_h` invalidates its cache through `#add`; direct mutation through the exposed `#messages` array bypasses that mutation API.
 
 ## File Manifest
 

@@ -74,6 +74,19 @@ class ApiTest < Minitest::Test
     assert set.freeze.to_h.frozen?
   end
 
+  def test_message_set_exposes_a_frozen_messages_view_and_add_refreshes_it
+    set = Dry::Validation::Rust::MessageSet.new([Dry::Validation::Rust::Message.new('is invalid', path: :name)])
+
+    first = set.messages
+    assert first.frozen?
+    assert_raises(FrozenError) { first << Dry::Validation::Rust::Message.new('is too short', path: :name) }
+
+    set.add(Dry::Validation::Rust::Message.new('is too short', path: :name))
+
+    refute_same first, set.messages
+    assert_equal ['is invalid', 'is too short'], set.messages.map(&:text)
+  end
+
   def test_imported_schema_can_be_reused_without_state_leaking_between_contracts
     address = Dry::Validation::Rust::Schema.Params do
       required(:city).filled(:string)
