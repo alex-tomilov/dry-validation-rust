@@ -34,17 +34,19 @@ module Dry
         end
 
         def fetch(data, path, undefined = Undefined)
-          parse(path).reduce(data) do |current, key|
+          current = data
+          parse(path).each do |key|
             if current.is_a?(Array) && key.is_a?(Integer)
               return undefined unless key >= 0 && key < current.length
 
-              current[key]
+              current = current[key]
             elsif current.respond_to?(:key?) && current.key?(key)
-              current[key]
+              current = current[key]
             else
               return undefined
             end
           end
+          current
         end
 
         def key?(data, path)
