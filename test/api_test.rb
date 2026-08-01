@@ -55,6 +55,25 @@ class ApiTest < Minitest::Test
     assert contract.new.call(city: 'Astana', name: 'Alexey').success?
   end
 
+  def test_message_set_memoizes_to_h_and_invalidates_it_when_a_message_is_added
+    set = Dry::Validation::Rust::MessageSet.new([Dry::Validation::Rust::Message.new('is invalid', path: :name)])
+
+    first = set.to_h
+    assert_same first, set.to_h
+    assert_equal({ name: ['is invalid'] }, first)
+
+    set.add(Dry::Validation::Rust::Message.new('is too short', path: :name))
+
+    refute_same first, set.to_h
+    assert_equal({ name: ['is invalid', 'is too short'] }, set.to_h)
+  end
+
+  def test_frozen_message_set_keeps_a_frozen_cached_hash
+    set = Dry::Validation::Rust::MessageSet.new([Dry::Validation::Rust::Message.new('is invalid', path: :name)])
+
+    assert set.freeze.to_h.frozen?
+  end
+
   def test_imported_schema_can_be_reused_without_state_leaking_between_contracts
     address = Dry::Validation::Rust::Schema.Params do
       required(:city).filled(:string)

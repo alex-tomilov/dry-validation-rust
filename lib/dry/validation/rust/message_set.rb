@@ -24,6 +24,7 @@ module Dry
 
         def add(message)
           messages << message
+          @to_h = nil
           self
         end
 
@@ -48,18 +49,23 @@ module Dry
         end
 
         def to_h
-          messages.each_with_object({}) do |message, result|
-            insert(result, message.path.empty? ? [nil] : message.path, message.payload)
-          end
+          @to_h ||= build_nested_hash
         end
 
         def freeze
           messages.freeze
+          # Keep the derived representation so callers of a frozen set reuse it.
           to_h.freeze
           super
         end
 
         private
+
+        def build_nested_hash
+          messages.each_with_object({}) do |message, result|
+            insert(result, message.path.empty? ? [nil] : message.path, message.payload)
+          end
+        end
 
         def insert(root, path, payload)
           leaf = path.last

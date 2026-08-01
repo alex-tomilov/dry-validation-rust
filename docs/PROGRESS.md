@@ -11,7 +11,7 @@ One-page project status for contributors, reviewers, and the maintainer.
 | --- | ----------------------- | -------------- | ------------------------------------- |
 | A   | Trustworthy Baseline    | ✅ Complete    | PRs #48–#51                           |
 | B   | Common Schema Subset    | ✅ Complete    | PRs #49–#56, #65–#71                  |
-| C   | Ordinary Rules Subset   | 🔵 Active      | ~20% done; code-quality tasks pending; hot-helper inline hints and cached rule/macro keyword introspection applied 2026-07-31 |
+| C   | Ordinary Rules Subset   | 🔵 Active      | ~20% done; C-Q3 completed; hot-helper inline hints, cached rule/macro keyword introspection, and `MessageSet#to_h` memoization applied 2026-08-01 |
 | D   | Performance Proof       | ⚪ Not started | Blocked on C                          |
 | E   | Compatibility Slice     | ⚪ Not started | Blocked on D                          |
 | F   | Packaging and Platforms | ⚪ Not started | Blocked on E                          |
@@ -42,7 +42,7 @@ One-page project status for contributors, reviewers, and the maintainer.
 ## What Is Next (Milestone C)
 
 1. Build a dedicated 50-case rule corpus (see Milestone C file for distribution).
-2. Complete C-Q1 through C-Q4 code-quality tasks.
+2. Complete remaining C-Q1, C-Q2, and C-Q4 code-quality tasks.
 3. Stress-test rule dependencies and isolation.
 4. Wire rule corpus into differential CI.
 
@@ -52,7 +52,7 @@ One-page project status for contributors, reviewers, and the maintainer.
 | ---- | ---------------------------------------- | ---------- |
 | C-Q1 | Unify predicate evaluation (3 sites → 1) | ⚪ Pending |
 | C-Q2 | Unify `Undefined` sentinels              | ⚪ Pending |
-| C-Q3 | Fix `MessageSet#freeze` no-op            | ⚪ Pending |
+| C-Q3 | Fix `MessageSet#freeze` no-op            | ✅ Done    |
 | C-Q4 | Split `schema.rb` (480 lines → 4 files)  | ⚪ Pending |
 
 ## Key Metrics
@@ -76,6 +76,7 @@ One-page project status for contributors, reviewers, and the maintainer.
 - Governance documentation may be disproportionate to project scale.
 - Naming/affiliation with dry-rb not yet discussed (Milestone G).
 - `edition = "2024"` / `rust-version = "1.85"` may exclude contributors.
+- `MessageSet#to_h` invalidates its cache through `#add`; direct mutation through the exposed `#messages` array bypasses that mutation API.
 
 ## File Manifest
 
