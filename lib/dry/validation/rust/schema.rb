@@ -362,7 +362,7 @@ module Dry
           @mode = mode.to_sym
           @fields = fields.freeze
           plan = { engine_version: ENGINE_VERSION, mode: mode.to_s, fields: fields.map(&:to_native_h) }
-          @engine = Native::Engine.new(JSON.generate(plan))
+          @engine = Native::Engine.new(JSON.generate(plan, max_nesting: false))
         rescue StandardError => e
           raise NativeExtensionError, "could not compile native schema plan: #{e.message}"
         end

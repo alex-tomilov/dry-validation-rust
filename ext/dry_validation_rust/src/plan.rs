@@ -5,6 +5,8 @@ use serde::{
 };
 use std::{collections::HashSet, fmt};
 
+const MAX_PLAN_JSON_NESTING: usize = 512;
+
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq)]
 #[serde(rename_all = "snake_case")]
 pub(crate) enum Mode {
@@ -172,7 +174,15 @@ pub(crate) struct SchemaPlan {
 }
 
 pub(crate) fn parse_plan(ruby: &Ruby, json: &str) -> Result<SchemaPlan, Error> {
-    let mut plan: SchemaPlan = serde_json::from_str(json).map_err(|error| {
+    ensure_plan_json_nesting(json).map_err(|depth| {
+        Error::new(
+            ruby.exception_arg_error(),
+            format!("native schema plan nesting exceeds limit ({depth})"),
+        )
+    })?;
+    let mut deserializer = serde_json::Deserializer::from_str(json);
+    deserializer.disable_recursion_limit();
+    let mut plan = SchemaPlan::deserialize(&mut deserializer).map_err(|error| {
         Error::new(
             ruby.exception_arg_error(),
             format!("invalid native schema plan: {error}"),
@@ -189,6 +199,39 @@ pub(crate) fn parse_plan(ruby: &Ruby, json: &str) -> Result<SchemaPlan, Error> {
     }
     plan.used_kinds = collect_used_kinds(&plan.fields);
     Ok(plan)
+}
+
+fn ensure_plan_json_nesting(json: &str) -> Result<(), usize> {
+    let mut depth = 0;
+    let mut in_string = false;
+    let mut escaped = false;
+
+    for byte in json.bytes() {
+        if in_string {
+            if escaped {
+                escaped = false;
+            } else if byte == b'\\' {
+                escaped = true;
+            } else if byte == b'"' {
+                in_string = false;
+            }
+            continue;
+        }
+
+        match byte {
+            b'"' => in_string = true,
+            b'{' | b'[' => {
+                depth += 1;
+                if depth > MAX_PLAN_JSON_NESTING {
+                    return Err(MAX_PLAN_JSON_NESTING);
+                }
+            }
+            b'}' | b']' => depth = depth.saturating_sub(1),
+            _ => {}
+        }
+    }
+
+    Ok(())
 }
 
 fn collect_used_kinds(fields: &[FieldPlan]) -> HashSet<String> {
@@ -210,6 +253,31 @@ fn collect_used_kinds(fields: &[FieldPlan]) -> HashSet<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn plan_json_nesting_limit_allows_the_boundary_and_rejects_the_next_level() {
+        let within_limit = format!(
+            "{}null{}",
+            "[".repeat(MAX_PLAN_JSON_NESTING),
+            "]".repeat(MAX_PLAN_JSON_NESTING)
+        );
+        let over_limit = format!(
+            "{}null{}",
+            "[".repeat(MAX_PLAN_JSON_NESTING + 1),
+            "]".repeat(MAX_PLAN_JSON_NESTING + 1)
+        );
+
+        assert_eq!(ensure_plan_json_nesting(&within_limit), Ok(()));
+        assert_eq!(
+            ensure_plan_json_nesting(&over_limit),
+            Err(MAX_PLAN_JSON_NESTING)
+        );
+    }
+
+    #[test]
+    fn plan_json_nesting_limit_ignores_delimiters_inside_strings() {
+        assert_eq!(ensure_plan_json_nesting(r#"{"value":"[{]}"}"#), Ok(()));
+    }
 
     #[test]
     fn plan_deserializes_into_typed_fields() {
