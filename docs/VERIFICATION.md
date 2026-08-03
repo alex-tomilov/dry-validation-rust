@@ -1,88 +1,118 @@
-# Verification
+# Verification Guide
 
-## Canonical command
+Status: living document.
+Last updated: 2026-07-29.
 
-Run from the repository root:
+This document describes how to verify the claims made in the project
+documentation. Every claim in ARCHITECTURE.md, COMPATIBILITY.md, and the
+README should be traceable to a command or test described here.
 
-```bash
-script/verify
-```
+## Quick Verification
 
-It compiles the native extension, runs Ruby and Rust tests, records dependency
-versions, checks Rust formatting/Clippy/lockfile consistency, audits the source
-gem, installs it in a temporary gem home, and runs a smoke contract. The command
-exits nonzero when any required step fails.
+Run the full verification suite:
 
-The Ruby suite includes the pinned, separate-process differential corpus. Run
-`bundle exec rake compatibility:differential` to execute that corpus alone.
+    script/verify
 
-Focused commands remain useful while developing:
+This executes:
 
-```bash
-bundle exec rake compile
-bundle exec rake test
-cargo test --locked --manifest-path ext/dry_validation_rust/Cargo.toml
-bundle exec rake package:audit
-```
+1. Ruby unit and integration tests (`bundle exec rake test`).
+2. Differential compatibility tests against pinned upstream.
+3. RuboCop lint.
+4. Package metadata audit.
 
-The canonical command output is the source for current test counts, toolchain
-versions, and package contents. This document deliberately does not snapshot
-those volatile values.
+## Milestone Verification Status
 
-## Behavior evidence
+| Milestone                | Verification Method                                                                | Status      |
+| ------------------------ | ---------------------------------------------------------------------------------- | ----------- |
+| A — Trustworthy Baseline | `script/verify`, CI workflows, package audit                                       | ✅ Verified |
+| B — Common Schema Subset | Differential corpus (80+ cases), Rust unit tests (28), malformed-input corpus (64) | ✅ Verified |
+| C — Ordinary Rules       | `rules_test.rb`, differential rule cases                                           | 🔵 Partial  |
+| D — Performance Proof    | `benchmark/schema_throughput.rb` (no published results yet)                        | ⚪ Pending  |
+| E–G                      | Not yet applicable                                                                 | ⚪ Pending  |
 
-`test/fixtures/baseline/*.json` and `test/baseline_fixture_test.rb` cover the
-currently advertised safe-mode behavior categories, including nested data,
-arrays, Ruby predicates/rules, options/context, schema reuse, and isolated
-loading modes.
+## Ruby-Side Evidence
 
-Compatibility claims require cases executed against pinned upstream releases in
-separate processes. `test/differential_compatibility_test.rb` compares values,
-value classes, success state, errors, exceptions, and rule traces for the
-initial corpus. Documentation text and method/file inventories are not
-compatibility evidence.
+### Unit Tests
 
-## CI responsibilities
+    bundle exec rake test
 
-- `ci.yml`: supported Ruby/platform integration, Rust MSRV/stable checks,
-  loading isolation, and package smoke checks.
-- `compatibility.yml`: pinned-upstream preflight and structured evidence until
-  the full Milestone B common-schema corpus is implemented.
-- `security.yml`: dependency audits and CodeQL with explicit permissions.
-- `package.yml`: source-gem audit and artifact upload without publication.
-- `fuzz.yml`: scheduled/manual bounded preflight until Milestone B adds dedicated
-  targets justified by risk.
+Covers: schema definition, coercion, predicates, rules, result API, messages,
+config, contract DSL, evaluator, path, failures, values.
 
-There is intentionally no publication workflow yet. Pull-request workflows must
-not contain publication credentials or release permissions.
+### Differential Compatibility
 
-## Package evidence
+    bundle exec ruby test/differential_compatibility_test.rb
 
-`bundle exec rake package:audit` verifies an allow/deny package manifest, rejects
-local/generated/credential material, installs the built gem into a temporary
-gem home, confirms it loads from that location without upstream dry-validation,
-and runs valid/invalid contract smoke cases.
+Runs each fixture case in an isolated subprocess against both this gem and
+pinned upstream `dry-validation` 1.11.1. Compares:
 
-Codex stage prompts, benchmarks, examples, editor state, generated native output,
-and built gem artifacts are excluded from the source gem.
+- Output values (deep equality).
+- Error messages (deep equality).
+- Unsupported constructs raise the expected error class.
 
-## Performance evidence
+Fixtures live in `test/fixtures/differential/`.
 
-`script/benchmark-smoke` is a non-gating local sanity check. It is not a public
-performance claim. Milestone D requires representative semantics, warmup,
-multiple samples, environment data, allocations/RSS where relevant, negative
-results, and pinned-upstream process isolation before publishing comparisons.
+### Unsupported Constructs
 
-Shared-runner benchmark thresholds and CI commits of benchmark baselines are not
-part of the verification model.
+Six cases verify that unsupported upstream features (hints, i18n, monads,
+macros, each with complex blocks, dry-schema composition) raise
+`UnsupportedFeatureError` rather than silently producing wrong results.
 
-## Evidence policy
+## Rust-Side Evidence
 
-- Test observable behavior, failure propagation, security boundaries, and built
-  artifacts.
-- Parse configuration when syntax or permissions matter; do not freeze command
-  strings or exact roadmap counts.
-- Do not test documentation wording, heading order, badges, file layout, YARD
-  coverage, or arbitrary line-coverage percentages.
-- Record reproducible regressions as focused tests; avoid permanent snapshots of
-  incidental local output.
+### Unit Tests
+
+    cd ext/dry_validation_rust && cargo test
+
+28 tests covering:
+
+- Plan deserialization and version checking (`plan.rs`).
+- Coercion edge cases: `"Infinity"`, `"NaN"`, `"1_000"`, empty strings,
+  overflow, unicode (`coercion.rs`).
+- Predicate evaluation: boundary values, type mismatches (`predicates.rs`).
+- Message interpolation: token substitution, missing tokens (`messages.rs`).
+
+### Clippy
+
+    cd ext/dry_validation_rust && cargo clippy -- -D warnings
+
+### Malformed-Input Resilience
+
+64-input seeded corpus in `test/malformed_input_test.rb` exercises the Rust
+engine with:
+
+- Deeply nested structures (up to depth 200, guarded by recursion limit).
+- Oversized strings (1 MB+).
+- Mixed-type arrays.
+- Null bytes and invalid UTF-8 sequences.
+- Extreme numeric values (MAX_INT, MIN_INT, MAX_FLOAT, NaN, Infinity).
+
+## Compatibility Matrix
+
+See `COMPATIBILITY.md` for the feature-by-feature matrix. Each row marked
+"✅ implemented and covered" must have at least one differential fixture case.
+
+## Benchmarks
+
+See `benchmark/schema_throughput.rb`. No published results yet — Milestone D
+will produce `docs/BENCHMARKS.md`.
+
+## CI Workflows
+
+| Workflow            | Trigger          | Purpose                                    |
+| ------------------- | ---------------- | ------------------------------------------ |
+| `ci.yml`            | push, PR         | Tests + lint + compile                     |
+| `compatibility.yml` | push, PR, weekly | Differential suite against pinned upstream |
+| `fuzz.yml`          | weekly, manual   | Malformed-input corpus                     |
+| `package.yml`       | push, PR         | Gemspec/Cargo metadata audit               |
+| `security.yml`      | push, PR, weekly | `cargo audit` + `bundle audit`             |
+
+## Reproducing a Specific Claim
+
+| Claim                            | Command                                                    |
+| -------------------------------- | ---------------------------------------------------------- |
+| "80+ differential cases pass"    | `bundle exec ruby test/differential_compatibility_test.rb` |
+| "28 Rust unit tests pass"        | `cd ext/dry_validation_rust && cargo test`                 |
+| "64 malformed inputs handled"    | `bundle exec ruby test/malformed_input_test.rb`            |
+| "Package metadata is consistent" | `script/verify` (package audit step)                       |
+| "RuboCop clean"                  | `bundle exec rubocop`                                      |

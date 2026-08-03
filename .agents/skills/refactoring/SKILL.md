@@ -267,6 +267,8 @@ The refactoring is complete when:
 
 - observable behavior is preserved;
 - focused and canonical checks pass;
+- `bundle exec rubocop` passes when Ruby files, tests, tooling, or CI
+  configuration changed;
 - the concrete structural problem is reduced;
 - complexity is not merely moved elsewhere;
 - no speculative infrastructure is introduced;

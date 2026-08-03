@@ -1,24 +1,24 @@
 # frozen_string_literal: true
 
-require "benchmark"
-require "json"
-require "open3"
-require "rbconfig"
-require "tmpdir"
+require 'benchmark'
+require 'json'
+require 'open3'
+require 'rbconfig'
+require 'tmpdir'
 
 INPUT = {
-  "id" => "42",
-  "email" => "jane@example.org",
-  "active" => "true",
-  "tags" => %w[ruby rust validation],
-  "profile" => {"name" => "Jane", "age" => "31"}
+  'id' => '42',
+  'email' => 'jane@example.org',
+  'active' => 'true',
+  'tags' => %w[ruby rust validation],
+  'profile' => { 'name' => 'Jane', 'age' => '31' }
 }.freeze
 
-ITERATIONS = Integer(ENV.fetch("N", "100000"))
-WARMUP_ITERATIONS = Integer(ENV.fetch("WARMUP", "10000"))
-ENGINE = ENV.fetch("ENGINE", "all")
-FORMAT = ENV.fetch("FORMAT", "text")
-PROJECT_LIB = File.expand_path("../lib", __dir__)
+ITERATIONS = Integer(ENV.fetch('N', '100000'))
+WARMUP_ITERATIONS = Integer(ENV.fetch('WARMUP', '10000'))
+ENGINE = ENV.fetch('ENGINE', 'all')
+FORMAT = ENV.fetch('FORMAT', 'text')
+PROJECT_LIB = File.expand_path('../lib', __dir__)
 
 def measure(contract)
   WARMUP_ITERATIONS.times { contract.call(INPUT) }
@@ -28,16 +28,16 @@ def measure(contract)
   after = GC.stat
 
   {
-    "iterations" => ITERATIONS,
-    "warmup_iterations" => WARMUP_ITERATIONS,
-    "elapsed" => elapsed,
-    "throughput" => ITERATIONS / elapsed,
-    "allocated_objects" => after[:total_allocated_objects] - before[:total_allocated_objects]
+    'iterations' => ITERATIONS,
+    'warmup_iterations' => WARMUP_ITERATIONS,
+    'elapsed' => elapsed,
+    'throughput' => ITERATIONS / elapsed,
+    'allocated_objects' => after[:total_allocated_objects] - before[:total_allocated_objects]
   }
 end
 
 def rust_result
-  require "dry/validation/rust"
+  require 'dry/validation/rust'
 
   benchmark_contract = Class.new(Dry::Validation::Rust::Contract) do
     params do
@@ -53,9 +53,9 @@ def rust_result
   end
 
   measure(benchmark_contract.new).merge(
-    "engine" => "dry-validation-rust",
-    "version" => Dry::Validation::Rust::VERSION,
-    "ruby" => RUBY_DESCRIPTION
+    'engine' => 'dry-validation-rust',
+    'version' => Dry::Validation::Rust::VERSION,
+    'ruby' => RUBY_DESCRIPTION
   )
 end
 
@@ -116,10 +116,10 @@ def upstream_result
 
   env = {}
   ENV.each_key do |key|
-    env[key] = nil if key.start_with?("BUNDLE_", "BUNDLER_") || key == "RUBYLIB" || key == "RUBYOPT"
+    env[key] = nil if key.start_with?('BUNDLE_', 'BUNDLER_') || key == 'RUBYLIB' || key == 'RUBYOPT'
   end
 
-  stdout, stderr, status = Open3.capture3(env, RbConfig.ruby, "-e", source, chdir: Dir.tmpdir)
+  stdout, stderr, status = Open3.capture3(env, RbConfig.ruby, '-e', source, chdir: Dir.tmpdir)
   return JSON.parse(stdout) if status.success?
 
   raise <<~MESSAGE
@@ -133,11 +133,11 @@ end
 
 def requested_results
   case ENGINE
-  when "rust", "dry-validation-rust"
+  when 'rust', 'dry-validation-rust'
     [rust_result]
-  when "upstream", "dry-validation"
+  when 'upstream', 'dry-validation'
     [upstream_result]
-  when "all", "compare"
+  when 'all', 'compare'
     [rust_result, upstream_result]
   else
     abort "Unknown ENGINE=#{ENGINE.inspect}. Use all, rust, or upstream."
@@ -145,32 +145,32 @@ def requested_results
 end
 
 def print_result(result)
-  puts result.fetch("engine")
-  puts "  version: #{result.fetch("version")}"
-  puts "  ruby: #{result.fetch("ruby")}"
-  puts "  iterations: #{result.fetch("iterations")}"
-  puts "  warmup: #{result.fetch("warmup_iterations")}"
-  puts "  elapsed: #{result.fetch("elapsed").round(4)}s"
-  puts "  throughput: #{result.fetch("throughput").round(1)} validations/s"
-  puts "  allocated objects: #{result.fetch("allocated_objects")}"
+  puts result.fetch('engine')
+  puts "  version: #{result.fetch('version')}"
+  puts "  ruby: #{result.fetch('ruby')}"
+  puts "  iterations: #{result.fetch('iterations')}"
+  puts "  warmup: #{result.fetch('warmup_iterations')}"
+  puts "  elapsed: #{result.fetch('elapsed').round(4)}s"
+  puts "  throughput: #{result.fetch('throughput').round(1)} validations/s"
+  puts "  allocated objects: #{result.fetch('allocated_objects')}"
 end
 
 results = requested_results
-if FORMAT == "json"
+if FORMAT == 'json'
   payload = {
-    "benchmark" => "schema_throughput",
-    "ruby_platform" => RUBY_PLATFORM,
-    "engines" => results
+    'benchmark' => 'schema_throughput',
+    'ruby_platform' => RUBY_PLATFORM,
+    'engines' => results
   }
   if results.size == 2
     rust, upstream = results
-    payload["comparison"] = {
-      "throughput_ratio" => rust.fetch("throughput") / upstream.fetch("throughput"),
-      "allocation_ratio" => rust.fetch("allocated_objects").to_f / upstream.fetch("allocated_objects")
+    payload['comparison'] = {
+      'throughput_ratio' => rust.fetch('throughput') / upstream.fetch('throughput'),
+      'allocation_ratio' => rust.fetch('allocated_objects').to_f / upstream.fetch('allocated_objects')
     }
   end
   puts JSON.pretty_generate(payload)
-elsif FORMAT == "text"
+elsif FORMAT == 'text'
   results.each_with_index do |result, index|
     puts if index.positive?
     print_result(result)
@@ -179,9 +179,9 @@ elsif FORMAT == "text"
   if results.size == 2
     rust, upstream = results
     puts
-    puts "comparison"
-    puts "  throughput ratio: #{(rust.fetch("throughput") / upstream.fetch("throughput")).round(2)}x"
-    puts "  allocation ratio: #{(rust.fetch("allocated_objects").to_f / upstream.fetch("allocated_objects")).round(2)}x"
+    puts 'comparison'
+    puts "  throughput ratio: #{(rust.fetch('throughput') / upstream.fetch('throughput')).round(2)}x"
+    puts "  allocation ratio: #{(rust.fetch('allocated_objects').to_f / upstream.fetch('allocated_objects')).round(2)}x"
   end
 else
   abort "Unknown FORMAT=#{FORMAT.inspect}. Use text or json."

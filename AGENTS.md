@@ -17,6 +17,29 @@ Optimize for this order:
 
 Do not optimize for the number of documents, tests, abstractions, or process artifacts produced.
 
+## Progress Tracking (Mandatory)
+
+After completing **any** task, step, or sub-step from a milestone file, you
+**must** update `docs/PROGRESS.md` before committing. Specifically:
+
+1. **Milestone status table** — update the status column
+   (⚪ → 🔵 → ✅) and the notes column (add PR numbers, dates).
+2. **Code-quality task table** — flip ⚪ Pending to ✅ Done for any
+   C-Q1–C-Q4 (or future) tasks you completed.
+3. **"What Is Next" section** — revise to reflect the new current state.
+4. **Key metrics table** — update counts if they changed (test count,
+   fixture count, file count, etc.).
+5. **Known debt and risks** — remove items you resolved; add new ones
+   you discovered.
+
+Rules:
+
+- One commit = one progress update. Do not batch progress updates.
+- Use the same emoji markers already in the file (⚪ 🔵 ✅).
+- If you are unsure whether a step is truly complete, mark it 🔵 with
+  a note rather than ✅.
+- Never mark a milestone ✅ unless **all** its acceptance criteria pass.
+
 ## Default working mode
 
 Work on one coherent capability, defect, or risk at a time.
@@ -65,6 +88,11 @@ These are agent guardrails, not rigid team policy. Exceed them only when the tas
 ## Tests
 
 Tests should protect observable behavior, important regressions, safety boundaries, integration contracts, and packaging where relevant.
+
+Before reporting a code-changing task as complete, run `bundle exec rubocop`
+when Ruby source, tests, tooling, or CI configuration changed. Treat any
+RuboCop failure as unfinished work: fix the offenses or report the remaining
+baseline explicitly instead of claiming completion.
 
 Prefer:
 

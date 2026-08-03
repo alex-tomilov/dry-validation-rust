@@ -11,10 +11,13 @@ name = "native"
 crate-type = ["cdylib"]
 
 [dependencies]
-magnus = "=0.8.2"
+magnus = { version = "~0.8.2", default-features = false }
 rb-sys = { version = "~0.9.124", default-features = false, features = ["stable-api-compiled-fallback"] }
 serde = { version = "1", features = ["derive"] }
-serde_json = "1"
+serde_json = { version = "1", features = ["unbounded_depth"] }
+
+[dev-dependencies]
+magnus = { version = "~0.8.2", default-features = false, features = ["embed"] }
 
 [profile.release]
 codegen-units = 1

@@ -1,169 +1,77 @@
-# Milestone D — Prove or disprove the performance case
+# Milestone D — Performance Proof
 
-## Role of this task
+Status: ⚪ Not started.
+Last updated: 2026-07-29.
 
-Measure where the hybrid engine provides meaningful value. This milestone is a decision exercise, not a marketing exercise and not permission to optimize everything.
+## Goal
 
-## Primary outcome
+Produce honest, reproducible benchmark evidence for the performance claims
+made in the README and ARCHITECTURE.md.
 
-A reproducible benchmark report identifies favourable, neutral, and unfavourable workloads and supports a decision about which architecture paths deserve further investment.
+## Tasks
 
-## Explicitly excluded
+### D-1: Define Benchmark Payload Matrix
 
-- new compatibility features;
-- benchmark-only semantic shortcuts;
-- cherry-picked README claims;
-- a generic benchmarking platform;
-- raw result dumps committed indefinitely;
-- GVL release experiments before profiling justifies them.
+Create representative payloads:
 
-## Step 1 — Freeze comparison inputs
+| Payload               | Description                            |
+| --------------------- | -------------------------------------- |
+| Small hash            | 5 keys, flat, no coercion              |
+| Medium hash           | 20 keys, 2 levels of nesting           |
+| Nested hash           | 5 levels deep, mixed types             |
+| Large array           | 10,000 elements, each a 5-key hash     |
+| Coercion-heavy params | 50 keys, all requiring Params coercion |
+| Mixed                 | Combination of above                   |
 
-Pin:
+### D-2: Implement Benchmark Harness
 
-- upstream gem version;
-- Ruby version(s) used for the primary comparison;
-- Rust toolchain or lockfile state;
-- benchmark payload definitions;
-- contract definitions;
-- process environment variables that materially affect results.
+- Use `benchmark/ips` or `benchmark-memory` gems.
+- Run each payload through both this gem and upstream `dry-validation`.
+- Measure: throughput (ips), allocation count, GC time.
+- Run on at least 3 iterations with warmup.
+- Record Ruby version, Rust version, OS, CPU, commit SHA.
 
-Every benchmark contract must already pass differential compatibility checks.
+### D-3: Run and Record
 
-## Step 2 — Define the compact workload matrix
+- Run on CI (ubuntu-latest) and locally (developer machine).
+- Record results in `docs/BENCHMARKS.md`.
+- Include hardware specs, versions, and commit SHA.
 
-Implement a small suite containing at least:
+### D-4: Analyze
 
-1. flat Params payload;
-2. nested hashes;
-3. array of nested hashes;
-4. mostly valid payloads;
-5. mostly invalid payloads;
-6. schema-heavy contract;
-7. rule-heavy contract;
-8. mixed contract;
-9. repeated calls after plan compilation;
-10. small and medium batches.
+- Identify where the Rust path helps and where it doesn't.
+- If the Rust path is slower for small payloads, document why (FFI overhead).
+- If the Rust path is faster for large arrays, document the crossover point.
 
-Use realistic payload sizes. Do not create dozens of artificial microcases unless profiling a specific bottleneck.
+### D-5: Publish
 
-## Step 3 — Measurement discipline
+Publication requirements:
 
-For each engine and workload:
+- **Negative/neutral results must have equal prominence.** If the Rust path
+  is only 1.2× faster on a 5-key hash but 8× faster on a 10,000-element array,
+  say exactly that. Do not cherry-pick.
+- **`benchmark/README.md`** must explain how to reproduce results locally.
+- **README performance wording must match measured scope.** If benchmarks show
+  benefit only for large arrays, the README must not say "performance-oriented"
+  without qualification.
+- **No raw CSV/JSON data dumps committed.** Summarize in tables. Raw data
+  can be linked as CI artifacts.
 
-- run in a separate process;
-- warm up consistently;
-- use multiple measured iterations;
-- report central tendency and variability;
-- record validations/second and latency;
-- record Ruby allocations where reliable;
-- record peak RSS with a reproducible method;
-- separate compilation/setup time from repeated-call time;
-- avoid running noisy tasks concurrently.
+### D-6: Update README and ARCHITECTURE.md
 
-Keep benchmark scripts in the repository. Keep raw local output outside unless a concise machine-readable baseline is intentionally required.
+- Replace "performance-oriented" with specific, measured claims.
+- Link to `docs/BENCHMARKS.md`.
 
-## Step 4 — Correctness gate before timing
+## Acceptance Criteria
 
-Before timing a workload:
+- [ ] `docs/BENCHMARKS.md` exists with results for all 6 payload types.
+- [ ] `benchmark/README.md` explains reproduction steps.
+- [ ] Results include negative/neutral findings with equal prominence.
+- [ ] README and ARCHITECTURE.md updated to match measured evidence.
+- [ ] Benchmark harness runs in CI (even if results are not gated).
+- [ ] No raw data files committed to the repo.
 
-- execute both engines with the same inputs;
-- assert compatible values, classes, success state, and errors;
-- abort the benchmark case on mismatch;
-- never time a semantically different shortcut as a valid comparison.
+## Dependencies
 
-## Step 5 — Baseline report
-
-Produce one concise report in an existing benchmark document or README benchmark section. It must include:
-
-- environment;
-- commands;
-- workload descriptions;
-- summarized results;
-- favourable cases;
-- neutral cases;
-- regressions;
-- limitations;
-- exact scope of any public claim.
-
-Do not create several reports for the same run.
-
-## Step 6 — Profile before optimizing
-
-Select only the highest-value observed bottleneck. Gather evidence about time or allocations spent in:
-
-- schema plan compilation;
-- Ruby/Rust FFI conversion;
-- traversal/coercion;
-- error creation;
-- Ruby rule callbacks;
-- normalized Ruby object construction.
-
-Do not infer the bottleneck solely from intuition.
-
-## Step 7 — One optimization experiment
-
-Implement at most one independently useful optimization per task.
-
-Candidate categories only after evidence:
-
-- reduce Ruby object churn;
-- cache safe identifiers;
-- reduce intermediate error allocations;
-- avoid redundant plan conversion;
-- improve repeated-call plan reuse.
-
-For the selected optimization:
-
-- preserve differential compatibility;
-- add a focused regression test if behavior could change;
-- compare before/after on affected and unaffected workloads;
-- revert or avoid the change if gains are not meaningful or complexity is disproportionate.
-
-## Step 8 — Batch/GVL experiment, only when justified
-
-A GVL-releasing experiment is allowed only if profiling shows Ruby-object interaction is not required during the unlocked section.
-
-Requirements:
-
-- convert input to Rust-owned data while holding the GVL;
-- release the GVL only for pure Rust computation;
-- reacquire it before creating or calling Ruby objects;
-- prove panic containment and cancellation/exception behavior;
-- keep the experiment private or explicitly experimental;
-- do not stabilize a public API in the same task.
-
-## Decision gate
-
-Use the roadmap heuristics as a decision aid:
-
-- approximately 2× throughput in representative schema-dominant workloads; or
-- approximately 30% fewer Ruby allocations plus material throughput gain;
-- no severe small-payload latency regression;
-- no semantic mismatch.
-
-These are not promises. Report the actual evidence even when the gate fails.
-
-## Acceptance criteria
-
-- Benchmark commands are reproducible.
-- Every timed contract passes differential checks first.
-- Separate process execution is used.
-- Results include favourable, neutral, and unfavourable workloads.
-- Compilation/setup and repeated execution are distinguished.
-- Public documentation claims are no broader than measured evidence.
-- At most one optimization category is implemented per task.
-- A failed performance hypothesis is documented honestly rather than hidden.
-
-## Required verification
-
-Run:
-
-- full differential corpus for benchmark contracts;
-- benchmark suite multiple times in a controlled environment;
-- full test/lint suite after optimization;
-- before/after allocation and throughput checks for affected workloads.
-
-## Exit gate
-
-Milestone D is complete when the project has an evidence-backed answer to: “Where does Rust materially help this gem?” The answer may legitimately be narrower than originally hoped.
+- Requires Milestone C (complete).
+- Blocks Milestone E.

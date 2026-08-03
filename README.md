@@ -5,7 +5,7 @@ engine with familiar dry-validation-style contract syntax and a precisely
 documented compatible subset. Rust handles the immutable declarative schema
 execution path; Ruby preserves dynamic rules and Ruby-specific semantics.
 
-> Status: feasibility prototype / `0.1.0.pre1`. It is deliberately not
+> Status: feasibility prototype / `0.1.0.pre2`. It is deliberately not
 > presented as a production-ready drop-in replacement.
 
 Read [the support matrix](docs/SUPPORT_MATRIX.md), [compatibility matrix](docs/COMPATIBILITY.md),

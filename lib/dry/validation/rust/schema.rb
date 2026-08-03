@@ -1,9 +1,9 @@
 # frozen_string_literal: true
 
-require "json"
-require "date"
-require "time"
-require "bigdecimal"
+require 'json'
+require 'date'
+require 'time'
+require 'bigdecimal'
 
 module Dry
   module Validation
@@ -52,11 +52,20 @@ module Dry
         NATIVE_PREDICATES = %i[gt gteq lt lteq min_size max_size size odd even].freeze
         RUBY_PREDICATES = %i[format included_in excluded_from eql not_eql].freeze
 
+        # Private Rust-to-Ruby error buffer format. Rust reads VERSION from
+        # this class so this is the single authority for its metadata.
+        NATIVE_ERROR_BUFFER_VERSION = 1
+        NATIVE_ERROR_BUFFER_HEADER_SIZE = 1
+        NATIVE_ERROR_RECORD_PATH_LENGTH_SIZE = 1
+        NATIVE_ERROR_RECORD_CODE_OFFSET = 0
+        NATIVE_ERROR_RECORD_TEXT_OFFSET = 1
+        NATIVE_ERROR_RECORD_TRAILER_SIZE = 2
+
         Predicate = Struct.new(:name, :argument, keyword_init: true)
 
         class FieldDefinition
-          attr_accessor :name, :required, :nullable, :filled, :type, :member, :children
-          attr_reader :predicates
+          attr_accessor :name, :required, :nullable, :filled, :type, :member
+          attr_reader :children, :predicates
 
           def initialize(name:, required:)
             @name = name&.to_sym
@@ -66,14 +75,24 @@ module Dry
             @type = :any
             @member = nil
             @children = []
+            @children_by_name = {}
             @predicates = []
           end
 
-          def add_predicate(name, argument = true)
-            normalized_name = name.to_s.delete_suffix("?").to_sym
+          def children=(children)
+            @children = children
+            @children_by_name = children.to_h { |child| [child.name, child] }
+          end
+
+          def child_at(name)
+            @children_by_name[name.to_sym]
+          end
+
+          def add_predicate(name, argument: true)
+            normalized_name = name.to_s.delete_suffix('?').to_sym
             unless (NATIVE_PREDICATES | RUBY_PREDICATES).include?(normalized_name)
               raise UnsupportedFeatureError,
-                "predicate #{normalized_name.inspect} is not supported natively; move it to a contract rule"
+                    "predicate #{normalized_name.inspect} is not supported natively; move it to a contract rule"
             end
 
             predicates << Predicate.new(name: normalized_name, argument: argument)
@@ -91,7 +110,7 @@ module Dry
               predicates: predicates.filter_map do |predicate|
                 next unless NATIVE_PREDICATES.include?(predicate.name)
 
-                {name: predicate.name.to_s, argument: predicate.argument}
+                { name: predicate.name.to_s, argument: predicate.argument }
               end
             }
           end
@@ -139,17 +158,17 @@ module Dry
             @fields = fields
           end
 
-          def required(name, &block)
-            add_field(name, required: true, &block)
+          def required(name, &)
+            add_field(name, required: true, &)
           end
 
-          def optional(name, &block)
-            add_field(name, required: false, &block)
+          def optional(name, &)
+            add_field(name, required: false, &)
           end
 
           def import(schema)
             unless schema.is_a?(Schema)
-              raise UnsupportedFeatureError, "only schemas built by Dry::Validation::Rust can be imported"
+              raise UnsupportedFeatureError, 'only schemas built by Dry::Validation::Rust can be imported'
             end
 
             schema.fields.each do |field|
@@ -162,14 +181,14 @@ module Dry
             self
           end
 
-          def before(*_args, &_block)
+          def before(*_args, &)
             raise UnsupportedFeatureError,
-              "schema before processor hooks are not supported by the native plan yet"
+                  'schema before processor hooks are not supported by the native plan yet'
           end
 
-          def after(*_args, &_block)
+          def after(*_args, &)
             raise UnsupportedFeatureError,
-              "schema after processor hooks are not supported by the native plan yet"
+                  'schema after processor hooks are not supported by the native plan yet'
           end
 
           def compile
@@ -179,12 +198,8 @@ module Dry
           private
 
           def add_field(name, required:, &block)
-            unless name.is_a?(Symbol)
-              raise ArgumentError, "Key +#{name}+ is not a symbol"
-            end
-            if fields.any? { |field| field.name == name }
-              raise ArgumentError, "key #{name.inspect} is already defined"
-            end
+            raise ArgumentError, "Key +#{name}+ is not a symbol" unless name.is_a?(Symbol)
+            raise ArgumentError, "key #{name.inspect} is already defined" if fields.any? { |field| field.name == name }
 
             definition = FieldDefinition.new(name: name, required: required)
             fields << definition
@@ -207,21 +222,21 @@ module Dry
             if block
               unless definition.type == :hash || (definition.type == :array && definition.member&.type == :hash)
                 raise UnsupportedFeatureError,
-                  "predicate composition blocks are not supported yet; use named predicates or a contract rule"
+                      'predicate composition blocks are not supported yet; use named predicates or a contract rule'
               end
               nested_target(block)
             end
             self
           end
 
-          def filled(*specs, **predicates, &block)
+          def filled(*specs, **predicates, &)
             definition.filled = true
-            value(*specs, **predicates, &block)
+            value(*specs, **predicates, &)
           end
 
-          def maybe(*specs, **predicates, &block)
+          def maybe(*specs, **predicates, &)
             definition.nullable = true
-            value(*specs, **predicates, &block)
+            value(*specs, **predicates, &)
           end
 
           def hash(schema = nil, &block)
@@ -235,7 +250,7 @@ module Dry
 
           def array(member_type = nil, **predicates, &block)
             definition.type = :array
-            predicates.each { |name, argument| definition.add_predicate(name, argument) }
+            predicates.each { |name, argument| definition.add_predicate(name, argument: argument) }
 
             if member_type
               member = FieldDefinition.new(name: nil, required: true)
@@ -258,14 +273,18 @@ module Dry
             self
           end
 
-          def each(member_type = nil, **predicates, &block)
-            array(member_type, **predicates, &block)
+          def each(member_type = nil, **predicates, &)
+            array(member_type, **predicates, &)
           end
 
           def method_missing(name, *args, **kwargs, &block)
-            if name.to_s.end_with?("?") && block.nil?
-              argument = kwargs.empty? ? (args.length <= 1 ? args.first : args) : kwargs
-              definition.add_predicate(name, argument.nil? ? true : argument)
+            if name.to_s.end_with?('?') && block.nil?
+              argument = if kwargs.empty?
+                           args.length <= 1 ? args.first : args
+                         else
+                           kwargs
+                         end
+              definition.add_predicate(name, argument: argument.nil? || argument)
               return self
             end
 
@@ -273,27 +292,25 @@ module Dry
           end
 
           def respond_to_missing?(name, include_private = false)
-            name.to_s.end_with?("?") || super
+            name.to_s.end_with?('?') || super
           end
 
           private
 
           def apply_specs(specs, predicates)
             remaining = specs.dup
-            if remaining.first && type_spec?(remaining.first)
-              definition.type = normalize_type(remaining.shift)
-            end
+            definition.type = normalize_type(remaining.shift) if remaining.first && type_spec?(remaining.first)
 
             remaining.each do |predicate|
               case predicate
               when Symbol then definition.add_predicate(predicate)
-              when Hash then predicate.each { |name, argument| definition.add_predicate(name, argument) }
+              when Hash then predicate.each { |name, argument| definition.add_predicate(name, argument: argument) }
               else
                 raise UnsupportedFeatureError,
-                  "unsupported type or predicate specification: #{predicate.class.name}"
+                      "unsupported type or predicate specification: #{predicate.class.name}"
               end
             end
-            predicates.each { |name, argument| definition.add_predicate(name, argument) }
+            predicates.each { |name, argument| definition.add_predicate(name, argument: argument) }
           end
 
           def type_spec?(spec)
@@ -303,7 +320,7 @@ module Dry
           def normalize_type(type)
             unless type_spec?(type)
               raise UnsupportedFeatureError,
-                "custom dry-types objects are not supported by the native plan yet (got #{type.inspect})"
+                    "custom dry-types objects are not supported by the native plan yet (got #{type.inspect})"
             end
 
             type == :datetime ? :date_time : type
@@ -333,34 +350,28 @@ module Dry
           dsl.compile
         end
 
-        def self.Params(*external_schemas, &block)
-          define(:params, *external_schemas, &block)
+        def self.Params(*external_schemas, &)
+          define(:params, *external_schemas, &)
         end
 
-        def self.JSON(*external_schemas, &block)
-          define(:json, *external_schemas, &block)
+        def self.JSON(*external_schemas, &)
+          define(:json, *external_schemas, &)
         end
 
         def initialize(mode:, fields:)
           @mode = mode.to_sym
           @fields = fields.freeze
-          plan = {engine_version: ENGINE_VERSION, mode: mode.to_s, fields: fields.map(&:to_native_h)}
-          @engine = Native::Engine.new(JSON.generate(plan))
-        rescue StandardError => error
-          raise NativeExtensionError, "could not compile native schema plan: #{error.message}"
+          plan = { engine_version: ENGINE_VERSION, mode: mode.to_s, fields: fields.map(&:to_native_h) }
+          @engine = Native::Engine.new(JSON.generate(plan, max_nesting: false))
+        rescue StandardError => e
+          raise NativeExtensionError, "could not compile native schema plan: #{e.message}"
         end
 
         def call(input)
           raise ArgumentError, "Input must be a Hash. #{input.class} was given." unless input.is_a?(Hash)
 
           output, native_errors = engine.call(input)
-          messages = native_errors.map do |path, code, text|
-            predicate, args = native_predicate_details(path, code)
-            Message.new(
-              text, path: path, code: code, source: :schema,
-              predicate: predicate, args: args
-            )
-          end
+          messages = native_errors_to_messages(native_errors)
           apply_ruby_predicates(fields, output, [], messages)
           SchemaResult.new(output, messages.freeze)
         end
@@ -376,6 +387,45 @@ module Dry
 
         private
 
+        def native_errors_to_messages(native_errors)
+          unless native_errors.fetch(0) == NATIVE_ERROR_BUFFER_VERSION
+            raise NativeExtensionError,
+                  "unsupported native error buffer version: #{native_errors.first.inspect}"
+          end
+
+          messages = []
+          offset = NATIVE_ERROR_BUFFER_HEADER_SIZE
+
+          while offset < native_errors.length
+            path_length = native_errors.fetch(offset)
+            unless path_length.is_a?(Integer) && path_length >= 0
+              raise NativeExtensionError, 'malformed native error buffer'
+            end
+
+            path_start = offset + NATIVE_ERROR_RECORD_PATH_LENGTH_SIZE
+            trailer_start = path_start + path_length
+            record_end = trailer_start + NATIVE_ERROR_RECORD_TRAILER_SIZE
+            raise NativeExtensionError, 'malformed native error buffer' if record_end > native_errors.length
+
+            path = native_errors.slice(path_start, path_length)
+            code = native_errors.fetch(trailer_start + NATIVE_ERROR_RECORD_CODE_OFFSET)
+            text = native_errors.fetch(trailer_start + NATIVE_ERROR_RECORD_TEXT_OFFSET)
+            offset = record_end
+            unless path.all? { |part| part.is_a?(Symbol) || part.is_a?(Integer) } &&
+                   code.is_a?(Symbol) && text.is_a?(String)
+              raise NativeExtensionError, 'malformed native error buffer'
+            end
+
+            predicate, args = native_predicate_details(path, code)
+            messages << Message.new(
+              text, path: path, code: code, source: :schema,
+                    predicate: predicate, args: args
+            )
+          end
+
+          messages
+        end
+
         def paths_for(definitions, prefix = [])
           definitions.flat_map do |field|
             current = [*prefix, field.name]
@@ -386,6 +436,11 @@ module Dry
         end
 
         def apply_ruby_predicates(definitions, data, prefix, messages)
+          error_paths = messages.to_set(&:path)
+          apply_ruby_predicates_at(definitions, data, prefix, messages, error_paths)
+        end
+
+        def apply_ruby_predicates_at(definitions, data, prefix, messages, error_paths)
           return unless data.is_a?(Hash)
 
           definitions.each do |field|
@@ -393,32 +448,34 @@ module Dry
 
             path = [*prefix, field.name]
             value = data[field.name]
-            unless schema_error_at?(messages, path)
+            unless error_paths.include?(path)
               field.predicates.each do |predicate|
                 next if NATIVE_PREDICATES.include?(predicate.name)
 
                 valid = predicate_valid?(predicate, value)
-                messages << predicate_message(predicate, path) unless valid
+                unless valid
+                  messages << predicate_message(predicate, path)
+                  error_paths << path
+                end
               end
             end
 
-            apply_ruby_predicates(field.children, value, path, messages) if value.is_a?(Hash)
+            apply_ruby_predicates_at(field.children, value, path, messages, error_paths) if value.is_a?(Hash)
             next unless value.is_a?(Array) && field.member
 
             value.each_with_index do |member_value, index|
               member_path = [*path, index]
               field.member.predicates.each do |predicate|
-                next if NATIVE_PREDICATES.include?(predicate.name) || schema_error_at?(messages, member_path)
+                next if NATIVE_PREDICATES.include?(predicate.name) || error_paths.include?(member_path)
 
-                messages << predicate_message(predicate, member_path) unless predicate_valid?(predicate, member_value)
+                unless predicate_valid?(predicate, member_value)
+                  messages << predicate_message(predicate, member_path)
+                  error_paths << member_path
+                end
               end
-              apply_ruby_predicates(field.member.children, member_value, member_path, messages)
+              apply_ruby_predicates_at(field.member.children, member_value, member_path, messages, error_paths)
             end
           end
-        end
-
-        def schema_error_at?(messages, path)
-          messages.any? { |message| message.path == path }
         end
 
         def predicate_valid?(predicate, value)
@@ -430,22 +487,22 @@ module Dry
           when :not_eql then !value.eql?(predicate.argument)
           else
             raise UnsupportedFeatureError,
-              "predicate #{predicate.name.inspect} is not supported natively; move it to a contract rule"
+                  "predicate #{predicate.name.inspect} is not supported natively; move it to a contract rule"
           end
         end
 
         def predicate_message(predicate, path)
           text = case predicate.name
-                 when :format then "is in invalid format"
+                 when :format then 'is in invalid format'
                  when :included_in then "must be one of: #{Array(predicate.argument).join(', ')}"
                  when :excluded_from then "must not be one of: #{Array(predicate.argument).join(', ')}"
                  when :eql then "must be equal to #{predicate.argument}"
                  when :not_eql then "must not be equal to #{predicate.argument}"
-                 else "is invalid"
+                 else 'is invalid'
                  end
           Message.new(
             text, path: path, code: predicate.name, source: :schema,
-            predicate: "#{predicate.name}?", args: [predicate.argument]
+                  predicate: "#{predicate.name}?", args: [predicate.argument]
           )
         end
 
@@ -457,19 +514,20 @@ module Dry
 
         def field_at_path(definitions, path)
           definition = nil
-          remaining = path.dup
 
-          until remaining.empty?
-            part = remaining.shift
+          path.each do |part|
             if part.is_a?(Integer)
-              return unless definition&.member
+              return nil unless definition&.member
 
               definition = definition.member
             else
-              definition = definitions.find { |field| field.name == part.to_sym }
-              return unless definition
+              definition = if definition
+                             definition.child_at(part)
+                           else
+                             definitions.find { |field| field.name == part.to_sym }
+                           end
+              return nil unless definition
             end
-            definitions = definition.children
           end
 
           definition

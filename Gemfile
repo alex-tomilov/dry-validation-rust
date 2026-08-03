@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
-source "https://rubygems.org"
+source 'https://rubygems.org'
 gemspec
-gem "dry-validation", "1.11.1"
+gem 'dry-validation', '1.11.1'
+gem 'rubocop', '>= 1.88.2'

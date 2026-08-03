@@ -31,7 +31,7 @@ jobs:
           - "3.5"
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Install native build prerequisites on Linux
         if: runner.os == 'Linux'
@@ -53,6 +53,9 @@ jobs:
           toolchain: 1.85.0
           components: rustfmt, clippy
 
+      - name: RuboCop
+        run: bundle exec rubocop
+
       - name: Compile native extension
         run: bundle exec rake compile
 
@@ -73,7 +76,7 @@ jobs:
           - stable
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Install native build prerequisites
         run: sudo apt-get update && sudo apt-get install -y clang libclang-dev
@@ -82,6 +85,9 @@ jobs:
         uses: ruby/setup-ruby@v1
         with:
           ruby-version: "3.3"
+
+      - name: Expose Ruby shared library
+        run: echo "LD_LIBRARY_PATH=$(ruby -rrbconfig -e 'print RbConfig::CONFIG.fetch(%q[libdir])')${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" >> "$GITHUB_ENV"
 
       - name: Setup Rust toolchain
         uses: actions-rust-lang/setup-rust-toolchain@v1
@@ -101,12 +107,15 @@ jobs:
       - name: Check Rust lockfile build
         run: cargo check --locked --manifest-path ext/dry_validation_rust/Cargo.toml
 
+      - name: Check Rust package manifest
+        run: cargo package --list --manifest-path ext/dry_validation_rust/Cargo.toml
+
   loading-modes:
     name: Loading modes and installed gem
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Install native build prerequisites
         run: sudo apt-get update && sudo apt-get install -y clang libclang-dev

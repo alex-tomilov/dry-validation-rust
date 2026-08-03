@@ -23,6 +23,8 @@ Use this skill for one reproducible defect class.
 4. Add a regression test at the lowest useful level.
 5. Check adjacent cases likely to share the root cause.
 6. Run focused and canonical verification.
+   If Ruby files, tests, tooling, or CI configuration changed, also run
+   `bundle exec rubocop`; do not report completion while it fails.
 7. Update documentation only if previously documented behavior was wrong or the user-facing workaround changed.
 
 ## Rules

@@ -11,13 +11,13 @@ module Dry
           case spec
           when nil then []
           when Symbol then [spec]
-          when String then spec.split(".").map!(&:to_sym)
+          when String then spec.split('.').map!(&:to_sym)
           when Array then spec.dup
           when Hash
             key, value = spec.first
             [key, *parse(value)]
           else
-            raise ArgumentError, "+spec+ must be a Symbol, String, Array, or Hash"
+            raise ArgumentError, '+spec+ must be a Symbol, String, Array, or Hash'
           end
         end
 
@@ -34,17 +34,19 @@ module Dry
         end
 
         def fetch(data, path, undefined = Undefined)
-          parse(path).reduce(data) do |current, key|
+          current = data
+          parse(path).each do |key|
             if current.is_a?(Array) && key.is_a?(Integer)
               return undefined unless key >= 0 && key < current.length
 
-              current[key]
+              current = current[key]
             elsif current.respond_to?(:key?) && current.key?(key)
-              current[key]
+              current = current[key]
             else
               return undefined
             end
           end
+          current
         end
 
         def key?(data, path)
