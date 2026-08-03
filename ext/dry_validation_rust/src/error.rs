@@ -22,16 +22,6 @@ impl NativeError {
 }
 
 #[inline]
-pub(crate) fn clone_path(path: &[PathPart]) -> Vec<PathPart> {
-    path.iter()
-        .map(|part| match part {
-            PathPart::Key(key) => PathPart::Key(key.clone()),
-            PathPart::Index(index) => PathPart::Index(*index),
-        })
-        .collect()
-}
-
-#[inline]
 pub(crate) fn type_message(kind: &str) -> String {
     match kind {
         "nil" => "must be nil".to_owned(),
