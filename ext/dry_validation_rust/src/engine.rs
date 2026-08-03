@@ -2,7 +2,7 @@ use magnus::{Error, Integer, RArray, RClass, RHash, RModule, Ruby, Value, prelud
 
 use crate::{
     coercion::{coerce, empty_value, null_if_empty_nullable_param, type_matches},
-    error::{NativeError, PathPart, clone_path, type_message},
+    error::{NativeError, PathPart, type_message},
     plan::{FieldPlan, Mode, SchemaPlan, parse_plan},
     predicates::apply_predicates,
     ruby_bridge::RuntimeClasses,
@@ -53,7 +53,7 @@ impl Engine {
                 mode: self.plan.mode,
                 errors: &mut errors,
             };
-            process_hash(&mut traversal, &self.plan.fields, input, &[], 0)?
+            process_hash(&mut traversal, &self.plan.fields, input, &mut Vec::new(), 0)?
         };
         // Ruby owns this private format's version. Reading it here makes the
         // encoder and decoder share one authority without duplicating a value.
@@ -111,15 +111,15 @@ fn process_hash(
     traversal: &mut Traversal<'_>,
     fields: &[FieldPlan],
     input: RHash,
-    prefix: &[PathPart],
+    path: &mut Vec<PathPart>,
     depth: u16,
 ) -> Result<RHash, Error> {
     let output = traversal.ruby.hash_new_capa(fields.len());
-    if !within_depth_limit(depth, prefix, traversal.errors) {
+    if !within_depth_limit(depth, path, traversal.errors) {
         return Ok(output);
     }
     for field in fields {
-        process_field(traversal, &output, field, input, prefix, depth)?;
+        process_field(traversal, &output, field, input, path, depth)?;
     }
     Ok(output)
 }
@@ -129,19 +129,23 @@ fn process_field(
     output: &RHash,
     field: &FieldPlan,
     input: RHash,
-    prefix: &[PathPart],
+    path: &mut Vec<PathPart>,
     depth: u16,
 ) -> Result<(), Error> {
     let name = field.name.as_deref().unwrap_or_default();
-    let mut path = clone_path(prefix);
     path.push(PathPart::Key(name.to_owned()));
-    let Some(raw) = resolve_field_input(input, traversal.ruby, traversal.mode, name) else {
-        report_missing_field(traversal, field, &path);
-        return Ok(());
-    };
-
-    let processed = process_value(traversal, field, raw, &path, depth)?;
-    output.aset(traversal.ruby.to_symbol(name), processed)
+    let result = (|| match resolve_field_input(input, traversal.ruby, traversal.mode, name) {
+        Some(raw) => {
+            let processed = process_value(traversal, field, raw, path, depth)?;
+            output.aset(traversal.ruby.to_symbol(name), processed)
+        }
+        None => {
+            report_missing_field(traversal, field, path);
+            Ok(())
+        }
+    })();
+    path.pop();
+    result
 }
 
 fn resolve_field_input(input: RHash, ruby: &Ruby, mode: Mode, name: &str) -> Option<Value> {
@@ -166,7 +170,7 @@ fn process_value(
     traversal: &mut Traversal<'_>,
     field: &FieldPlan,
     raw: Value,
-    path: &[PathPart],
+    path: &mut Vec<PathPart>,
     depth: u16,
 ) -> Result<Value, Error> {
     if !within_depth_limit(depth, path, traversal.errors) {
@@ -266,7 +270,7 @@ fn process_children(
     traversal: &mut Traversal<'_>,
     field: &FieldPlan,
     value: Value,
-    path: &[PathPart],
+    path: &mut Vec<PathPart>,
     depth: u16,
 ) -> Result<Value, Error> {
     if field.kind == "hash" && !field.children.is_empty() {
@@ -283,7 +287,7 @@ fn process_array_members(
     traversal: &mut Traversal<'_>,
     field: &FieldPlan,
     value: Value,
-    path: &[PathPart],
+    path: &mut Vec<PathPart>,
     depth: u16,
 ) -> Result<Value, Error> {
     let (Some(member), Some(array)) = (field.member.as_ref(), RArray::from_value(value)) else {
@@ -292,15 +296,10 @@ fn process_array_members(
 
     let output = traversal.ruby.ary_new_capa(array.len());
     for (index, item) in array.into_iter().enumerate() {
-        let mut item_path = clone_path(path);
-        item_path.push(PathPart::Index(index));
-        output.push(process_value(
-            traversal,
-            member,
-            item,
-            &item_path,
-            depth + 1,
-        )?)?;
+        path.push(PathPart::Index(index));
+        let processed = process_value(traversal, member, item, path, depth + 1);
+        path.pop();
+        output.push(processed?)?;
     }
     Ok(output.as_value())
 }
