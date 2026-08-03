@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+## 0.1.0.pre2 — 2026-08-03
+
+- Added typed native predicate arguments; invalid null and object arguments are
+  rejected when compiling a schema plan.
+- Added explicit depth limits for native schema plans and nested schema
+  traversal.
+- Changed `MessageSet#messages` to return a read-only view; use `#add` to add
+  messages to a mutable message set.
+- Relaxed the native extension's Magnus dependency to compatible `0.8.x`
+  patch releases.
+- Added coercion boundary and concurrent contract-call coverage.
+- Added Rust package-manifest verification to CI.
 - Added product-scope documentation, including the support matrix and pinned
   upstream compatibility references.
 - Added canonical verification and benchmark-smoke scripts.
