@@ -35,6 +35,19 @@ class SchemaTest < Minitest::Test
     assert_equal Dry::Validation::Rust::Schema::NATIVE_ERROR_BUFFER_VERSION, native_errors.first
   end
 
+  def test_native_engine_keeps_date_class_lookup_from_initialization
+    schema = Dry::Validation::Rust::Schema.Params { required(:value).value(:date) }
+    date_class = Object.const_get(:Date)
+
+    Object.send(:remove_const, :Date)
+    output, native_errors = schema.engine.call(value: '2026-08-03')
+
+    assert_equal({ value: date_class.new(2026, 8, 3) }, output)
+    assert_equal [Dry::Validation::Rust::Schema::NATIVE_ERROR_BUFFER_VERSION], native_errors
+  ensure
+    Object.const_set(:Date, date_class) unless Object.const_defined?(:Date, false)
+  end
+
   def test_native_error_buffer_rejects_unsupported_versions_and_truncated_records
     schema = Dry::Validation::Rust::Schema.Params { required(:age).value(:integer) }
     format_version = Dry::Validation::Rust::Schema::NATIVE_ERROR_BUFFER_VERSION

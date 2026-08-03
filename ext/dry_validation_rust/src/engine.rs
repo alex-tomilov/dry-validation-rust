@@ -1,4 +1,7 @@
-use magnus::{Error, Integer, RArray, RClass, RHash, RModule, Ruby, Value, prelude::*};
+use magnus::{
+    DataTypeFunctions, Error, Integer, RArray, RClass, RHash, RModule, Ruby, TypedData, Value,
+    gc::Marker, prelude::*,
+};
 
 use crate::{
     coercion::{coerce, empty_value, null_if_empty_nullable_param, type_matches},
@@ -11,15 +14,23 @@ use crate::{
 const MAX_TRAVERSAL_DEPTH: u16 = 128;
 const DEPTH_ERROR_CODE: &str = "depth";
 
-#[magnus::wrap(
+#[derive(TypedData)]
+#[magnus(
     class = "Dry::Validation::Rust::Native::Engine",
     free_immediately,
+    mark,
     size
 )]
-#[derive(Debug)]
 pub(crate) struct Engine {
     plan: SchemaPlan,
+    classes: RuntimeClasses,
     plan_bytes: usize,
+}
+
+impl DataTypeFunctions for Engine {
+    fn mark(&self, marker: &Marker) {
+        self.classes.mark(marker);
+    }
 }
 
 struct Traversal<'a> {
@@ -36,20 +47,22 @@ enum TypeValidation {
 
 impl Engine {
     pub(crate) fn new(ruby: &Ruby, json: String) -> Result<Self, Error> {
+        let plan = parse_plan(ruby, &json)?;
+        let classes = RuntimeClasses::new(ruby, &plan)?;
         Ok(Self {
-            plan: parse_plan(ruby, &json)?,
+            plan,
+            classes,
             plan_bytes: json.len(),
         })
     }
 
     pub(crate) fn call(&self, input: RHash) -> Result<RArray, Error> {
         let ruby = Ruby::get_with(input);
-        let classes = RuntimeClasses::new(&ruby, &self.plan)?;
         let mut errors = Vec::new();
         let output = {
             let mut traversal = Traversal {
                 ruby: &ruby,
-                classes: &classes,
+                classes: &self.classes,
                 mode: self.plan.mode,
                 errors: &mut errors,
             };
@@ -343,6 +356,7 @@ mod tests {
         let plan = serde_json::from_str(json).expect("valid plan");
         let engine = Engine {
             plan,
+            classes: RuntimeClasses::default(),
             plan_bytes: json.len(),
         };
         assert_eq!(engine.field_count(), 2);

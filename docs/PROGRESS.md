@@ -12,7 +12,7 @@ One-page project status for contributors, reviewers, and the maintainer.
 | A   | Trustworthy Baseline    | ✅ Complete    | PRs #48–#51                           |
 | B   | Common Schema Subset    | ✅ Complete    | PRs #49–#56, #65–#71                  |
 | C   | Ordinary Rules Subset   | 🔵 Active      | ~20% done; C-Q3 completed; hot-helper inline hints, cached rule/macro keyword introspection, and `MessageSet#to_h` memoization applied 2026-08-01 |
-| D   | Performance Proof       | 🔵 Active      | Phase 1 step 1 completed 2026-08-03; remaining work blocked on C |
+| D   | Performance Proof       | 🔵 Active      | Phase 1 steps 1–2 completed 2026-08-03; remaining work blocked on C |
 | E   | Compatibility Slice     | ⚪ Not started | Blocked on D                          |
 | F   | Packaging and Platforms | ⚪ Not started | Blocked on E                          |
 | G   | Stable Subset           | ⚪ Not started | Blocked on F                          |
@@ -45,7 +45,7 @@ One-page project status for contributors, reviewers, and the maintainer.
 2. Complete remaining C-Q1, C-Q2, and C-Q4 code-quality tasks.
 3. Stress-test rule dependencies and isolation.
 4. Wire rule corpus into differential CI.
-5. After Milestone C, complete the remaining Performance Proof steps; Phase 1 path-vector reuse is complete.
+5. After Milestone C, complete the remaining Performance Proof steps; Phase 1 path-vector reuse and Ruby class caching are complete.
 
 ## Code-Quality Tasks (from Milestone C)
 

@@ -47,17 +47,17 @@ pub(crate) fn coerce(
         }),
         "symbol" => Some(ruby.to_symbol(&source).as_value()),
         "date" => classes
-            .date
+            .date(ruby)
             .expect("Date class is loaded for date fields")
             .funcall::<_, _, Value>("iso8601", (source.as_str(),))
             .ok(),
         "date_time" => classes
-            .date_time
+            .date_time(ruby)
             .expect("DateTime class is loaded for date_time fields")
             .funcall::<_, _, Value>("iso8601", (source.as_str(),))
             .ok(),
         "time" => classes
-            .time
+            .time(ruby)
             .expect("Time class is loaded for time fields")
             .funcall::<_, _, Value>("parse", (source.as_str(),))
             .ok(),
@@ -135,22 +135,26 @@ pub(crate) fn type_matches(
         "integer" => Integer::from_value(value).is_some(),
         "float" => Float::from_value(value).is_some(),
         "decimal" => classes
-            .big_decimal
+            .big_decimal(ruby)
             .is_some_and(|class| value.is_kind_of(class)),
         "string" => RString::from_value(value).is_some(),
         "symbol" => Symbol::from_value(value).is_some(),
         "array" => RArray::from_value(value).is_some(),
         "hash" => RHash::from_value(value).is_some(),
         "date" => {
-            classes.date.is_some_and(|class| value.is_kind_of(class))
+            classes
+                .date(ruby)
+                .is_some_and(|class| value.is_kind_of(class))
                 && !classes
-                    .date_time
+                    .date_time(ruby)
                     .is_some_and(|class| value.is_kind_of(class))
         }
         "date_time" => classes
-            .date_time
+            .date_time(ruby)
             .is_some_and(|class| value.is_kind_of(class)),
-        "time" => classes.time.is_some_and(|class| value.is_kind_of(class)),
+        "time" => classes
+            .time(ruby)
+            .is_some_and(|class| value.is_kind_of(class)),
         _ => {
             let _ = ruby;
             false
@@ -175,17 +179,11 @@ pub(crate) fn empty_value(value: Value) -> bool {
 mod tests {
     use super::*;
     use crate::plan::Mode;
-    use magnus::{Error, RClass};
+    use magnus::Error;
 
     fn runtime_classes(ruby: &Ruby) -> Result<RuntimeClasses, Error> {
         ruby.eval::<Value>("require 'date'; require 'bigdecimal'")?;
-        let object = ruby.class_object();
-        Ok(RuntimeClasses {
-            date: Some(object.const_get::<_, RClass>("Date")?),
-            date_time: Some(object.const_get::<_, RClass>("DateTime")?),
-            time: Some(object.const_get::<_, RClass>("Time")?),
-            big_decimal: Some(object.const_get::<_, RClass>("BigDecimal")?),
-        })
+        RuntimeClasses::all(ruby)
     }
 
     #[test]

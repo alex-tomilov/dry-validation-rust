@@ -1,12 +1,13 @@
-use magnus::{Error, RClass, Ruby, prelude::*};
+use magnus::{Error, RClass, Ruby, gc::Marker, prelude::*, value::Opaque};
 
 use crate::plan::SchemaPlan;
 
+#[derive(Default)]
 pub(crate) struct RuntimeClasses {
-    pub(crate) date: Option<RClass>,
-    pub(crate) date_time: Option<RClass>,
-    pub(crate) time: Option<RClass>,
-    pub(crate) big_decimal: Option<RClass>,
+    date: Option<Opaque<RClass>>,
+    date_time: Option<Opaque<RClass>>,
+    time: Option<Opaque<RClass>>,
+    big_decimal: Option<Opaque<RClass>>,
 }
 
 impl RuntimeClasses {
@@ -16,23 +17,63 @@ impl RuntimeClasses {
             date: plan
                 .used_kinds
                 .contains("date")
-                .then(|| object.const_get("Date"))
-                .transpose()?,
+                .then(|| object.const_get::<_, RClass>("Date"))
+                .transpose()?
+                .map(Into::into),
             date_time: plan
                 .used_kinds
                 .contains("date_time")
-                .then(|| object.const_get("DateTime"))
-                .transpose()?,
+                .then(|| object.const_get::<_, RClass>("DateTime"))
+                .transpose()?
+                .map(Into::into),
             time: plan
                 .used_kinds
                 .contains("time")
-                .then(|| object.const_get("Time"))
-                .transpose()?,
+                .then(|| object.const_get::<_, RClass>("Time"))
+                .transpose()?
+                .map(Into::into),
             big_decimal: plan
                 .used_kinds
                 .contains("decimal")
-                .then(|| object.const_get("BigDecimal"))
-                .transpose()?,
+                .then(|| object.const_get::<_, RClass>("BigDecimal"))
+                .transpose()?
+                .map(Into::into),
+        })
+    }
+
+    pub(crate) fn date(&self, ruby: &Ruby) -> Option<RClass> {
+        self.date.map(|class| ruby.get_inner(class))
+    }
+
+    pub(crate) fn date_time(&self, ruby: &Ruby) -> Option<RClass> {
+        self.date_time.map(|class| ruby.get_inner(class))
+    }
+
+    pub(crate) fn time(&self, ruby: &Ruby) -> Option<RClass> {
+        self.time.map(|class| ruby.get_inner(class))
+    }
+
+    pub(crate) fn big_decimal(&self, ruby: &Ruby) -> Option<RClass> {
+        self.big_decimal.map(|class| ruby.get_inner(class))
+    }
+
+    pub(crate) fn mark(&self, marker: &Marker) {
+        for class in [self.date, self.date_time, self.time, self.big_decimal]
+            .into_iter()
+            .flatten()
+        {
+            marker.mark(class);
+        }
+    }
+
+    #[cfg(test)]
+    pub(crate) fn all(ruby: &Ruby) -> Result<Self, Error> {
+        let object = ruby.class_object();
+        Ok(Self {
+            date: Some(object.const_get::<_, RClass>("Date")?.into()),
+            date_time: Some(object.const_get::<_, RClass>("DateTime")?.into()),
+            time: Some(object.const_get::<_, RClass>("Time")?.into()),
+            big_decimal: Some(object.const_get::<_, RClass>("BigDecimal")?.into()),
         })
     }
 }
