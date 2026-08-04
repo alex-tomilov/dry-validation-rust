@@ -64,6 +64,8 @@ GEM
     racc (1.8.1)
     rainbow (3.1.1)
     rake (13.4.2)
+    rake-compiler (1.3.1)
+      rake
     rake-compiler-dock (1.12.0)
     rb_sys (0.9.128)
       rake-compiler-dock (= 1.12.0)
@@ -99,6 +101,8 @@ DEPENDENCIES
   mutex_m (~> 0.2)
   ostruct (~> 0.6)
   rake (~> 13.1)
+  rake-compiler (~> 1.3)
+  rake-compiler-dock (~> 1.12)
   rubocop (>= 1.88.2)
 
 BUNDLED WITH

@@ -28,6 +28,19 @@ class CiWorkflowsTest < Minitest::Test
     refute_includes source, 'id-token: write'
   end
 
+  def test_native_gem_workflow_builds_and_uploads_each_p0_platform_on_tags
+    workflow = workflows.fetch(File.join(WORKFLOW_DIR, 'native-gems.yml'))
+    build = workflow.fetch('jobs').fetch('build-native-gem')
+
+    assert_equal %w[v*], workflow.fetch(true).fetch('push').fetch('tags')
+    assert_equal %w[x86_64-linux aarch64-linux x86_64-darwin arm64-darwin],
+                 build.fetch('strategy').fetch('matrix').fetch('platform')
+
+    steps = build.fetch('steps')
+    assert_includes steps.map { |step| step['run'] }.compact.join("\n"), 'rb-sys-dock --platform'
+    assert_includes steps.map { |step| step['uses'] }.compact, 'actions/upload-artifact@v7'
+  end
+
   def test_actions_use_reviewable_version_pins
     workflows.each_key do |path|
       File.read(path).scan(/uses:\s+([^@\s]+)@([^\s]+)/).each do |action, ref|

@@ -2,6 +2,7 @@
 
 require 'fileutils'
 require 'rake/testtask'
+require 'rb_sys/extensiontask'
 require 'rubygems/package_task'
 require 'stringio'
 require 'tmpdir'
@@ -9,6 +10,7 @@ require 'zlib'
 
 EXTENSION_DIR = File.expand_path('ext/dry_validation_rust', __dir__)
 GEMSPEC_PATH = File.expand_path('dry-validation-rust.gemspec', __dir__)
+CROSS_COMPILE_PLATFORMS = %w[x86_64-linux aarch64-linux x86_64-darwin arm64-darwin].freeze
 PACKAGE_REQUIRED_FILES = %w[
   CHANGELOG.md
   LICENSE
@@ -163,6 +165,22 @@ end
 
 spec = Gem::Specification.load(GEMSPEC_PATH)
 Gem::PackageTask.new(spec)
+
+Dir.chdir(EXTENSION_DIR) do
+  RbSys::ExtensionTask.new('dry_validation_rust_native', spec) do |ext|
+    # Cargo's package name locates the manifest; the shared-library name is
+    # `native`, matching `[lib] name` in Cargo.toml and the Ruby require path.
+    ext.name = 'native'
+    ext.lib_dir = 'lib/dry/validation/rust'
+    unless ENV.key?('RUBY_TARGET')
+      ext.cross_compile = true
+      ext.cross_platform = CROSS_COMPILE_PLATFORMS
+    end
+  end
+end
+
+file 'Cargo.lock' => File.join(EXTENSION_DIR, 'Cargo.lock')
+file 'Cargo.toml' => File.join(EXTENSION_DIR, 'Cargo.toml')
 
 namespace :package do
   desc 'Build and audit the source gem package'
