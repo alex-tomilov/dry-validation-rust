@@ -15,7 +15,7 @@ One-page project status for contributors, reviewers, and the maintainer.
 | C   | Ordinary Rules Subset   | 🔵 Active      | ~20% done; C-Q3 completed; hot-helper inline hints, cached rule/macro keyword introspection, and `MessageSet#to_h` memoization applied 2026-08-01 |
 | D   | Performance Proof       | 🔵 Active      | Phase 1 steps 1–2 completed 2026-08-03; remaining work blocked on C |
 | E   | Compatibility Slice     | ⚪ Not started | Blocked on D                          |
-| F   | Packaging and Platforms | ⚪ Not started | Blocked on E                          |
+| F   | Packaging and Platforms | 🔵 Active      | Cross-compilation for four P0 platforms added 2026-08-04; remaining work is blocked on E |
 | G   | Stable Subset           | ⚪ Not started | Blocked on F                          |
 
 ## What Has Been Accomplished
@@ -46,6 +46,7 @@ One-page project status for contributors, reviewers, and the maintainer.
 2. Complete remaining C-Q1, C-Q2, and C-Q4 code-quality tasks.
 3. Stress-test rule dependencies and isolation, then wire the rule corpus into differential CI.
 4. After Milestone C, complete the remaining Performance Proof steps; Phase 1 path-vector reuse and Ruby class caching are complete.
+5. Complete Milestone E before validating and publishing the P0 precompiled gems configured for Milestone F.
 
 ## Code-Quality Tasks (from Milestone C)
 
@@ -72,7 +73,7 @@ One-page project status for contributors, reviewers, and the maintainer.
 ## Known Debt and Risks
 
 - No published benchmark results (Milestone D).
-- No precompiled platform gems (Milestone F).
+- P0 precompiled-gem builds are configured but not yet validated in CI or published (Milestone F).
 - No RBS type signatures (Milestone F).
 - Security advisories depend on GitHub private vulnerability reporting remaining enabled.
 - Governance documentation may be disproportionate to project scale.
