@@ -9,7 +9,7 @@ One-page project status for contributors, reviewers, and the maintainer.
 
 | #   | Milestone               | Status         | Notes                                 |
 | --- | ----------------------- | -------------- | ------------------------------------- |
-| 0   | Foundation              | 🔵 Active      | Steps 0.1 public side-by-side API lock and 0.2 SemVer policy completed 2026-08-04; security policy work remains |
+| 0   | Foundation              | ✅ Complete    | Steps 0.1 public side-by-side API lock, 0.2 SemVer policy, and 0.3 actionable security process completed 2026-08-04 |
 | A   | Trustworthy Baseline    | ✅ Complete    | PRs #48–#51                           |
 | B   | Common Schema Subset    | ✅ Complete    | PRs #49–#56, #65–#71                  |
 | C   | Ordinary Rules Subset   | 🔵 Active      | ~20% done; C-Q3 completed; hot-helper inline hints, cached rule/macro keyword introspection, and `MessageSet#to_h` memoization applied 2026-08-01 |
@@ -42,11 +42,10 @@ One-page project status for contributors, reviewers, and the maintainer.
 
 ## What Is Next
 
-1. Complete Foundation Step 0.3 (actionable security process).
-2. Build a dedicated 50-case rule corpus (see Milestone C file for distribution).
-3. Complete remaining C-Q1, C-Q2, and C-Q4 code-quality tasks.
-4. Stress-test rule dependencies and isolation, then wire the rule corpus into differential CI.
-5. After Milestone C, complete the remaining Performance Proof steps; Phase 1 path-vector reuse and Ruby class caching are complete.
+1. Build a dedicated 50-case rule corpus (see Milestone C file for distribution).
+2. Complete remaining C-Q1, C-Q2, and C-Q4 code-quality tasks.
+3. Stress-test rule dependencies and isolation, then wire the rule corpus into differential CI.
+4. After Milestone C, complete the remaining Performance Proof steps; Phase 1 path-vector reuse and Ruby class caching are complete.
 
 ## Code-Quality Tasks (from Milestone C)
 
@@ -75,6 +74,7 @@ One-page project status for contributors, reviewers, and the maintainer.
 - No published benchmark results (Milestone D).
 - No precompiled platform gems (Milestone F).
 - No RBS type signatures (Milestone F).
+- Security advisories depend on GitHub private vulnerability reporting remaining enabled.
 - Governance documentation may be disproportionate to project scale.
 - Naming/affiliation with dry-rb not yet discussed (Milestone G).
 - `edition = "2024"` / `rust-version = "1.85"` may exclude contributors.

@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Documented the coordinated vulnerability-disclosure process, including a
+  90-day post-fix-release embargo and the weekly dependency-audit schedule.
+
 ## 0.1.0.pre2 — 2026-08-03
 
 - Added typed native predicate arguments; invalid null and object arguments are
