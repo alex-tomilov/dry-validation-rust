@@ -4,8 +4,22 @@ module Dry
   module Validation
     module Rust
       class Evaluator
-        attr_reader :contract, :result, :paths, :values, :context, :index, :failures
+        # @return [Contract] contract executing the rule.
+        attr_reader :contract
+        # @return [Result] result receiving rule failures.
+        attr_reader :result
+        # @return [Array<Array<Symbol, Integer>>] paths declared for the rule.
+        attr_reader :paths
+        # @return [Values] validated output available to the rule.
+        attr_reader :values
+        # @return [Hash] mutable context for the current contract call.
+        attr_reader :context
+        # @return [Integer, nil] collection index for a `rule.each` evaluation.
+        attr_reader :index
+        # @return [Array<Message>] failures collected by execution.
+        attr_reader :failures
 
+        # Creates a rule evaluation context. This is primarily used by Contract.
         def initialize(contract:, result:, paths:, context:, default_path: paths.first || [], index: nil)
           @contract = contract
           @result = result
@@ -19,6 +33,7 @@ module Dry
           @base_failures = Failures.new
         end
 
+        # Executes a rule block and macro calls, then collects their failures.
         def execute(block, macro_calls, keyword_params: [])
           execute_block(block, keyword_params) if block
           macro_calls.each { |call| execute_macro(call) }
@@ -26,33 +41,42 @@ module Dry
           self
         end
 
+        # Returns the failure collector for a path, defaulting to the rule path.
         def key(path = default_path)
           normalized = Path.parse(path)
           @key_failures[normalized] ||= Failures.new(normalized)
         end
 
+        # Returns the failure collector for base-level messages.
         def base
           @base_failures
         end
 
+        # Returns the default rule path as a key or nested path.
         def key_name
           default_path.length == 1 ? default_path.first : default_path
         end
 
+        # Returns the value at the rule's primary path, or nil when absent.
         def value
           raw = Path.fetch(values.data, value_path)
           raw.equal?(Path::Undefined) ? nil : raw
         end
 
+        # Returns whether validated output contains a key or path.
         def key?(name = value_path)
           Path.key?(values.data, name)
         end
 
+        # Returns whether the schema has an error at a path.
         def schema_error?(path)
           result.schema_error?(path)
         end
+
+        # Alias for #schema_error?.
         alias error? schema_error?
 
+        # Returns whether a rule error exists at a path or the default path.
         def rule_error?(path = nil)
           if path
             result.rule_error?(path)
@@ -61,14 +85,17 @@ module Dry
           end
         end
 
+        # Returns whether a base-level rule error exists.
         def base_rule_error?
           !base.empty? || result.base_rule_error?
         end
 
+        # Returns the mutable context supplied to the contract call.
         def _context
           context
         end
 
+        # Reports contract methods delegated through this evaluator.
         def respond_to_missing?(name, include_private = false)
           contract.respond_to?(name, true) || super
         end
