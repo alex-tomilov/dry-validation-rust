@@ -6,26 +6,32 @@ module Dry
       class MessageSet
         include Enumerable
 
+        # @return [Hash] rendering options applied to this message set.
         attr_reader :options
 
+        # Creates a message set from messages and optional rendering options.
         def initialize(messages = [], options = {})
           @messages = messages.dup
           @options = options
         end
 
+        # Iterates over messages.
         def each(&)
           @messages.each(&)
         end
 
+        # Returns an immutable snapshot of the messages.
         def messages
           readonly_messages
         end
 
+        # Returns messages at or below a key or path.
         def [](key)
           wanted = Path.parse(key)
           self.class.new(@messages.select { |message| Path.prefix?(message.path, wanted) }, options)
         end
 
+        # Adds a message and invalidates derived views.
         def add(message)
           @messages << message
           @readonly_messages = nil
@@ -33,10 +39,12 @@ module Dry
           self
         end
 
+        # Returns true when this set contains no messages.
         def empty?
           @messages.empty?
         end
 
+        # Returns messages satisfying every supplied message predicate.
         def filter(*predicates)
           self.class.new(
             @messages.select do |message|
@@ -46,6 +54,7 @@ module Dry
           )
         end
 
+        # Returns a copy with rendering options, including full-message text.
         def with(new_options = {})
           merged = options.merge(new_options)
           return self.class.new(@messages, merged) unless merged[:full]
@@ -53,10 +62,12 @@ module Dry
           self.class.new(@messages.map { |message| full_message(message) }, merged)
         end
 
+        # Returns messages grouped into a nested Hash by path.
         def to_h
           @to_h ||= build_nested_hash
         end
 
+        # Freezes this set and its cached derived Hash.
         def freeze
           @messages.freeze
           # Keep the derived representation so callers of a frozen set reuse it.

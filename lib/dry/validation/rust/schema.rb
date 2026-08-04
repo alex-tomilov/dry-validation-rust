@@ -341,8 +341,14 @@ module Dry
           end
         end
 
-        attr_reader :mode, :fields, :engine
+        # @return [Symbol] coercion mode used by this schema.
+        attr_reader :mode
+        # @return [Array<FieldDefinition>] immutable field definitions.
+        attr_reader :fields
+        # @return [Native::Engine] compiled native execution engine.
+        attr_reader :engine
 
+        # Builds a schema from a DSL block and optional Rust schemas to import.
         def self.define(mode = :schema, *external_schemas, &block)
           dsl = DSL.new(mode: mode)
           external_schemas.each { |schema| dsl.import(schema) }
@@ -350,14 +356,17 @@ module Dry
           dsl.compile
         end
 
+        # Builds a Params-mode schema.
         def self.Params(*external_schemas, &)
           define(:params, *external_schemas, &)
         end
 
+        # Builds a JSON-mode schema.
         def self.JSON(*external_schemas, &)
           define(:json, *external_schemas, &)
         end
 
+        # Compiles field definitions into a native schema plan.
         def initialize(mode:, fields:)
           @mode = mode.to_sym
           @fields = fields.freeze
@@ -367,6 +376,7 @@ module Dry
           raise NativeExtensionError, "could not compile native schema plan: #{e.message}"
         end
 
+        # Validates a Hash and returns its output and schema messages.
         def call(input)
           raise ArgumentError, "Input must be a Hash. #{input.class} was given." unless input.is_a?(Hash)
 
@@ -375,12 +385,16 @@ module Dry
           apply_ruby_predicates(fields, output, [], messages)
           SchemaResult.new(output, messages.freeze)
         end
+
+        # Alias for #call.
         alias [] call
 
+        # Returns all declared field paths, including nested array paths.
         def key_paths
           paths_for(fields)
         end
 
+        # Returns a diagnostic representation of this compiled schema.
         def inspect
           "#<#{self.class} mode=#{mode.inspect} fields=#{fields.map(&:name).inspect} native=true>"
         end

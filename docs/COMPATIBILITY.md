@@ -11,6 +11,12 @@ executes the initial corpus against both engines in separate Ruby processes.
 Version, platform, and release-line support are documented in
 [SUPPORT_MATRIX.md](SUPPORT_MATRIX.md).
 
+For `0.1.x`, the side-by-side API rooted at
+`Dry::Validation::Rust::Contract` is stable: a breaking change to its documented
+public surface, including `Schema`, `Result`, `MessageSet`, `Evaluator`, and
+`Values`, requires a minor release. Exact-compatibility entrypoints remain
+experimental and are excluded from this compatibility promise.
+
 Legend:
 
 - ✅ implemented and covered by this prototype's tests;

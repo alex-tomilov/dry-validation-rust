@@ -79,6 +79,15 @@ This is the primary supported API. Version, platform, and upstream-reference
 targets are listed in [SUPPORT_MATRIX.md](docs/SUPPORT_MATRIX.md). Supported
 DSL and semantic differences are listed in [COMPATIBILITY.md](docs/COMPATIBILITY.md).
 
+### Side-by-side API stability
+
+For the `0.1.x` line, the public side-by-side API is
+`Dry::Validation::Rust::Contract` and the directly exposed `Schema`, `Result`,
+`MessageSet`, `Evaluator`, and `Values` types. Their documented public methods
+will not be removed or changed incompatibly in a patch release; a breaking
+side-by-side API change requires the next minor release. The exact-compatibility
+entrypoints are explicitly experimental and are not covered by this promise.
+
 ## Migration-compatible subset
 
 The safe API intentionally keeps familiar contract syntax where that behavior
