@@ -9,7 +9,7 @@ One-page project status for contributors, reviewers, and the maintainer.
 
 | #   | Milestone               | Status         | Notes                                 |
 | --- | ----------------------- | -------------- | ------------------------------------- |
-| 0   | Foundation              | 🔵 Active      | Step 0.1 public side-by-side API lock completed 2026-08-04; SemVer and security policy work remains |
+| 0   | Foundation              | 🔵 Active      | Steps 0.1 public side-by-side API lock and 0.2 SemVer policy completed 2026-08-04; security policy work remains |
 | A   | Trustworthy Baseline    | ✅ Complete    | PRs #48–#51                           |
 | B   | Common Schema Subset    | ✅ Complete    | PRs #49–#56, #65–#71                  |
 | C   | Ordinary Rules Subset   | 🔵 Active      | ~20% done; C-Q3 completed; hot-helper inline hints, cached rule/macro keyword introspection, and `MessageSet#to_h` memoization applied 2026-08-01 |
@@ -42,7 +42,7 @@ One-page project status for contributors, reviewers, and the maintainer.
 
 ## What Is Next
 
-1. Complete Foundation Step 0.2 (SemVer policy) and Step 0.3 (actionable security process).
+1. Complete Foundation Step 0.3 (actionable security process).
 2. Build a dedicated 50-case rule corpus (see Milestone C file for distribution).
 3. Complete remaining C-Q1, C-Q2, and C-Q4 code-quality tasks.
 4. Stress-test rule dependencies and isolation, then wire the rule corpus into differential CI.
@@ -73,7 +73,6 @@ One-page project status for contributors, reviewers, and the maintainer.
 ## Known Debt and Risks
 
 - No published benchmark results (Milestone D).
-- A SemVer policy for native compatibility changes is still pending (Foundation Step 0.2).
 - No precompiled platform gems (Milestone F).
 - No RBS type signatures (Milestone F).
 - Governance documentation may be disproportionate to project scale.
