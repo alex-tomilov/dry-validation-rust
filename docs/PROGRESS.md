@@ -1,7 +1,7 @@
 # Project Progress
 
 Status: living document.
-Last updated: 2026-08-03.
+Last updated: 2026-08-06.
 
 One-page project status for contributors, reviewers, and the maintainer.
 
@@ -15,7 +15,7 @@ One-page project status for contributors, reviewers, and the maintainer.
 | C   | Ordinary Rules Subset   | 🔵 Active      | ~20% done; C-Q3 completed; hot-helper inline hints, cached rule/macro keyword introspection, and `MessageSet#to_h` memoization applied 2026-08-01 |
 | D   | Performance Proof       | 🔵 Active      | Phase 1 steps 1–2 completed 2026-08-03; remaining work blocked on C |
 | E   | Compatibility Slice     | ⚪ Not started | Blocked on D                          |
-| F   | Packaging and Platforms | 🔵 Active      | Cross-compilation for four P0 platforms added 2026-08-04; remaining work is blocked on E |
+| F   | Packaging and Platforms | 🔵 Active      | Cross-compilation for four P0 platforms and a signed, trusted-publishing release workflow added 2026-08-06; publication remains blocked on E |
 | G   | Stable Subset           | ⚪ Not started | Blocked on F                          |
 
 ## What Has Been Accomplished
@@ -46,7 +46,7 @@ One-page project status for contributors, reviewers, and the maintainer.
 2. Complete remaining C-Q1, C-Q2, and C-Q4 code-quality tasks.
 3. Stress-test rule dependencies and isolation, then wire the rule corpus into differential CI.
 4. After Milestone C, complete the remaining Performance Proof steps; Phase 1 path-vector reuse and Ruby class caching are complete.
-5. Complete Milestone E before validating and publishing the P0 precompiled gems configured for Milestone F.
+5. Complete Milestone E, configure the RubyGems trusted publisher for `rubygems-push.yml`, then validate and publish the P0 precompiled gems.
 
 ## Code-Quality Tasks (from Milestone C)
 
@@ -67,13 +67,13 @@ One-page project status for contributors, reviewers, and the maintainer.
 | Rust unit tests            | 18                     |
 | Differential fixture cases | 80+                    |
 | Malformed-input corpus     | 64                     |
-| CI workflows               | 5                      |
+| CI workflows               | 7                      |
 | Documentation files        | 12+                    |
 
 ## Known Debt and Risks
 
 - No published benchmark results (Milestone D).
-- P0 precompiled-gem builds are configured but not yet validated in CI or published (Milestone F).
+- P0 precompiled-gem builds and signed publication workflow are configured but not yet validated in CI or published; RubyGems trusted-publisher setup is still required (Milestone F).
 - No RBS type signatures (Milestone F).
 - Security advisories depend on GitHub private vulnerability reporting remaining enabled.
 - Governance documentation may be disproportionate to project scale.
