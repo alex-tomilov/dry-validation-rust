@@ -231,13 +231,18 @@ class ApiTest < Minitest::Test
     assert_equal "ok\n", stdout
   end
 
-  def test_unsupported_strict_key_configuration_fails_loudly
-    error = assert_raises(Dry::Validation::Rust::UnsupportedFeatureError) do
-      Class.new(Dry::Validation::Rust::Contract) do
-        config.validate_keys = true
-      end
+  def test_validate_keys_configuration_is_inherited
+    parent = build_contract do
+      config.validate_keys = true
+      params { required(:name).value(:string) }
     end
-    assert_match(/validate_keys/, error.message)
+    child = Class.new(parent)
+
+    assert child.config.validate_keys
+    assert_equal(
+      { unexpected: ['is not allowed'] },
+      child.new.call(name: 'Jane', unexpected: true).errors.to_h
+    )
   end
 
   def test_compiled_contract_remains_isolated_during_concurrent_valid_and_invalid_calls

@@ -191,8 +191,8 @@ module Dry
                   'schema after processor hooks are not supported by the native plan yet'
           end
 
-          def compile
-            Schema.new(mode: mode, fields: fields)
+          def compile(validate_keys: false)
+            Schema.new(mode: mode, fields: fields, validate_keys: validate_keys)
           end
 
           private
@@ -367,10 +367,15 @@ module Dry
         end
 
         # Compiles field definitions into a native schema plan.
-        def initialize(mode:, fields:)
+        def initialize(mode:, fields:, validate_keys: false)
           @mode = mode.to_sym
           @fields = fields.freeze
-          plan = { engine_version: ENGINE_VERSION, mode: mode.to_s, fields: fields.map(&:to_native_h) }
+          plan = {
+            engine_version: ENGINE_VERSION,
+            mode: mode.to_s,
+            validate_keys: validate_keys,
+            fields: fields.map(&:to_native_h)
+          }
           @engine = Native::Engine.new(JSON.generate(plan, max_nesting: false))
         rescue StandardError => e
           raise NativeExtensionError, "could not compile native schema plan: #{e.message}"
@@ -432,12 +437,18 @@ module Dry
 
             predicate, args = native_predicate_details(path, code)
             messages << Message.new(
-              text, path: path, code: code, source: :schema,
-                    predicate: predicate, args: args
+              native_error_message(code, text), path: path, code: code, source: :schema,
+                                                predicate: predicate, args: args
             )
           end
 
           messages
+        end
+
+        def native_error_message(code, native_text)
+          return 'is not allowed' if code == :unexpected_key
+
+          native_text
         end
 
         def paths_for(definitions, prefix = [])

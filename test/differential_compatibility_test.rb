@@ -282,8 +282,6 @@ class DifferentialCompatibilityTest < Minitest::Test
         source: 'Class.new(Dry::Validation::Contract) { params { required(:age).value(Object.new) } }', message: /unsupported type or predicate specification: Object/ },
       { name: 'unknown predicate',
         source: 'Class.new(Dry::Validation::Contract) { params { required(:age).value(:integer, unknown?: 1) } }', input: { 'age' => '1' }, message: /predicate :unknown/ },
-      { name: 'strict key configuration',
-        source: 'Class.new(Dry::Validation::Contract) { config.validate_keys = true }', message: /validate_keys/ },
       { name: 'predicate composition',
         source: 'Class.new(Dry::Validation::Contract) { params { required(:age).value(:integer) { gt? 18 } } }', message: /predicate composition/ },
       { name: 'schema before processor hook',
@@ -343,6 +341,16 @@ class DifferentialCompatibilityTest < Minitest::Test
         'schema requires nested symbol keys',
         "Class.new(Dry::Validation::Contract) do\nschema { required(:profile).hash { required(:name).value(:string) } }\nend",
         input_source: '{ profile: { "name" => "Jane" } }'
+      ),
+      source_case(
+        'params rejects unknown keys when configured',
+        <<~RUBY,
+          Class.new(Dry::Validation::Contract) do
+            config.validate_keys = true
+            params { required(:name).value(:string) }
+          end
+        RUBY
+        { 'name' => 'Jane', 'unexpected' => true }
       )
     ]
   end
