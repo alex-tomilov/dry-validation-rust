@@ -59,7 +59,7 @@ Legend:
 | Predicate-composition blocks              | ❌     | Move logic to named predicates/rules      |
 | Schema `before` / `after` processor hooks | ❌     | Arbitrary transforms need callback design |
 | Schema merge operators / AST access       | ❌     |                                           |
-| `config.validate_keys = true`             | ❌     | Raises explicitly; no silent no-op        |
+| `config.validate_keys = true`             | ✅     | Rejects unknown keys in `params` and `json` schemas |
 | Filtering DSL                             | ❌     |                                           |
 
 ## Types and coercions

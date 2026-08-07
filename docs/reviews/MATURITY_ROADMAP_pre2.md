@@ -1,7 +1,7 @@
 # Maturity Roadmap: From Prototype to Production-Ready Library
 
-> Target: `dry-validation-rust` @ develop (0.1.0.pre2)  
-> Review date: 2026-08-04  
+> Target: `dry-validation-rust` @ develop (0.1.0.pre2)
+> Review date: 2026-08-04
 > Goal: Transform the current feasibility prototype into a mature, trusted public dependency.
 
 ---
@@ -32,16 +32,16 @@ The codebase has evolved rapidly from pre1 to pre2. Many internal quality issues
 
 pre2 addressed a significant portion of the pre1 maturity feedback:
 
-| Area | pre1 Gap | pre2 Fix |
-|------|----------|----------|
-| **Rust architecture** | Monolithic `process_value` | Phased: `coerce_and_validate_type`, `process_children`, `apply_field_predicates` |
-| **Native efficiency** | String-matched predicates, allocating boolean coercion | `PredicateOp` enum, `eq_ignore_ascii_case` |
-| **Ruby path lookups** | Linear scans in `dependency_error?`, `apply_ruby_predicates`, `field_at_path` | Hash-backed `child_at`, `error_paths` Set, `schema_error_path_prefixes` |
-| **Rule execution** | `block.parameters` introspected on every call | Cached via `BlockKeywordParameters.extract` |
-| **Error format** | Tuple arrays created per-error | Flat native buffer with version header |
-| **Class resolution** | Recursive plan walk per engine instance | `used_kinds` HashSet pre-computed at plan parse |
-| **Build hygiene** | Magnus exact-pin, no package manifest check | `~0.8.2` semver pin, `cargo package --list` in CI |
-| **Safety** | No depth limits | `MAX_TRAVERSAL_DEPTH` (128) + `MAX_PLAN_JSON_NESTING` (512) |
+| Area                  | pre1 Gap                                                                      | pre2 Fix                                                                         |
+| --------------------- | ----------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| **Rust architecture** | Monolithic `process_value`                                                    | Phased: `coerce_and_validate_type`, `process_children`, `apply_field_predicates` |
+| **Native efficiency** | String-matched predicates, allocating boolean coercion                        | `PredicateOp` enum, `eq_ignore_ascii_case`                                       |
+| **Ruby path lookups** | Linear scans in `dependency_error?`, `apply_ruby_predicates`, `field_at_path` | Hash-backed `child_at`, `error_paths` Set, `schema_error_path_prefixes`          |
+| **Rule execution**    | `block.parameters` introspected on every call                                 | Cached via `BlockKeywordParameters.extract`                                      |
+| **Error format**      | Tuple arrays created per-error                                                | Flat native buffer with version header                                           |
+| **Class resolution**  | Recursive plan walk per engine instance                                       | `used_kinds` HashSet pre-computed at plan parse                                  |
+| **Build hygiene**     | Magnus exact-pin, no package manifest check                                   | `~0.8.2` semver pin, `cargo package --list` in CI                                |
+| **Safety**            | No depth limits                                                               | `MAX_TRAVERSAL_DEPTH` (128) + `MAX_PLAN_JSON_NESTING` (512)                      |
 
 This is excellent progress. The remaining work is **external-facing** rather than **internal cleanup**.
 
@@ -56,6 +56,7 @@ This is excellent progress. The remaining work is **external-facing** rather tha
 **Why:** You cannot iterate on distribution or compatibility if the API is still moving.
 
 **Acceptance criteria:**
+
 - All public methods on `Contract`, `Schema`, `Result`, `MessageSet`, `Evaluator`, `Values` have YARD documentation.
 - No breaking changes to side-by-side mode without a minor version bump.
 - Exact-compatibility mode remains explicitly experimental.
@@ -72,14 +73,14 @@ This is excellent progress. The remaining work is **external-facing** rather tha
 
 **Policy draft:**
 
-| Change type | Version bump |
-|-------------|-------------|
+| Change type                         | Version bump    |
+| ----------------------------------- | --------------- |
 | New Ruby predicate / schema feature | Minor (`0.x.0`) |
-| New platform gem | Minor (`0.x.0`) |
-| Rust MSRV increase | Minor (`0.x.0`) |
-| Removal of supported platform | Major (`x.0.0`) |
-| Public Ruby API change | Major (`x.0.0`) |
-| Native ABI change (Magnus version) | Major (`x.0.0`) |
+| New platform gem                    | Minor (`0.x.0`) |
+| Rust MSRV increase                  | Minor (`0.x.0`) |
+| Removal of supported platform       | Major (`x.0.0`) |
+| Public Ruby API change              | Major (`x.0.0`) |
+| Native ABI change (Magnus version)  | Major (`x.0.0`) |
 
 **Effort:** 1 day
 
@@ -90,6 +91,7 @@ This is excellent progress. The remaining work is **external-facing** rather tha
 **What:** You have the file. Make it actionable.
 
 **Required additions:**
+
 - A dedicated security email or GitHub private vulnerability reporting enabled.
 - A documented embargo period (e.g., 90 days after fix release).
 - A `cargo audit` + `bundle audit` schedule (weekly in CI).
@@ -108,20 +110,21 @@ This is excellent progress. The remaining work is **external-facing** rather tha
 
 **Target platforms (minimum viable):**
 
-| Platform | Gem platform name | Priority |
-|----------|-------------------|----------|
-| x86_64 Linux (glibc) | `x86_64-linux` | P0 |
-| aarch64 Linux (glibc) | `aarch64-linux` | P0 |
-| x86_64 Linux (musl) | `x86_64-linux-musl` | P1 |
-| aarch64 Linux (musl) | `aarch64-linux-musl` | P1 |
-| x86_64 macOS | `x86_64-darwin` | P0 |
-| arm64 macOS | `arm64-darwin` | P0 |
-| x64 Windows (UCRT) | `x64-mingw-ucrt` | P2 |
+| Platform              | Gem platform name    | Priority |
+| --------------------- | -------------------- | -------- |
+| x86_64 Linux (glibc)  | `x86_64-linux`       | P0       |
+| aarch64 Linux (glibc) | `aarch64-linux`      | P0       |
+| x86_64 Linux (musl)   | `x86_64-linux-musl`  | P1       |
+| aarch64 Linux (musl)  | `aarch64-linux-musl` | P1       |
+| x86_64 macOS          | `x86_64-darwin`      | P0       |
+| arm64 macOS           | `arm64-darwin`       | P0       |
+| x64 Windows (UCRT)    | `x64-mingw-ucrt`     | P2       |
 
 **Implementation path:**
 
 1. Add `rake-compiler` and `rake-compiler-dock` to `:development` dependencies.
 2. Create `Rakefile` tasks:
+
    ```ruby
    require "rake/extensiontask"
    require "rb_sys"
@@ -133,10 +136,11 @@ This is excellent progress. The remaining work is **external-facing** rather tha
      ext.cross_platform = %w[x86_64-linux aarch64-linux x86_64-darwin arm64-darwin]
    end
    ```
+
 3. Add a GitHub Actions workflow that runs on release tags, builds all platforms in parallel, and uploads artifacts.
 4. Use `gem push` with multiple `--platform` arguments, or use a release script.
 
-**Effort:** 3–5 days  
+**Effort:** 3–5 days
 **Blockers:** None
 
 ---
@@ -144,6 +148,7 @@ This is excellent progress. The remaining work is **external-facing** rather tha
 ### Step 1.2 — Add a `rubygems:push` workflow with artifact signing
 
 **What:** Automate the release so that pushing a git tag triggers:
+
 1. Version bump verification (tag == `lib/dry/validation/rust/version.rb`).
 2. Full CI pass.
 3. Cross-compilation of all platform gems.
@@ -161,19 +166,22 @@ This is excellent progress. The remaining work is **external-facing** rather tha
 
 **What:** Update README with:
 
-```markdown
+````markdown
 ## Installation
 
 ### Precompiled (recommended)
+
 ```bash
 gem install dry-validation-rust
 ```
+````
 
 ### From source
+
 Requires Rust 1.85+, libclang, and a C toolchain.
+
 ```bash
 gem install dry-validation-rust --platform ruby
-```
 ```
 
 **Effort:** 2 hours
@@ -191,12 +199,13 @@ gem install dry-validation-rust --platform ruby
 **Why:** This is one of the most commonly used dry-schema features. Its absence is a silent behavioral difference that breaks security-sensitive forms.
 
 **Implementation sketch:**
+
 1. Add `validate_keys` to the JSON plan.
 2. In `engine.rs` `process_hash`, after processing declared fields, iterate remaining keys in the input hash.
 3. Emit `NativeError` with code `"unexpected_key"`.
 4. On the Ruby side, map `"unexpected_key"` to the standard dry-schema message text.
 
-**Effort:** 1–2 days  
+**Effort:** 1–2 days
 **Priority:** P0
 
 ---
@@ -208,12 +217,13 @@ gem install dry-validation-rust --platform ruby
 **Why:** Extremely common in real-world dry-validation contracts. Currently raises `UnsupportedFeatureError`.
 
 **Implementation sketch:**
+
 1. In `Schema::FieldBuilder#value`, accept a block.
 2. If a block is given, evaluate it in a mini-DSL context that collects predicates.
 3. Serialize the collected predicates into the plan as a nested `predicates` array.
 4. The Rust engine already supports multiple predicates per field; this is mostly a Ruby DSL change.
 
-**Effort:** 2–3 days  
+**Effort:** 2–3 days
 **Priority:** P0
 
 ---
@@ -231,7 +241,7 @@ gem install dry-validation-rust --platform ruby
 
 **Recommendation:** Implement option 1. It gives users a migration path without requiring a full dry-types reimplementation in Rust.
 
-**Effort:** 2–3 days  
+**Effort:** 2–3 days
 **Priority:** P1
 
 ---
@@ -243,13 +253,14 @@ gem install dry-validation-rust --platform ruby
 **Why:** Rails teams depend on localized validation messages. The current hardcoded English messages are a blocker.
 
 **Implementation sketch:**
+
 1. Add `MessageConfig` backend switching (already partially present).
 2. For `:yaml`, load `.yml` files into a nested hash keyed by locale → key → text template.
 3. Replace `predicate_message` in `schema.rb` with a lookup into the message backend.
 4. Support token interpolation (`%{num}` → actual value).
 5. For `:i18n`, delegate to the `i18n` gem with the standard dry-validation key namespace.
 
-**Effort:** 4–5 days  
+**Effort:** 4–5 days
 **Priority:** P1
 
 ---
@@ -261,11 +272,12 @@ gem install dry-validation-rust --platform ruby
 **Why:** Common for sanitization (strip whitespace, normalize phone numbers).
 
 **Implementation sketch:**
+
 1. Collect hooks in the Ruby DSL.
 2. Apply them in order before/after the native engine call.
 3. Because hooks are arbitrary Ruby blocks, they cannot run inside Rust. Run them on the Ruby side, feeding the sanitized hash into the engine.
 
-**Effort:** 2 days  
+**Effort:** 2 days
 **Priority:** P2
 
 ---
@@ -280,23 +292,24 @@ gem install dry-validation-rust --platform ruby
 
 **Benchmark scenarios:**
 
-| Scenario | Schema size | Payload | Mix | Why it matters |
-|----------|------------|---------|-----|----------------|
-| Small form | 5 fields | 5 keys | 100% valid | Web request baseline |
-| Medium form | 25 fields | 25 keys | 80% valid | Typical API payload |
-| Large form | 100 fields | 100 keys | 50% valid | Stress test |
-| Nested object | 10 levels deep | 10 levels | 100% valid | Deep traversal cost |
-| Array of objects | 100 items × 5 fields | 500 keys | 90% valid | Array member overhead |
-| All-invalid | 20 fields | 20 keys | 0% valid | Error-path allocation |
+| Scenario         | Schema size          | Payload   | Mix        | Why it matters        |
+| ---------------- | -------------------- | --------- | ---------- | --------------------- |
+| Small form       | 5 fields             | 5 keys    | 100% valid | Web request baseline  |
+| Medium form      | 25 fields            | 25 keys   | 80% valid  | Typical API payload   |
+| Large form       | 100 fields           | 100 keys  | 50% valid  | Stress test           |
+| Nested object    | 10 levels deep       | 10 levels | 100% valid | Deep traversal cost   |
+| Array of objects | 100 items × 5 fields | 500 keys  | 90% valid  | Array member overhead |
+| All-invalid      | 20 fields            | 20 keys   | 0% valid   | Error-path allocation |
 
 **Metrics to capture:**
+
 - Throughput (validations/second)
 - Latency (p50, p95, p99)
 - Ruby allocations per call (`GC.stat`)
 - Native allocations (if possible via `dhat` or custom counters)
 - Peak RSS under sustained load
 
-**Effort:** 3–4 days  
+**Effort:** 3–4 days
 **Priority:** P0
 
 ---
@@ -306,6 +319,7 @@ gem install dry-validation-rust --platform ruby
 **What:** A CI job that fails if allocations per call increase by >5% compared to `main`.
 
 **Implementation:**
+
 ```ruby
 # test/memory_regression_test.rb
 require "memory_profiler"
@@ -324,7 +338,7 @@ assert actual <= baseline["allocations_per_call"] * 1.05,
        "Allocations regressed: #{actual} vs baseline #{baseline["allocations_per_call"]}"
 ```
 
-**Effort:** 1 day  
+**Effort:** 1 day
 **Priority:** P1
 
 ---
@@ -334,6 +348,7 @@ assert actual <= baseline["allocations_per_call"] * 1.05,
 **What:** Fuzz `parse_plan` with random JSON to ensure no panics, no undefined behavior, and graceful error handling.
 
 **Implementation:**
+
 ```bash
 cargo install cargo-fuzz
 cargo fuzz add parse_plan
@@ -341,10 +356,11 @@ cargo fuzz run parse_plan -- -max_total_time=300
 ```
 
 **Acceptance criteria:**
+
 - 5 minutes of fuzzing without panics.
 - All malformed JSON produces a clean `ArgumentError` on the Ruby side.
 
-**Effort:** 1–2 days  
+**Effort:** 1–2 days
 **Priority:** P1
 
 ---
@@ -356,6 +372,7 @@ cargo fuzz run parse_plan -- -max_total_time=300
 **Why:** Ruby objects are complex. A `Hash` with a custom `default_proc` or a cyclic reference could confuse the Rust traversal if assumptions are violated.
 
 **Implementation sketch:**
+
 ```ruby
 # test/fuzz_engine_test.rb
 require "fuzzbert"
@@ -372,7 +389,7 @@ fuzz "random hash input" do
 end
 ```
 
-**Effort:** 2 days  
+**Effort:** 2 days
 **Priority:** P1
 
 ---
@@ -382,13 +399,14 @@ end
 **What:** The README correctly notes that the engine holds the GVL. Profile with `rbspy` or `perf` to find the biggest contributors.
 
 **Likely hotspots to verify:**
+
 1. `RHash::get` / `RHash::aset` — can these be batched?
 2. `coerce` calling back into Ruby (`Kernel#Integer`, `Kernel#Float`, `Date.iso8601`).
 3. `native_error_buffer_version` doing 4 constant lookups per call (see Refactoring §1.2).
 
 **If profiling confirms significant time in Ruby callbacks:** Document it and add a "fast path" for common coercions (e.g., inline integer parsing in Rust instead of calling `Kernel#Integer`).
 
-**Effort:** 2–3 days  
+**Effort:** 2–3 days
 **Priority:** P2
 
 ---
@@ -411,11 +429,12 @@ dry-validation-rust-compat/    # exact shim (optional, depends on main gem)
 ```
 
 **Migration path for users:**
+
 1. Install `dry-validation-rust`, use side-by-side mode.
 2. Once fully validated, add `dry-validation-rust-compat` and remove upstream gem.
 3. If something breaks, remove `-compat` and fall back to side-by-side.
 
-**Effort:** 2 days  
+**Effort:** 2 days
 **Priority:** P1
 
 ---
@@ -427,6 +446,7 @@ dry-validation-rust-compat/    # exact shim (optional, depends on main gem)
 **Why:** Native extensions can cache pointers or plans at the class level. If the Ruby class is reloaded but the Rust plan is not, subtle bugs appear.
 
 **Test:**
+
 ```ruby
 # In a Rails integration test
 contract_class = Class.new(Dry::Validation::Rust::Contract) { ... }
@@ -435,7 +455,7 @@ MyContract = contract_class
 # Call it, verify results are correct
 ```
 
-**Effort:** 1 day  
+**Effort:** 1 day
 **Priority:** P2
 
 ---
@@ -446,7 +466,7 @@ MyContract = contract_class
 
 **Why:** Many dry-rb users rely on DI. If option resolution conflicts with auto-inject's keyword handling, it breaks the ecosystem promise.
 
-**Effort:** 1 day  
+**Effort:** 1 day
 **Priority:** P2
 
 ---
@@ -456,6 +476,7 @@ MyContract = contract_class
 **What:** Either certify Ractor safety or explicitly reject it with a clear error.
 
 **Test:**
+
 ```ruby
 contract = MyContract.new
 ractor = Ractor.new(contract) do |c|
@@ -465,13 +486,14 @@ result = ractor.take
 ```
 
 **If it crashes:** Add a guard in `Contract#call`:
+
 ```ruby
 raise UnsupportedFeatureError, "Ractor usage is not supported" if defined?(Ractor) && Ractor.current != Ractor.main
 ```
 
 **If it works:** Add to compatibility matrix as a selling point.
 
-**Effort:** 1 day  
+**Effort:** 1 day
 **Priority:** P2
 
 ---
@@ -483,6 +505,7 @@ raise UnsupportedFeatureError, "Ractor usage is not supported" if defined?(Racto
 **What:** Before claiming compatibility or marketing the gem, open a friendly issue/discussion with the Hanami/dry-rb team.
 
 **Topics to cover:**
+
 - Your goals (performance-oriented hybrid, not a hostile fork).
 - The name (`dry-validation-rust`) — is it acceptable or should it change?
 - Whether they'd accept a link in dry-rb docs as an "alternative implementation."
@@ -490,7 +513,7 @@ raise UnsupportedFeatureError, "Ractor usage is not supported" if defined?(Racto
 
 **Why:** Getting ahead of social/legal friction is cheaper than dealing with it after you have users.
 
-**Effort:** 1 day (writing) + async wait for response  
+**Effort:** 1 day (writing) + async wait for response
 **Priority:** P0
 
 ---
@@ -500,13 +523,14 @@ raise UnsupportedFeatureError, "Ractor usage is not supported" if defined?(Racto
 **What:** A user-facing guide that assumes zero Rust knowledge.
 
 **Required sections:**
+
 1. Installation (precompiled vs. from source)
 2. Your first contract (side-by-side mode)
 3. Migration checklist from upstream dry-validation
 4. Common pitfalls (exact mode collision, unsupported features)
 5. Performance tuning tips
 
-**Effort:** 2–3 days  
+**Effort:** 2–3 days
 **Priority:** P1
 
 ---
@@ -516,6 +540,7 @@ raise UnsupportedFeatureError, "Ractor usage is not supported" if defined?(Racto
 **What:** Document every public class and method.
 
 **Classes to document:**
+
 - `Dry::Validation::Rust::Contract`
 - `Dry::Validation::Rust::Schema`
 - `Dry::Validation::Rust::Result`
@@ -523,7 +548,7 @@ raise UnsupportedFeatureError, "Ractor usage is not supported" if defined?(Racto
 - `Dry::Validation::Rust::Evaluator`
 - `Dry::Validation::Rust::Values`
 
-**Effort:** 2 days  
+**Effort:** 2 days
 **Priority:** P1
 
 ---
@@ -533,6 +558,7 @@ raise UnsupportedFeatureError, "Ractor usage is not supported" if defined?(Racto
 **What:** Move from ad-hoc releases to a predictable schedule.
 
 **Proposal:**
+
 - Patch releases (`0.1.x`) every 2 weeks for bug fixes.
 - Minor releases (`0.x.0`) every 6–8 weeks for new features.
 - Major release (`1.0.0`) when:
@@ -541,7 +567,7 @@ raise UnsupportedFeatureError, "Ractor usage is not supported" if defined?(Racto
   - Precompiled gems cover all Tier-1 platforms
   - At least one production user has publicly endorsed it
 
-**Effort:** Ongoing  
+**Effort:** Ongoing
 **Priority:** P1
 
 ---
@@ -555,14 +581,14 @@ raise UnsupportedFeatureError, "Ractor usage is not supported" if defined?(Racto
 **Example output:**
 
 ```markdown
-| Scenario | dry-validation-rust | dry-validation | Ratio |
-|----------|--------------------:|---------------:|------:|
-| Small form (valid) | 450,000/s | 120,000/s | 3.75× |
-| Medium form (mixed) | 180,000/s | 55,000/s | 3.27× |
-| Allocations/call | 12 | 89 | 0.13× |
+| Scenario            | dry-validation-rust | dry-validation | Ratio |
+| ------------------- | ------------------: | -------------: | ----: |
+| Small form (valid)  |           450,000/s |      120,000/s | 3.75× |
+| Medium form (mixed) |           180,000/s |       55,000/s | 3.27× |
+| Allocations/call    |                  12 |             89 | 0.13× |
 ```
 
-**Effort:** 2 days  
+**Effort:** 2 days
 **Priority:** P2
 
 ---
@@ -591,6 +617,7 @@ Store these in `docs/decisions/`.
 ## Summary: Priority-Ordered Task List
 
 ### P0 — Blockers for any production claim
+
 1. Lock side-by-side API + SemVer policy
 2. Ship precompiled platform gems (Step 1.1)
 3. Implement `config.validate_keys = true` (Step 2.1)
@@ -599,6 +626,7 @@ Store these in `docs/decisions/`.
 6. Reach out to dry-rb maintainers (Step 5.1)
 
 ### P1 — Needed for confident adoption
+
 7. Automate release pipeline with signing (Step 1.2)
 8. Support custom types via Ruby fallback (Step 2.3)
 9. Implement I18n/YAML message backend (Step 2.4)
@@ -610,6 +638,7 @@ Store these in `docs/decisions/`.
 15. Establish release cadence (Step 5.4)
 
 ### P2 — Nice to have, do after P0/P1
+
 16. Implement `before`/`after` hooks (Step 2.5)
 17. Profile and optimize GVL path (Step 3.5)
 18. Test Rails autoload/reload (Step 4.2)
@@ -619,4 +648,4 @@ Store these in `docs/decisions/`.
 
 ---
 
-*End of maturity roadmap (pre2).*"
+_End of maturity roadmap (pre2)._"

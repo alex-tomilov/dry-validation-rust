@@ -1,6 +1,6 @@
 use magnus::{
     DataTypeFunctions, Error, Integer, RArray, RClass, RHash, RModule, Ruby, TypedData, Value,
-    gc::Marker, prelude::*,
+    gc::Marker, prelude::*, r_hash::ForEach,
 };
 
 use crate::{
@@ -37,6 +37,7 @@ struct Traversal<'a> {
     ruby: &'a Ruby,
     classes: &'a RuntimeClasses,
     mode: Mode,
+    validate_keys: bool,
     errors: &'a mut Vec<NativeError>,
 }
 
@@ -64,6 +65,7 @@ impl Engine {
                 ruby: &ruby,
                 classes: &self.classes,
                 mode: self.plan.mode,
+                validate_keys: self.plan.validate_keys,
                 errors: &mut errors,
             };
             process_hash(&mut traversal, &self.plan.fields, input, &mut Vec::new(), 0)?
@@ -134,7 +136,39 @@ fn process_hash(
     for field in fields {
         process_field(traversal, &output, field, input, path, depth)?;
     }
+    report_unexpected_keys(traversal, fields, input, path)?;
     Ok(output)
+}
+
+fn report_unexpected_keys(
+    traversal: &mut Traversal<'_>,
+    fields: &[FieldPlan],
+    input: RHash,
+    path: &[PathPart],
+) -> Result<(), Error> {
+    if !traversal.validate_keys || traversal.mode == Mode::Schema {
+        return Ok(());
+    }
+
+    input.foreach(|key: Value, _: Value| {
+        let mut declared = false;
+        for field in fields {
+            let name = field.name.as_deref().unwrap_or_default();
+            if key.eql(traversal.ruby.to_symbol(name))? || key.eql(traversal.ruby.str_new(name))? {
+                declared = true;
+                break;
+            }
+        }
+        if !declared {
+            let key_name: String = key.funcall("to_s", ())?;
+            let mut error_path = path.to_vec();
+            error_path.push(PathPart::Key(key_name));
+            traversal
+                .errors
+                .push(NativeError::new(&error_path, "unexpected_key", ""));
+        }
+        Ok(ForEach::Continue)
+    })
 }
 
 fn process_field(

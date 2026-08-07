@@ -168,6 +168,8 @@ pub(crate) struct FieldPlan {
 pub(crate) struct SchemaPlan {
     pub(crate) engine_version: u32,
     pub(crate) mode: Mode,
+    #[serde(default)]
+    pub(crate) validate_keys: bool,
     pub(crate) fields: Vec<FieldPlan>,
     #[serde(skip)]
     pub(crate) used_kinds: HashSet<String>,

@@ -127,6 +127,51 @@ class SchemaTest < Minitest::Test
     assert_equal({ profile: ['is missing'] }, schema_result.errors.to_h)
   end
 
+  def test_validate_keys_rejects_unknown_keys_in_params_and_json_at_every_hash_level
+    declaration = proc do
+      required(:profile).hash { required(:name).value(:string) }
+      required(:people).array(:hash) { required(:id).value(:integer) }
+    end
+    params = build_contract do
+      config.validate_keys = true
+      params(&declaration)
+    end
+    json = build_contract do
+      config.validate_keys = true
+      json(&declaration)
+    end
+    input = {
+      'unexpected' => true,
+      'profile' => { 'name' => 'Jane', 'unexpected' => true },
+      'people' => [{ 'id' => 1, 'unexpected' => true }]
+    }
+    expected_errors = {
+      unexpected: ['is not allowed'],
+      profile: { unexpected: ['is not allowed'] },
+      people: { 0 => { unexpected: ['is not allowed'] } }
+    }
+
+    [params, json].each do |contract|
+      result = contract.new.call(input)
+
+      assert_equal expected_errors, result.errors.to_h
+      assert_equal({ profile: { name: 'Jane' }, people: [{ id: 1 }] }, result.to_h)
+      assert_equal %i[unexpected_key unexpected_key unexpected_key], result.errors.map(&:code)
+    end
+  end
+
+  def test_validate_keys_does_not_make_schema_mode_strict
+    contract = build_contract do
+      config.validate_keys = true
+      schema { required(:name).value(:string) }
+    end
+
+    result = contract.new.call(name: 'Jane', unexpected: true)
+
+    assert result.success?
+    assert_equal({ name: 'Jane' }, result.to_h)
+  end
+
   def test_schema_mode_requires_symbol_keys_at_each_nested_level
     contract = build_contract do
       schema do

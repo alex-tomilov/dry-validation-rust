@@ -116,7 +116,7 @@ module Dry
             builder.import(parent) if parent
             external_schemas.each { |external| builder.import(external) }
             builder.instance_eval(&block) if block
-            @schema_definition = builder.compile
+            @schema_definition = builder.compile(validate_keys: config.validate_keys)
           end
 
           def ensure_valid_paths(paths)
