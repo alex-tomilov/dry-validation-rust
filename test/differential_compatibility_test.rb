@@ -225,6 +225,8 @@ class DifferentialCompatibilityTest < Minitest::Test
                   { 'role' => 'user' }),
       schema_case('inequality predicate', 'params { required(:role).value(:string, not_eql?: "admin") }',
                   { 'role' => 'admin' }),
+      schema_case('predicate composition block', 'params { required(:age).value(:integer) { gt? 18 } }',
+                  { 'age' => '18' }),
       schema_case('json does not coerce', 'json { required(:age).value(:integer) }', { 'age' => '42' }),
       schema_case('schema retains symbol keys', 'schema { required(:age).value(:integer) }', { age: 42 }),
       rule_case('single key rule',
@@ -282,8 +284,6 @@ class DifferentialCompatibilityTest < Minitest::Test
         source: 'Class.new(Dry::Validation::Contract) { params { required(:age).value(Object.new) } }', message: /unsupported type or predicate specification: Object/ },
       { name: 'unknown predicate',
         source: 'Class.new(Dry::Validation::Contract) { params { required(:age).value(:integer, unknown?: 1) } }', input: { 'age' => '1' }, message: /predicate :unknown/ },
-      { name: 'predicate composition',
-        source: 'Class.new(Dry::Validation::Contract) { params { required(:age).value(:integer) { gt? 18 } } }', message: /predicate composition/ },
       { name: 'schema before processor hook',
         source: 'Class.new(Dry::Validation::Contract) { params { before(:value_coercer) { |input| input } } }', message: /schema before processor hooks/ },
       { name: 'schema after processor hook', source: 'Class.new(Dry::Validation::Contract) { params { after(:value_coercer) { |input| input } } }', message: /schema after processor hooks/ }

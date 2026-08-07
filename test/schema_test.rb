@@ -415,6 +415,49 @@ class SchemaTest < Minitest::Test
     assert_equal 'must be greater than or equal to 18', result.errors.to_h[:age].first
   end
 
+  def test_predicate_composition_blocks_collect_native_and_ruby_predicates
+    contract = build_contract do
+      params do
+        required(:age).value(:integer) { gt? 18 }
+        required(:email).value(:string) { format?(/\A[^@]+@[^@]+\z/) }
+      end
+    end
+
+    invalid = contract.new.call(age: '18', email: 'invalid')
+    valid = contract.new.call(age: '19', email: 'jane@example.test')
+
+    assert_equal({ age: ['must be greater than 18'], email: ['is in invalid format'] }, invalid.errors.to_h)
+    assert_equal %i[gt? format?], invalid.errors.map(&:predicate)
+    assert valid.success?
+  end
+
+  def test_predicate_composition_blocks_reject_non_predicate_expressions_explicitly
+    error = assert_raises(Dry::Validation::Rust::UnsupportedFeatureError) do
+      build_contract do
+        params { required(:age).value(:integer) { required(:child) } }
+      end
+    end
+
+    assert_equal 'unsupported predicate composition expression: :required', error.message
+  end
+
+  def test_value_hash_blocks_continue_to_define_nested_fields
+    contract = build_contract do
+      params do
+        required(:profile).value(:hash) do
+          required(:name).value(:string)
+        end
+      end
+    end
+
+    valid = contract.new.call(profile: { name: 'Jane' })
+    invalid = contract.new.call(profile: {})
+
+    assert_equal({ profile: { name: 'Jane' } }, valid.to_h)
+    assert valid.success?
+    assert_equal({ profile: { name: ['is missing'] } }, invalid.errors.to_h)
+  end
+
   def test_ruby_predicates_are_skipped_for_paths_with_native_errors
     contract = build_contract do
       params do

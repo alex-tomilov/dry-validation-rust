@@ -220,11 +220,7 @@ module Dry
           def value(*specs, **predicates, &block)
             apply_specs(specs, predicates)
             if block
-              unless definition.type == :hash || (definition.type == :array && definition.member&.type == :hash)
-                raise UnsupportedFeatureError,
-                      'predicate composition blocks are not supported yet; use named predicates or a contract rule'
-              end
-              nested_target(block)
+              nested_value_block? ? nested_target(block) : PredicateBlock.new(definition).instance_eval(&block)
             end
             self
           end
@@ -326,6 +322,10 @@ module Dry
             type == :datetime ? :date_time : type
           end
 
+          def nested_value_block?
+            definition.type == :hash || (definition.type == :array && definition.member&.type == :hash)
+          end
+
           def nested_target(block)
             if definition.type == :hash
               nested = DSL.new(mode: mode)
@@ -338,6 +338,31 @@ module Dry
               nested.instance_eval(&block)
               definition.member.children = nested.fields
             end
+          end
+        end
+
+        class PredicateBlock
+          def initialize(definition)
+            @definition = definition
+          end
+
+          def method_missing(name, *args, **kwargs, &block)
+            if name.to_s.end_with?('?') && block.nil?
+              argument = if kwargs.empty?
+                           args.length <= 1 ? args.first : args
+                         else
+                           kwargs
+                         end
+              @definition.add_predicate(name, argument: argument.nil? || argument)
+              return self
+            end
+
+            raise UnsupportedFeatureError,
+                  "unsupported predicate composition expression: #{name.inspect}"
+          end
+
+          def respond_to_missing?(name, include_private = false)
+            name.to_s.end_with?('?') || super
           end
         end
 

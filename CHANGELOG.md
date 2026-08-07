@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Added supported predicate-composition blocks to schema value declarations.
 - Documented the coordinated vulnerability-disclosure process, including a
   90-day post-fix-release embargo and the weekly dependency-audit schedule.
 
