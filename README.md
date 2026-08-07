@@ -39,6 +39,27 @@ desirable. Calling those blocks through Ruby preserves the feature that makes
   version-pinned differential evidence.
 - It does not claim general speedups without representative benchmarks.
 
+## Installation
+
+### Precompiled (recommended)
+
+When a precompiled gem is published for your platform, install it with:
+
+```bash
+gem install dry-validation-rust
+```
+
+The current `0.1.x` support target is source builds; see the
+[support matrix](docs/SUPPORT_MATRIX.md) for the authoritative platform status.
+
+### From source
+
+Requires Rust 1.85 or newer, libclang, and a C toolchain.
+
+```bash
+gem install dry-validation-rust --platform ruby
+```
+
 ## Primary safe API
 
 Use the side-by-side namespace first:
