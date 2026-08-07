@@ -56,7 +56,7 @@ Legend:
 | Contract schema inheritance               | ✅     | Child schema extends parent               |
 | Multiple schema declaration guard         | ✅     | Raises `DuplicateSchemaError`             |
 | Key validation when declaring rules       | ✅     | Common nested paths                       |
-| Predicate-composition blocks              | ❌     | Move logic to named predicates/rules      |
+| Predicate-composition blocks              | ✅     | Supported predicates only; boolean AST composition is unsupported |
 | Schema `before` / `after` processor hooks | ❌     | Arbitrary transforms need callback design |
 | Schema merge operators / AST access       | ❌     |                                           |
 | `config.validate_keys = true`             | ✅     | Rejects unknown keys in `params` and `json` schemas |
@@ -98,7 +98,7 @@ and symbols. This is a focused compatibility slice, not a claim of complete
 | `included_in?`, `excluded_from?`    | ✅     | Ruby                        |
 | `eql?`, `not_eql?`                  | ✅     | Ruby                        |
 | Arbitrary/custom predicate name     | ❌     | Explicit error at execution |
-| Boolean predicate AST composition   | ❌     |                             |
+| Boolean predicate AST composition   | ❌     | Predicate blocks support sequential calls only |
 | UUID and other dry-logic predicates | ❌     |                             |
 
 Ruby-owned predicates execute after structural processing and are skipped when
