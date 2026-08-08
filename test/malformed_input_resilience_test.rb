@@ -34,7 +34,6 @@ class MalformedInputResilienceTest < Minitest::Test
   def test_unsupported_declarations_fail_with_stable_errors
     declarations = [
       proc { build_contract { params { required(:age).value(:integer, unknown?: 1) } } },
-      proc { build_contract { params { before(:coerce) { nil } } } },
       proc { build_contract { params { required(:age).value(:integer) { required(:child) } } } }
     ]
 

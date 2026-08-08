@@ -44,6 +44,27 @@ module Dry
         end
       end
 
+      class ProcessorHooks
+        STAGES = %i[value_coercer].freeze
+
+        def self.register(hooks, name, block)
+          unless STAGES.include?(name)
+            raise ArgumentError, "Undefined step name #{name.inspect}. Available names: #{STAGES.inspect}"
+          end
+          raise ArgumentError, 'processor hooks require a block' unless block
+
+          hooks << block
+        end
+
+        def self.apply(hooks, data)
+          hooks.each do |hook|
+            replacement = hook.call(data)
+            data = replacement if replacement.is_a?(Hash)
+          end
+          data
+        end
+      end
+
       class Schema
         TYPES = %i[
           any nil bool true false integer float decimal string symbol array hash
@@ -153,11 +174,13 @@ module Dry
         end
 
         class DSL
-          attr_reader :mode, :fields
+          attr_reader :mode, :fields, :before_hooks, :after_hooks
 
-          def initialize(mode:, fields: [])
+          def initialize(mode:, fields: [], before_hooks: [], after_hooks: [])
             @mode = mode.to_sym
             @fields = fields
+            @before_hooks = before_hooks
+            @after_hooks = after_hooks
           end
 
           def required(name, &)
@@ -180,21 +203,26 @@ module Dry
 
               fields << field.deep_dup
             end
+            before_hooks.concat(schema.send(:before_hooks))
+            after_hooks.concat(schema.send(:after_hooks))
             self
           end
 
-          def before(*_args, &)
-            raise UnsupportedFeatureError,
-                  'schema before processor hooks are not supported by the native plan yet'
+          def before(name, &block)
+            ProcessorHooks.register(before_hooks, name, block)
+            self
           end
 
-          def after(*_args, &)
-            raise UnsupportedFeatureError,
-                  'schema after processor hooks are not supported by the native plan yet'
+          def after(name, &block)
+            ProcessorHooks.register(after_hooks, name, block)
+            self
           end
 
           def compile(validate_keys: false, messages: MessageConfig.new)
-            Schema.new(mode: mode, fields: fields, validate_keys: validate_keys, messages: messages)
+            Schema.new(
+              mode: mode, fields: fields, before_hooks: before_hooks, after_hooks: after_hooks,
+              validate_keys: validate_keys, messages: messages
+            )
           end
 
           private
@@ -424,18 +452,15 @@ module Dry
           dsl.compile
         end
 
-        def self.Params(*external_schemas, &)
-          define(:params, *external_schemas, &)
-        end
-
-        def self.JSON(*external_schemas, &)
-          define(:json, *external_schemas, &)
-        end
+        def self.Params(*external_schemas, &) = define(:params, *external_schemas, &)
+        def self.JSON(*external_schemas, &) = define(:json, *external_schemas, &)
 
         # Compiles field definitions into a native schema plan.
-        def initialize(mode:, fields:, validate_keys: false, messages: MessageConfig.new)
+        def initialize(mode:, fields:, before_hooks: [], after_hooks: [], validate_keys: false,
+                       messages: MessageConfig.new)
           @mode = mode.to_sym
           @fields = fields.freeze
+          @before_hooks, @after_hooks = [before_hooks, after_hooks].map { _1.dup.freeze }
           @message_backend = MessageBackend.new(messages)
           begin
             plan = {
@@ -454,7 +479,9 @@ module Dry
         def call(input)
           raise ArgumentError, "Input must be a Hash. #{input.class} was given." unless input.is_a?(Hash)
 
-          output, native_errors = engine.call(input)
+          prepared_input = ProcessorHooks.apply(before_hooks, input.dup)
+          output, native_errors = engine.call(prepared_input)
+          output = ProcessorHooks.apply(after_hooks, output)
           messages = native_errors_to_messages(native_errors)
           RubyTypeProcessor.apply(fields, output, messages, @message_backend)
           apply_ruby_predicates(fields, output, [], messages)
@@ -475,6 +502,8 @@ module Dry
         end
 
         private
+
+        attr_reader :before_hooks, :after_hooks
 
         def native_errors_to_messages(native_errors)
           unless native_errors.fetch(0) == NATIVE_ERROR_BUFFER_VERSION
