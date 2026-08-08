@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require_relative 'test_helper'
+require 'dry/types'
 
 class SchemaTest < Minitest::Test
   TRAVERSAL_DEPTH_LIMIT = 128
@@ -429,6 +430,36 @@ class SchemaTest < Minitest::Test
     assert_equal({ age: ['must be greater than 18'], email: ['is in invalid format'] }, invalid.errors.to_h)
     assert_equal %i[gt? format?], invalid.errors.map(&:predicate)
     assert valid.success?
+  end
+
+  def test_custom_dry_types_are_processed_in_ruby_alongside_native_fields
+    email_type = Dry::Types['params.string'].constructor { |value| value.strip.downcase }
+    identifier_type = Dry::Types['params.integer'] | Dry::Types['params.string']
+    contract = build_contract do
+      params do
+        required(:age).value(:integer)
+        required(:email).value(email_type)
+        required(:identifier).value(identifier_type)
+      end
+    end
+
+    valid = contract.new.call(age: '42', email: ' JANE@EXAMPLE.TEST ', identifier: 'abc')
+    invalid = contract.new.call(age: 'bad', email: ' JANE@EXAMPLE.TEST ', identifier: [])
+
+    assert_equal({ age: 42, email: 'jane@example.test', identifier: 'abc' }, valid.to_h)
+    assert valid.success?
+    assert_equal({ age: 'bad', email: 'jane@example.test', identifier: [] }, invalid.to_h)
+    assert_equal({ age: ['must be an integer'], identifier: ['is invalid'] }, invalid.errors.to_h)
+  end
+
+  def test_custom_dry_types_array_members_fail_explicitly
+    type = Dry::Types['params.integer']
+
+    error = assert_raises(Dry::Validation::Rust::UnsupportedFeatureError) do
+      build_contract { params { required(:ids).array(type) } }
+    end
+
+    assert_equal 'custom dry-types array members are not supported by the Ruby fallback yet', error.message
   end
 
   def test_predicate_composition_blocks_reject_non_predicate_expressions_explicitly

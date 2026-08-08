@@ -64,7 +64,7 @@ module Dry
         Predicate = Struct.new(:name, :argument, keyword_init: true)
 
         class FieldDefinition
-          attr_accessor :name, :required, :nullable, :filled, :type, :member
+          attr_accessor :name, :required, :nullable, :filled, :type, :member, :ruby_type
           attr_reader :children, :predicates
 
           def initialize(name:, required:)
@@ -74,6 +74,7 @@ module Dry
             @filled = false
             @type = :any
             @member = nil
+            @ruby_type = nil
             @children = []
             @children_by_name = {}
             @predicates = []
@@ -124,6 +125,7 @@ module Dry
               copy.nullable = nullable
               copy.filled = filled
               copy.type = type
+              copy.ruby_type = ruby_type
               copy.member = member&.deep_dup
               copy.children = children.map(&:deep_dup)
               predicates.each do |predicate|
@@ -253,8 +255,11 @@ module Dry
               if member_type.is_a?(Schema)
                 member.type = :hash
                 member.children = member_type.fields.map(&:deep_dup)
+              elsif custom_type?(member_type)
+                raise UnsupportedFeatureError,
+                      'custom dry-types array members are not supported by the Ruby fallback yet'
               else
-                member.type = normalize_type(member_type)
+                assign_type(member, member_type)
               end
               definition.member = member
             end
@@ -295,7 +300,7 @@ module Dry
 
           def apply_specs(specs, predicates)
             remaining = specs.dup
-            definition.type = normalize_type(remaining.shift) if remaining.first && type_spec?(remaining.first)
+            assign_type(definition, remaining.shift) if remaining.first && type_spec?(remaining.first)
 
             remaining.each do |predicate|
               case predicate
@@ -310,16 +315,27 @@ module Dry
           end
 
           def type_spec?(spec)
-            spec.is_a?(Symbol) && TYPES.include?(spec)
+            builtin_type?(spec) || custom_type?(spec)
           end
 
-          def normalize_type(type)
-            unless type_spec?(type)
+          def assign_type(target, type)
+            if builtin_type?(type)
+              target.type = type == :datetime ? :date_time : type
+            elsif custom_type?(type)
+              target.type = :any
+              target.ruby_type = type
+            else
               raise UnsupportedFeatureError,
-                    "custom dry-types objects are not supported by the native plan yet (got #{type.inspect})"
+                    "unsupported type or predicate specification: #{type.class.name}"
             end
+          end
 
-            type == :datetime ? :date_time : type
+          def builtin_type?(type)
+            type.is_a?(Symbol) && TYPES.include?(type)
+          end
+
+          def custom_type?(type)
+            !type.is_a?(Symbol) && type.respond_to?(:try)
           end
 
           def nested_value_block?
@@ -364,6 +380,35 @@ module Dry
           def respond_to_missing?(name, include_private = false)
             name.to_s.end_with?('?') || super
           end
+        end
+
+        class RubyTypeProcessor
+          def self.apply(definitions, data, messages)
+            error_paths = messages.to_set(&:path)
+            apply_at(definitions, data, [], messages, error_paths)
+          end
+
+          def self.apply_at(definitions, data, prefix, messages, error_paths)
+            return unless data.is_a?(Hash)
+
+            definitions.each do |field|
+              next unless data.key?(field.name)
+
+              path = [*prefix, field.name]
+              if field.ruby_type && !error_paths.include?(path)
+                result = field.ruby_type.try(data[field.name])
+                data[field.name] = result.input
+                unless result.success?
+                  messages << Message.new('is invalid', path: path, code: :type, source: :schema)
+                  error_paths << path
+                end
+              end
+
+              apply_at(field.children, data[field.name], path, messages, error_paths)
+            end
+          end
+
+          private_class_method :apply_at
         end
 
         # @return [Symbol] coercion mode used by this schema.
@@ -412,6 +457,7 @@ module Dry
 
           output, native_errors = engine.call(input)
           messages = native_errors_to_messages(native_errors)
+          RubyTypeProcessor.apply(fields, output, messages)
           apply_ruby_predicates(fields, output, [], messages)
           SchemaResult.new(output, messages.freeze)
         end

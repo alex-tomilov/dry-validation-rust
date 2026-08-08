@@ -1,7 +1,7 @@
 # Project Progress
 
 Status: living document.
-Last updated: 2026-08-07.
+Last updated: 2026-08-08.
 
 One-page project status for contributors, reviewers, and the maintainer.
 
@@ -14,7 +14,7 @@ One-page project status for contributors, reviewers, and the maintainer.
 | B   | Common Schema Subset    | ✅ Complete    | PRs #49–#56, #65–#71                  |
 | C   | Ordinary Rules Subset   | 🔵 Active      | ~20% done; C-Q3 completed; hot-helper inline hints, cached rule/macro keyword introspection, and `MessageSet#to_h` memoization applied 2026-08-01 |
 | D   | Performance Proof       | 🔵 Active      | Phase 1 steps 1–2 completed 2026-08-03; remaining work blocked on C |
-| E   | Compatibility Slice     | 🔵 Active      | `config.validate_keys = true` and supported predicate-composition blocks implemented for `params`/`json` on 2026-08-07; remaining compatibility work is blocked on D |
+| E   | Compatibility Slice     | 🔵 Active      | `config.validate_keys = true`, predicate-composition blocks, and Ruby-owned custom dry-types/constructor and sum objects implemented for all schema modes by 2026-08-08; remaining message-backend work is blocked on D |
 | F   | Packaging and Platforms | 🔵 Active      | Cross-compilation for four P0 platforms, a signed trusted-publishing release workflow, and README source/precompiled installation guidance added 2026-08-06; publication remains blocked on E |
 | G   | Stable Subset           | ⚪ Not started | Blocked on F                          |
 
@@ -46,7 +46,7 @@ One-page project status for contributors, reviewers, and the maintainer.
 2. Complete remaining C-Q1, C-Q2, and C-Q4 code-quality tasks.
 3. Stress-test rule dependencies and isolation, then wire the rule corpus into differential CI.
 4. After Milestone C, complete the remaining Performance Proof steps; Phase 1 path-vector reuse and Ruby class caching are complete.
-5. Complete the remaining Milestone E compatibility slices (custom dry-types and message backends remain), configure the RubyGems trusted publisher for `rubygems-push.yml`, then validate and publish the P0 precompiled gems so the documented recommended path becomes available.
+5. Complete the remaining Milestone E message-backend compatibility slice, configure the RubyGems trusted publisher for `rubygems-push.yml`, then validate and publish the P0 precompiled gems so the documented recommended path becomes available.
 
 ## Code-Quality Tasks (from Milestone C)
 
@@ -76,6 +76,7 @@ One-page project status for contributors, reviewers, and the maintainer.
 - P0 precompiled-gem builds and signed publication workflow are configured but not yet validated in CI or published; RubyGems trusted-publisher setup is still required (Milestone F).
 - No RBS type signatures (Milestone F).
 - Predicate-composition blocks support sequential predicate calls only; boolean dry-logic AST composition remains unsupported.
+- Custom dry-types are Ruby-owned direct `value(type)` fields; custom array-member types and dry-schema's type-specific failure messages remain unsupported.
 - Security advisories depend on GitHub private vulnerability reporting remaining enabled.
 - Governance documentation may be disproportionate to project scale.
 - Naming/affiliation with dry-rb not yet discussed (Milestone G).
