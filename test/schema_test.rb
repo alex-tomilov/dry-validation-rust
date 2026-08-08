@@ -7,6 +7,58 @@ require 'tempfile'
 class SchemaTest < Minitest::Test
   TRAVERSAL_DEPTH_LIMIT = 128
 
+  def test_processor_hooks_sanitize_before_validation_and_transform_output_afterwards
+    hook_inputs = []
+    contract = build_contract do
+      params do
+        before(:value_coercer) do |input|
+          hook_inputs << input.dup
+          input.merge('name' => input.fetch('name').strip)
+        end
+        before(:value_coercer) { |input| input.merge('name' => "#{input.fetch('name')}!") }
+        after(:value_coercer) do |output|
+          hook_inputs << output.dup
+          output.merge(name: output.fetch(:name).upcase)
+        end
+
+        required(:name).value(:string, min_size?: 5)
+      end
+    end
+
+    result = contract.new.call('name' => ' Jane ')
+
+    assert result.success?
+    assert_equal({ name: 'JANE!' }, result.to_h)
+    assert_equal([{ 'name' => ' Jane ' }, { name: 'Jane!' }], hook_inputs)
+  end
+
+  def test_processor_hooks_keep_the_current_hash_when_a_hook_mutates_it_without_returning_a_hash
+    contract = build_contract do
+      params do
+        before(:value_coercer) { |input| input['age'] = input.fetch('age').strip }
+        after(:value_coercer) { |output| output[:age] += 1 }
+        required(:age).value(:integer)
+      end
+    end
+
+    assert_equal({ age: 43 }, contract.new.call('age' => ' 42 ').to_h)
+  end
+
+  def test_processor_hooks_reject_unknown_stages_and_missing_blocks
+    unknown_stage = assert_raises(ArgumentError) do
+      build_contract { params { before(:coerce) { |input| input } } }
+    end
+    missing_block = assert_raises(ArgumentError) do
+      build_contract { params { after(:value_coercer) } }
+    end
+
+    assert_equal(
+      'Undefined step name :coerce. Available names: [:value_coercer]',
+      unknown_stage.message
+    )
+    assert_equal 'processor hooks require a block', missing_block.message
+  end
+
   def test_yaml_message_backend_uses_load_paths_and_interpolates_predicate_tokens
     with_message_file(<<~YAML) do |path|
       es:

@@ -284,9 +284,8 @@ class DifferentialCompatibilityTest < Minitest::Test
         source: 'Class.new(Dry::Validation::Contract) { params { required(:age).value(Object.new) } }', message: /unsupported type or predicate specification: Object/ },
       { name: 'unknown predicate',
         source: 'Class.new(Dry::Validation::Contract) { params { required(:age).value(:integer, unknown?: 1) } }', input: { 'age' => '1' }, message: /predicate :unknown/ },
-      { name: 'schema before processor hook',
-        source: 'Class.new(Dry::Validation::Contract) { params { before(:value_coercer) { |input| input } } }', message: /schema before processor hooks/ },
-      { name: 'schema after processor hook', source: 'Class.new(Dry::Validation::Contract) { params { after(:value_coercer) { |input| input } } }', message: /schema after processor hooks/ }
+      { name: 'unsupported predicate composition expression',
+        source: 'Class.new(Dry::Validation::Contract) { params { required(:age).value(:integer) { required(:child) } } }', message: /unsupported predicate composition expression/ }
     ]
   end
 
