@@ -7,16 +7,16 @@ One-page project status for contributors, reviewers, and the maintainer.
 
 ## Milestone Status
 
-| #   | Milestone               | Status         | Notes                                                                                                                                                                                                                              |
-| --- | ----------------------- | -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 0   | Foundation              | ✅ Complete    | Steps 0.1 public side-by-side API lock, 0.2 SemVer policy, and 0.3 actionable security process completed 2026-08-04                                                                                                                |
-| A   | Trustworthy Baseline    | ✅ Complete    | PRs #48–#51                                                                                                                                                                                                                        |
-| B   | Common Schema Subset    | ✅ Complete    | PRs #49–#56, #65–#71                                                                                                                                                                                                               |
-| C   | Ordinary Rules Subset   | 🔵 Active      | ~20% done; C-Q3 completed; hot-helper inline hints, cached rule/macro keyword introspection, and `MessageSet#to_h` memoization applied 2026-08-01                                                                                  |
-| D   | Performance Proof       | 🔵 Active      | Phase 1 steps 1–2 completed 2026-08-03; remaining work blocked on C                                                                                                                                                                |
+| #   | Milestone               | Status         | Notes                                                                                                                                                                                                                                                  |
+| --- | ----------------------- | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 0   | Foundation              | ✅ Complete    | Steps 0.1 public side-by-side API lock, 0.2 SemVer policy, and 0.3 actionable security process completed 2026-08-04                                                                                                                                    |
+| A   | Trustworthy Baseline    | ✅ Complete    | PRs #48–#51                                                                                                                                                                                                                                            |
+| B   | Common Schema Subset    | ✅ Complete    | PRs #49–#56, #65–#71                                                                                                                                                                                                                                   |
+| C   | Ordinary Rules Subset   | 🔵 Active      | ~20% done; C-Q3 completed; hot-helper inline hints, cached rule/macro keyword introspection, and `MessageSet#to_h` memoization applied 2026-08-01                                                                                                      |
+| D   | Performance Proof       | 🔵 Active      | Phase 1 steps 1–2 and maturity-roadmap Step 3.1 matrix completed 2026-08-08; README records three-run results for all six scenarios, while CI automation and broader-host evidence remain pending                                      |
 | E   | Compatibility Slice     | 🔵 Active      | `config.validate_keys = true`, predicate-composition blocks, Ruby-owned custom dry-types/constructor and sum objects, YAML/I18n schema-message backends, and Ruby-side `before`/`after` processor hooks implemented for all schema modes by 2026-08-08 |
-| F   | Packaging and Platforms | 🔵 Active      | Cross-compilation for four P0 platforms, a signed trusted-publishing release workflow, and README source/precompiled installation guidance added 2026-08-06; publication remains blocked on E                                      |
-| G   | Stable Subset           | ⚪ Not started | Blocked on F                                                                                                                                                                                                                       |
+| F   | Packaging and Platforms | 🔵 Active      | Cross-compilation for four P0 platforms, a signed trusted-publishing release workflow, and README source/precompiled installation guidance added 2026-08-06; publication remains blocked on E                                                          |
+| G   | Stable Subset           | ⚪ Not started | Blocked on F                                                                                                                                                                                                                                           |
 
 ## What Has Been Accomplished
 
@@ -45,7 +45,7 @@ One-page project status for contributors, reviewers, and the maintainer.
 1. Build a dedicated 50-case rule corpus (see Milestone C file for distribution).
 2. Complete remaining C-Q1, C-Q2, and C-Q4 code-quality tasks.
 3. Stress-test rule dependencies and isolation, then wire the rule corpus into differential CI.
-4. After Milestone C, complete the remaining Performance Proof steps; Phase 1 path-vector reuse and Ruby class caching are complete.
+4. Automate the benchmark matrix and complete the remaining Performance Proof work after Milestone C; Phase 1 path-vector reuse, Ruby class caching, and the Step 3.1 benchmark matrix/results are complete.
 5. Configure the RubyGems trusted publisher for `rubygems-push.yml`, then validate and publish the P0 precompiled gems so the documented recommended path becomes available.
 
 ## Code-Quality Tasks (from Milestone C)
@@ -72,7 +72,7 @@ One-page project status for contributors, reviewers, and the maintainer.
 
 ## Known Debt and Risks
 
-- No published benchmark results (Milestone D).
+- Benchmark matrix results are limited to one x86_64 Linux host and three runs per scenario; no CI automation, cross-host evidence, or native-allocation measurement yet (Milestone D).
 - P0 precompiled-gem builds and signed publication workflow are configured but not yet validated in CI or published; RubyGems trusted-publisher setup is still required (Milestone F).
 - No RBS type signatures (Milestone F).
 - Predicate-composition blocks support sequential predicate calls only; boolean dry-logic AST composition remains unsupported.
