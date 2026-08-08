@@ -193,8 +193,8 @@ module Dry
                   'schema after processor hooks are not supported by the native plan yet'
           end
 
-          def compile(validate_keys: false)
-            Schema.new(mode: mode, fields: fields, validate_keys: validate_keys)
+          def compile(validate_keys: false, messages: MessageConfig.new)
+            Schema.new(mode: mode, fields: fields, validate_keys: validate_keys, messages: messages)
           end
 
           private
@@ -383,12 +383,12 @@ module Dry
         end
 
         class RubyTypeProcessor
-          def self.apply(definitions, data, messages)
+          def self.apply(definitions, data, messages, message_backend)
             error_paths = messages.to_set(&:path)
-            apply_at(definitions, data, [], messages, error_paths)
+            apply_at(definitions, data, [], messages, error_paths, message_backend)
           end
 
-          def self.apply_at(definitions, data, prefix, messages, error_paths)
+          def self.apply_at(definitions, data, prefix, messages, error_paths, message_backend)
             return unless data.is_a?(Hash)
 
             definitions.each do |field|
@@ -399,24 +399,22 @@ module Dry
                 result = field.ruby_type.try(data[field.name])
                 data[field.name] = result.input
                 unless result.success?
-                  messages << Message.new('is invalid', path: path, code: :type, source: :schema)
+                  messages << Message.new(
+                    message_backend.message(code: :type, type: field.type, fallback: 'is invalid'),
+                    path: path, code: :type, source: :schema
+                  )
                   error_paths << path
                 end
               end
 
-              apply_at(field.children, data[field.name], path, messages, error_paths)
+              apply_at(field.children, data[field.name], path, messages, error_paths, message_backend)
             end
           end
 
           private_class_method :apply_at
         end
 
-        # @return [Symbol] coercion mode used by this schema.
-        attr_reader :mode
-        # @return [Array<FieldDefinition>] immutable field definitions.
-        attr_reader :fields
-        # @return [Native::Engine] compiled native execution engine.
-        attr_reader :engine
+        attr_reader :mode, :fields, :engine
 
         # Builds a schema from a DSL block and optional Rust schemas to import.
         def self.define(mode = :schema, *external_schemas, &block)
@@ -426,29 +424,30 @@ module Dry
           dsl.compile
         end
 
-        # Builds a Params-mode schema.
         def self.Params(*external_schemas, &)
           define(:params, *external_schemas, &)
         end
 
-        # Builds a JSON-mode schema.
         def self.JSON(*external_schemas, &)
           define(:json, *external_schemas, &)
         end
 
         # Compiles field definitions into a native schema plan.
-        def initialize(mode:, fields:, validate_keys: false)
+        def initialize(mode:, fields:, validate_keys: false, messages: MessageConfig.new)
           @mode = mode.to_sym
           @fields = fields.freeze
-          plan = {
-            engine_version: ENGINE_VERSION,
-            mode: mode.to_s,
-            validate_keys: validate_keys,
-            fields: fields.map(&:to_native_h)
-          }
-          @engine = Native::Engine.new(JSON.generate(plan, max_nesting: false))
-        rescue StandardError => e
-          raise NativeExtensionError, "could not compile native schema plan: #{e.message}"
+          @message_backend = MessageBackend.new(messages)
+          begin
+            plan = {
+              engine_version: ENGINE_VERSION,
+              mode: mode.to_s,
+              validate_keys: validate_keys,
+              fields: fields.map(&:to_native_h)
+            }
+            @engine = Native::Engine.new(JSON.generate(plan, max_nesting: false))
+          rescue StandardError => e
+            raise NativeExtensionError, "could not compile native schema plan: #{e.message}"
+          end
         end
 
         # Validates a Hash and returns its output and schema messages.
@@ -457,7 +456,7 @@ module Dry
 
           output, native_errors = engine.call(input)
           messages = native_errors_to_messages(native_errors)
-          RubyTypeProcessor.apply(fields, output, messages)
+          RubyTypeProcessor.apply(fields, output, messages, @message_backend)
           apply_ruby_predicates(fields, output, [], messages)
           SchemaResult.new(output, messages.freeze)
         end
@@ -485,7 +484,6 @@ module Dry
 
           messages = []
           offset = NATIVE_ERROR_BUFFER_HEADER_SIZE
-
           while offset < native_errors.length
             path_length = native_errors.fetch(offset)
             unless path_length.is_a?(Integer) && path_length >= 0
@@ -501,25 +499,30 @@ module Dry
             code = native_errors.fetch(trailer_start + NATIVE_ERROR_RECORD_CODE_OFFSET)
             text = native_errors.fetch(trailer_start + NATIVE_ERROR_RECORD_TEXT_OFFSET)
             offset = record_end
-            unless path.all? { |part| part.is_a?(Symbol) || part.is_a?(Integer) } &&
-                   code.is_a?(Symbol) && text.is_a?(String)
+            valid_path = path.all? { |part| part.is_a?(Symbol) || part.is_a?(Integer) }
+            unless valid_path && code.is_a?(Symbol) && text.is_a?(String)
               raise NativeExtensionError, 'malformed native error buffer'
             end
 
             predicate, args = native_predicate_details(path, code)
-            messages << Message.new(
-              native_error_message(code, text), path: path, code: code, source: :schema,
-                                                predicate: predicate, args: args
-            )
+            messages << native_message(path, code, text, predicate, args)
           end
-
           messages
         end
 
-        def native_error_message(code, native_text)
-          return 'is not allowed' if code == :unexpected_key
+        def native_message(path, code, text, predicate, args)
+          Message.new(
+            native_error_message(code, text, predicate, args, path),
+            path: path, code: code, source: :schema, predicate: predicate, args: args
+          )
+        end
 
-          native_text
+        def native_error_message(code, native_text, predicate, args, path)
+          field = field_at_path(fields, path)
+          @message_backend.message(
+            code: code, predicate: predicate&.to_s&.delete_suffix('?'), args: args,
+            type: field&.normalized_type, fallback: code == :unexpected_key ? 'is not allowed' : native_text
+          )
         end
 
         def paths_for(definitions, prefix = [])
@@ -596,6 +599,9 @@ module Dry
                  when :not_eql then "must not be equal to #{predicate.argument}"
                  else 'is invalid'
                  end
+          text = @message_backend.message(
+            code: predicate.name, predicate: predicate.name, args: [predicate.argument], fallback: text
+          )
           Message.new(
             text, path: path, code: predicate.name, source: :schema,
                   predicate: "#{predicate.name}?", args: [predicate.argument]

@@ -2,9 +2,62 @@
 
 require_relative 'test_helper'
 require 'dry/types'
+require 'tempfile'
 
 class SchemaTest < Minitest::Test
   TRAVERSAL_DEPTH_LIMIT = 128
+
+  def test_yaml_message_backend_uses_load_paths_and_interpolates_predicate_tokens
+    with_message_file(<<~YAML) do |path|
+      es:
+        dry_validation:
+          errors:
+            gt?: "debe ser mayor que %<num>s"
+            type: "debe ser %<type>s"
+    YAML
+      contract = build_contract do
+        config.messages.default_locale = :es
+        config.messages.top_namespace = :dry_validation
+        config.messages.load_paths << path
+        params { required(:age).value(:integer, gt?: 18) }
+      end
+
+      assert_equal({ age: ['debe ser mayor que 18'] }, contract.new.call(age: '18').errors.to_h)
+      assert_equal({ age: ['debe ser integer'] }, contract.new.call(age: 'invalid').errors.to_h)
+    end
+  end
+
+  def test_i18n_message_backend_loads_paths_and_delegates_interpolation
+    skip 'i18n is not installed' if Gem::Specification.find_all_by_name('i18n').empty?
+
+    with_message_file(<<~YAML) do |path|
+      fr:
+        dry_validation:
+          errors:
+            included_in?: "doit être %<list>s"
+    YAML
+      contract = build_contract do
+        config.messages.backend = :i18n
+        config.messages.default_locale = :fr
+        config.messages.top_namespace = :dry_validation
+        config.messages.load_paths << path
+        params { required(:role).value(:string, included_in?: %w[admin editor]) }
+      end
+
+      assert_equal({ role: ['doit être admin, editor'] }, contract.new.call(role: 'reader').errors.to_h)
+    end
+  end
+
+  def test_message_backend_rejects_unknown_identifiers
+    error = assert_raises(ArgumentError) do
+      build_contract do
+        config.messages.backend = :database
+        params { required(:name).value(:string) }
+      end
+    end
+
+    assert_equal '+database+ is not a valid messages identifier', error.message
+  end
 
   def test_schema_at_the_nesting_limit_preserves_the_entire_output
     schema = Dry::Validation::Rust::Schema.Params(&nested_schema(TRAVERSAL_DEPTH_LIMIT))
@@ -629,6 +682,14 @@ class SchemaTest < Minitest::Test
 
     child_schema = nested_schema(nesting_depth, level + 1)
     proc { required(:"level_#{level}").hash(&child_schema) }
+  end
+
+  def with_message_file(contents)
+    Tempfile.create(['dry-validation-rust-messages', '.yml']) do |file|
+      file.write(contents)
+      file.flush
+      yield file.path
+    end
   end
 
   def nested_input(nesting_depth)

@@ -149,24 +149,24 @@ the same field already has a type/structural error.
 
 ## Results and messages
 
-| Surface                               | Status | Notes                                              |
-| ------------------------------------- | ------ | -------------------------------------------------- |
-| `success?` / `failure?`               | ✅     |                                                    |
-| `to_h` / `[]` / `key?` / `values`     | ✅     |                                                    |
-| `errors.to_h`                         | ✅     | Nested hashes and integer indexes                  |
-| Enumerable errors                     | ✅     |                                                    |
-| Mutable `errors.messages` collection  | 🟡     | Read-only view; mutate a set through `#add`        |
-| `errors[:path]`                       | ✅     | Prefix filter                                      |
-| `errors.filter(:base?)`               | ✅     | Also `schema?` and `rule?`                         |
-| `errors(full: true)`                  | 🟡     | Simple humanized paths                             |
-| Error `text`, `path`, `meta`, `code`  | ✅     |                                                    |
-| Hash pattern matching                 | ✅     |                                                    |
-| Tuple values/context pattern matching | ✅     |                                                    |
-| YAML messages/configured load paths   | ❌     | Config object exists for migration visibility only |
-| I18n backend/locales                  | ❌     |                                                    |
-| Exact upstream message wording        | 🟡     | Common English messages only                       |
-| Hints/info message extensions         | ❌     |                                                    |
-| Monads extension                      | ❌     | `load_extensions` raises explicitly                |
+| Surface                               | Status | Notes                                                                  |
+| ------------------------------------- | ------ | ---------------------------------------------------------------------- |
+| `success?` / `failure?`               | ✅     |                                                                        |
+| `to_h` / `[]` / `key?` / `values`     | ✅     |                                                                        |
+| `errors.to_h`                         | ✅     | Nested hashes and integer indexes                                      |
+| Enumerable errors                     | ✅     |                                                                        |
+| Mutable `errors.messages` collection  | 🟡     | Read-only view; mutate a set through `#add`                            |
+| `errors[:path]`                       | ✅     | Prefix filter                                                          |
+| `errors.filter(:base?)`               | ✅     | Also `schema?` and `rule?`                                             |
+| `errors(full: true)`                  | 🟡     | Simple humanized paths                                                 |
+| Error `text`, `path`, `meta`, `code`  | ✅     |                                                                        |
+| Hash pattern matching                 | ✅     |                                                                        |
+| Tuple values/context pattern matching | ✅     |                                                                        |
+| YAML messages/configured load paths   | ✅     | Supports localized schema templates and `%{token}` interpolation       |
+| I18n backend/locales                  | ✅     | Delegates to the optional `i18n` gem; add it to the application bundle |
+| Exact upstream message wording        | 🟡     | Common English messages only                                           |
+| Hints/info message extensions         | ❌     |                                                                        |
+| Monads extension                      | ❌     | `load_extensions` raises explicitly                                    |
 
 ## Runtime and platform
 
