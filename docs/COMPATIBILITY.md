@@ -39,49 +39,49 @@ Legend:
 
 ## Schema definition
 
-| Surface                                   | Status | Notes                                     |
-| ----------------------------------------- | ------ | ----------------------------------------- |
-| `params do ... end`                       | ✅     | HTTP-like key/scalar coercion             |
-| `json do ... end`                         | ✅     | Key normalization, no scalar coercion     |
-| `schema do ... end`                       | ✅     | Symbol keys, no coercion                  |
-| `required(:key)`                          | ✅     |                                           |
-| `optional(:key)`                          | ✅     |                                           |
-| `value(:type)`                            | ✅     |                                           |
-| `filled(:type)` / `filled`                | ✅     | Nil and empty String/Array/Hash           |
-| `maybe(:type)`                            | ✅     | Params empty string becomes nil           |
-| `hash do ... end`                         | ✅     | Recursive                                 |
-| `array(:type)`                            | ✅     | Coerced primitive members                 |
-| `array(:hash) { ... }`                    | ✅     | Nested member schema                      |
-| External schema arguments                 | ✅     | Rust schemas only                         |
-| Contract schema inheritance               | ✅     | Child schema extends parent               |
-| Multiple schema declaration guard         | ✅     | Raises `DuplicateSchemaError`             |
-| Key validation when declaring rules       | ✅     | Common nested paths                       |
+| Surface                                   | Status | Notes                                                             |
+| ----------------------------------------- | ------ | ----------------------------------------------------------------- |
+| `params do ... end`                       | ✅     | HTTP-like key/scalar coercion                                     |
+| `json do ... end`                         | ✅     | Key normalization, no scalar coercion                             |
+| `schema do ... end`                       | ✅     | Symbol keys, no coercion                                          |
+| `required(:key)`                          | ✅     |                                                                   |
+| `optional(:key)`                          | ✅     |                                                                   |
+| `value(:type)`                            | ✅     |                                                                   |
+| `filled(:type)` / `filled`                | ✅     | Nil and empty String/Array/Hash                                   |
+| `maybe(:type)`                            | ✅     | Params empty string becomes nil                                   |
+| `hash do ... end`                         | ✅     | Recursive                                                         |
+| `array(:type)`                            | ✅     | Coerced primitive members                                         |
+| `array(:hash) { ... }`                    | ✅     | Nested member schema                                              |
+| External schema arguments                 | ✅     | Rust schemas only                                                 |
+| Contract schema inheritance               | ✅     | Child schema extends parent                                       |
+| Multiple schema declaration guard         | ✅     | Raises `DuplicateSchemaError`                                     |
+| Key validation when declaring rules       | ✅     | Common nested paths                                               |
 | Predicate-composition blocks              | ✅     | Supported predicates only; boolean AST composition is unsupported |
-| Schema `before` / `after` processor hooks | ❌     | Arbitrary transforms need callback design |
-| Schema merge operators / AST access       | ❌     |                                           |
-| `config.validate_keys = true`             | ✅     | Rejects unknown keys in `params` and `json` schemas |
-| Filtering DSL                             | ❌     |                                           |
+| Schema `before` / `after` processor hooks | ❌     | Arbitrary transforms need callback design                         |
+| Schema merge operators / AST access       | ❌     |                                                                   |
+| `config.validate_keys = true`             | ✅     | Rejects unknown keys in `params` and `json` schemas               |
+| Filtering DSL                             | ❌     |                                                                   |
 
 ## Types and coercions
 
-| Type                               | Params | JSON/schema checks | Notes                                                                                |
-| ---------------------------------- | ------ | ------------------ | ------------------------------------------------------------------------------------ |
-| `:any`                             | ✅     | ✅                 |                                                                                      |
-| `:nil`                             | N/A    | ✅                 |                                                                                      |
-| `:bool` / `:true` / `:false`       | ✅     | ✅                 | `true/false`, `t/f`, `1/0`, `on/off`, `yes/no`, and `y/n` strings                    |
-| `:integer`                         | ✅     | ✅                 | Ruby integer syntax, including arbitrary precision and underscores                   |
-| `:float`                           | ✅     | ✅                 | Ruby float syntax, including numeric overflow; literal `Infinity` and `NaN` rejected |
-| `:decimal`                         | ✅     | ✅                 | Finite BigDecimal values; infinities and NaN rejected                                |
-| `:string`                          | ✅     | ✅                 | No non-string-to-string coercion                                                     |
-| `:symbol`                          | ✅     | ✅                 |                                                                                      |
-| `:array` / `:hash`                 | ✅     | ✅                 |                                                                                      |
-| `:date`                            | ✅     | ✅                 | ISO 8601                                                                             |
-| `:date_time` / `:datetime`         | ✅     | ✅                 | ISO 8601                                                                             |
-| `:time`                            | ✅     | ✅                 | ISO 8601                                                                             |
-| dry-types objects/constructors     | ✅     | ✅                 | Ruby-owned fields call `#try`; conversion failures use the generic `is invalid` message |
-| Sum types                          | ✅     | ✅                 | Ruby-owned direct `value(type)` fields only                                          |
-| Enums/maps/intersections           | ❌     | ❌                 |                                                                                      |
-| Params hash-to-array coercion      | ❌     | N/A                |                                                                                      |
+| Type                           | Params | JSON/schema checks | Notes                                                                                   |
+| ------------------------------ | ------ | ------------------ | --------------------------------------------------------------------------------------- |
+| `:any`                         | ✅     | ✅                 |                                                                                         |
+| `:nil`                         | N/A    | ✅                 |                                                                                         |
+| `:bool` / `:true` / `:false`   | ✅     | ✅                 | `true/false`, `t/f`, `1/0`, `on/off`, `yes/no`, and `y/n` strings                       |
+| `:integer`                     | ✅     | ✅                 | Ruby integer syntax, including arbitrary precision and underscores                      |
+| `:float`                       | ✅     | ✅                 | Ruby float syntax, including numeric overflow; literal `Infinity` and `NaN` rejected    |
+| `:decimal`                     | ✅     | ✅                 | Finite BigDecimal values; infinities and NaN rejected                                   |
+| `:string`                      | ✅     | ✅                 | No non-string-to-string coercion                                                        |
+| `:symbol`                      | ✅     | ✅                 |                                                                                         |
+| `:array` / `:hash`             | ✅     | ✅                 |                                                                                         |
+| `:date`                        | ✅     | ✅                 | ISO 8601                                                                                |
+| `:date_time` / `:datetime`     | ✅     | ✅                 | ISO 8601                                                                                |
+| `:time`                        | ✅     | ✅                 | ISO 8601                                                                                |
+| dry-types objects/constructors | ✅     | ✅                 | Ruby-owned fields call `#try`; conversion failures use the generic `is invalid` message |
+| Sum types                      | ✅     | ✅                 | Ruby-owned direct `value(type)` fields only                                             |
+| Enums/maps/intersections       | ❌     | ❌                 |                                                                                         |
+| Params hash-to-array coercion  | ❌     | N/A                |                                                                                         |
 
 The supported scalar corpus is differentially checked against the pinned
 upstream version for numeric boundaries, boolean spellings, temporal parsing,
@@ -93,17 +93,17 @@ types remain unsupported.
 
 ## Schema predicates
 
-| Predicate                           | Status | Owner                       |
-| ----------------------------------- | ------ | --------------------------- |
-| `gt?`, `gteq?`, `lt?`, `lteq?`      | ✅     | Rust                        |
-| `size?`, `min_size?`, `max_size?`   | ✅     | Rust                        |
-| `odd?`, `even?`                     | ✅     | Rust                        |
-| `format?`                           | ✅     | Ruby Regexp                 |
-| `included_in?`, `excluded_from?`    | ✅     | Ruby                        |
-| `eql?`, `not_eql?`                  | ✅     | Ruby                        |
-| Arbitrary/custom predicate name     | ❌     | Explicit error at execution |
+| Predicate                           | Status | Owner                                          |
+| ----------------------------------- | ------ | ---------------------------------------------- |
+| `gt?`, `gteq?`, `lt?`, `lteq?`      | ✅     | Rust                                           |
+| `size?`, `min_size?`, `max_size?`   | ✅     | Rust                                           |
+| `odd?`, `even?`                     | ✅     | Rust                                           |
+| `format?`                           | ✅     | Ruby Regexp                                    |
+| `included_in?`, `excluded_from?`    | ✅     | Ruby                                           |
+| `eql?`, `not_eql?`                  | ✅     | Ruby                                           |
+| Arbitrary/custom predicate name     | ❌     | Explicit error at execution                    |
 | Boolean predicate AST composition   | ❌     | Predicate blocks support sequential calls only |
-| UUID and other dry-logic predicates | ❌     |                             |
+| UUID and other dry-logic predicates | ❌     |                                                |
 
 Ruby-owned predicates execute after structural processing and are skipped when
 the same field already has a type/structural error.
