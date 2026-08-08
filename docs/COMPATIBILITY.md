@@ -78,14 +78,18 @@ Legend:
 | `:date`                            | ✅     | ✅                 | ISO 8601                                                                             |
 | `:date_time` / `:datetime`         | ✅     | ✅                 | ISO 8601                                                                             |
 | `:time`                            | ✅     | ✅                 | ISO 8601                                                                             |
-| dry-types objects/constructors     | ❌     | ❌                 | Raises `UnsupportedFeatureError`                                                     |
-| Enums/maps/intersections/sum types | ❌     | ❌                 |                                                                                      |
+| dry-types objects/constructors     | ✅     | ✅                 | Ruby-owned fields call `#try`; conversion failures use the generic `is invalid` message |
+| Sum types                          | ✅     | ✅                 | Ruby-owned direct `value(type)` fields only                                          |
+| Enums/maps/intersections           | ❌     | ❌                 |                                                                                      |
 | Params hash-to-array coercion      | ❌     | N/A                |                                                                                      |
 
 The supported scalar corpus is differentially checked against the pinned
 upstream version for numeric boundaries, boolean spellings, temporal parsing,
 and symbols. This is a focused compatibility slice, not a claim of complete
-`dry-types` coercion parity.
+`dry-types` coercion parity. Custom type objects are intentionally processed
+by Ruby after native traversal; their conversion output is preserved, but
+dry-schema's type-specific failure-message compilation and custom array-member
+types remain unsupported.
 
 ## Schema predicates
 
