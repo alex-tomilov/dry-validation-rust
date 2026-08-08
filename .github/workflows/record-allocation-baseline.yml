@@ -1,0 +1,43 @@
+name: Record Allocation Baseline
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: record-allocation-baseline-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  record:
+    name: Record Ruby allocation baseline
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Install native build prerequisites
+        run: sudo apt-get update && sudo apt-get install -y clang libclang-dev
+
+      - name: Setup Ruby and Bundler cache
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.3"
+          bundler-cache: true
+
+      - name: Setup Rust toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: 1.85.0
+
+      - name: Record allocation baseline
+        run: bundle exec script/record-allocation-baseline "$RUNNER_TEMP/baseline_allocations.json"
+
+      - name: Upload allocation baseline
+        uses: actions/upload-artifact@v7
+        with:
+          name: baseline-allocations
+          path: ${{ runner.temp }}/baseline_allocations.json
+          if-no-files-found: error

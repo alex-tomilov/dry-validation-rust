@@ -64,6 +64,29 @@ class CiWorkflowsTest < Minitest::Test
     refute_includes File.read(File.join(WORKFLOW_DIR, 'rubygems-push.yml')), 'GEM_HOST_API_KEY'
   end
 
+  def test_ci_profiles_ruby_allocations_against_the_main_baseline
+    workflow = workflows.fetch(File.join(WORKFLOW_DIR, 'ci.yml'))
+    job = workflow.fetch('jobs').fetch('memory-regression')
+    source = job.fetch('steps').map { |step| step['run'].to_s }.join("\n")
+
+    assert_equal 'ubuntu-latest', job.fetch('runs-on')
+    assert_includes source, 'git show FETCH_HEAD:benchmark/baseline_allocations.json'
+    assert_includes source, 'test/memory_regression_test.rb'
+    assert_equal '1', job.fetch('steps').last.fetch('env').fetch('MEMORY_REGRESSION')
+  end
+
+  def test_manual_workflow_records_an_artifact_without_writing_to_the_repository
+    workflow = workflows.fetch(File.join(WORKFLOW_DIR, 'record-allocation-baseline.yml'))
+    job = workflow.fetch('jobs').fetch('record')
+    source = job.fetch('steps').map { |step| step['run'].to_s }.join("\n")
+
+    assert_equal({ 'workflow_dispatch' => nil }, workflow.fetch(true))
+    assert_equal({ 'contents' => 'read' }, workflow.fetch('permissions'))
+    assert_includes source, 'script/record-allocation-baseline "$RUNNER_TEMP/baseline_allocations.json"'
+    assert_includes job.fetch('steps').last.fetch('uses'), 'actions/upload-artifact@v7'
+    assert_equal '${{ runner.temp }}/baseline_allocations.json', job.fetch('steps').last.fetch('with').fetch('path')
+  end
+
   def test_actions_use_reviewable_version_pins
     workflows.each_key do |path|
       File.read(path).scan(/uses:\s+([^@\s]+)@([^\s]+)/).each do |action, ref|
