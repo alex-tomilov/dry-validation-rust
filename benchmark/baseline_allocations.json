@@ -1,0 +1,10 @@
+{
+  "allocations_per_call": 59.0,
+  "iterations": 1000,
+  "profile_runs": 3,
+  "scenario": "three-field valid params contract",
+  "ruby": "ruby 3.3.7 (2025-01-15 revision be31f993d7) [x86_64-linux]",
+  "platform": "x86_64-linux",
+  "memory_profiler": "1.1.0",
+  "recorded_at": "2026-08-08T14:17:52Z"
+}

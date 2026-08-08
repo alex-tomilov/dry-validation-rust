@@ -250,6 +250,18 @@ call, and peak process RSS under the sustained run. Use `FORMAT=json` for
 machine-readable output, and tune `WARMUP`, `N`, and `LATENCY_SAMPLES` when
 collecting evidence.
 
+Refresh the allocation-regression baseline only after intentionally reviewing an
+allocation change:
+
+```bash
+bundle exec script/record-allocation-baseline
+```
+
+The manual **Record Allocation Baseline** workflow produces the same JSON as an
+artifact without changing the repository. Review its value before replacing
+`benchmark/baseline_allocations.json`; do not accept an allocation regression
+merely by refreshing the baseline.
+
 By default the benchmark compares this Rust-backed hybrid implementation with
 the upstream `dry-validation` gem in a separate Ruby process. The upstream gem
 is intentionally not a project dependency; install it for the same Ruby with
