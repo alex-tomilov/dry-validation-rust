@@ -222,8 +222,17 @@ mod tests {
     }
 
     #[test]
-    fn fast_integer_accepts_only_signed_64_bit_decimal_literals() {
+    fn only_params_mode_enables_literal_coercion() {
+        assert!(allows_literal_coercion(Mode::Params));
+        assert!(!allows_literal_coercion(Mode::Json));
+        assert!(!allows_literal_coercion(Mode::Schema));
+    }
+
+    #[test]
+    fn params_coercion_handles_native_boundary_edge_cases() {
         Ruby::init(|ruby| {
+            let classes = runtime_classes(ruby)?;
+
             for (source, expected) in [
                 ("42", 42),
                 ("-42", -42),
@@ -242,22 +251,6 @@ mod tests {
                     "{source:?} should delegate to Ruby"
                 );
             }
-            Ok(())
-        })
-        .expect("integer fast path boundaries should pass");
-    }
-
-    #[test]
-    fn only_params_mode_enables_literal_coercion() {
-        assert!(allows_literal_coercion(Mode::Params));
-        assert!(!allows_literal_coercion(Mode::Json));
-        assert!(!allows_literal_coercion(Mode::Schema));
-    }
-
-    #[test]
-    fn params_coercion_handles_native_boundary_edge_cases() {
-        Ruby::init(|ruby| {
-            let classes = runtime_classes(ruby)?;
 
             assert!(ruby.eval::<Value>("Date.iso8601('2026-02-30')").is_err());
             assert!(
