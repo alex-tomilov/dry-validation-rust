@@ -1,0 +1,45 @@
+name: Native Gems
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: native-gems-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-native-gem:
+    name: Native gem for ${{ matrix.platform }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        platform:
+          - x86_64-linux
+          - aarch64-linux
+          - x86_64-darwin
+          - arm64-darwin
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Ruby and Bundler cache
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.3"
+          bundler-cache: true
+
+      - name: Build native platform gem
+        run: |
+          GEM_VERSION=$(bundle exec ruby -Ilib -e 'require "dry/validation/rust/version"; print Dry::Validation::Rust::VERSION')
+          bundle exec rb-sys-dock --platform ${{ matrix.platform }} --ruby-versions 3.3 -- "bundle exec rake native:\$RUBY_TARGET pkg/dry-validation-rust-${GEM_VERSION}-\$RUBY_TARGET.gem"
+
+      - name: Upload native platform gem
+        uses: actions/upload-artifact@v7
+        with:
+          name: dry-validation-rust-${{ matrix.platform }}
+          path: pkg/*-${{ matrix.platform }}.gem
+          if-no-files-found: error

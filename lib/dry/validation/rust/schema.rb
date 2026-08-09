@@ -44,6 +44,27 @@ module Dry
         end
       end
 
+      class ProcessorHooks
+        STAGES = %i[value_coercer].freeze
+
+        def self.register(hooks, name, block)
+          unless STAGES.include?(name)
+            raise ArgumentError, "Undefined step name #{name.inspect}. Available names: #{STAGES.inspect}"
+          end
+          raise ArgumentError, 'processor hooks require a block' unless block
+
+          hooks << block
+        end
+
+        def self.apply(hooks, data)
+          hooks.each do |hook|
+            replacement = hook.call(data)
+            data = replacement if replacement.is_a?(Hash)
+          end
+          data
+        end
+      end
+
       class Schema
         TYPES = %i[
           any nil bool true false integer float decimal string symbol array hash
@@ -64,7 +85,7 @@ module Dry
         Predicate = Struct.new(:name, :argument, keyword_init: true)
 
         class FieldDefinition
-          attr_accessor :name, :required, :nullable, :filled, :type, :member
+          attr_accessor :name, :required, :nullable, :filled, :type, :member, :ruby_type
           attr_reader :children, :predicates
 
           def initialize(name:, required:)
@@ -74,6 +95,7 @@ module Dry
             @filled = false
             @type = :any
             @member = nil
+            @ruby_type = nil
             @children = []
             @children_by_name = {}
             @predicates = []
@@ -124,6 +146,7 @@ module Dry
               copy.nullable = nullable
               copy.filled = filled
               copy.type = type
+              copy.ruby_type = ruby_type
               copy.member = member&.deep_dup
               copy.children = children.map(&:deep_dup)
               predicates.each do |predicate|
@@ -151,11 +174,13 @@ module Dry
         end
 
         class DSL
-          attr_reader :mode, :fields
+          attr_reader :mode, :fields, :before_hooks, :after_hooks
 
-          def initialize(mode:, fields: [])
+          def initialize(mode:, fields: [], before_hooks: [], after_hooks: [])
             @mode = mode.to_sym
             @fields = fields
+            @before_hooks = before_hooks
+            @after_hooks = after_hooks
           end
 
           def required(name, &)
@@ -178,21 +203,26 @@ module Dry
 
               fields << field.deep_dup
             end
+            before_hooks.concat(schema.send(:before_hooks))
+            after_hooks.concat(schema.send(:after_hooks))
             self
           end
 
-          def before(*_args, &)
-            raise UnsupportedFeatureError,
-                  'schema before processor hooks are not supported by the native plan yet'
+          def before(name, &block)
+            ProcessorHooks.register(before_hooks, name, block)
+            self
           end
 
-          def after(*_args, &)
-            raise UnsupportedFeatureError,
-                  'schema after processor hooks are not supported by the native plan yet'
+          def after(name, &block)
+            ProcessorHooks.register(after_hooks, name, block)
+            self
           end
 
-          def compile
-            Schema.new(mode: mode, fields: fields)
+          def compile(validate_keys: false, messages: MessageConfig.new)
+            Schema.new(
+              mode: mode, fields: fields, before_hooks: before_hooks, after_hooks: after_hooks,
+              validate_keys: validate_keys, messages: messages
+            )
           end
 
           private
@@ -220,11 +250,7 @@ module Dry
           def value(*specs, **predicates, &block)
             apply_specs(specs, predicates)
             if block
-              unless definition.type == :hash || (definition.type == :array && definition.member&.type == :hash)
-                raise UnsupportedFeatureError,
-                      'predicate composition blocks are not supported yet; use named predicates or a contract rule'
-              end
-              nested_target(block)
+              nested_value_block? ? nested_target(block) : PredicateBlock.new(definition).instance_eval(&block)
             end
             self
           end
@@ -257,8 +283,11 @@ module Dry
               if member_type.is_a?(Schema)
                 member.type = :hash
                 member.children = member_type.fields.map(&:deep_dup)
+              elsif custom_type?(member_type)
+                raise UnsupportedFeatureError,
+                      'custom dry-types array members are not supported by the Ruby fallback yet'
               else
-                member.type = normalize_type(member_type)
+                assign_type(member, member_type)
               end
               definition.member = member
             end
@@ -299,7 +328,7 @@ module Dry
 
           def apply_specs(specs, predicates)
             remaining = specs.dup
-            definition.type = normalize_type(remaining.shift) if remaining.first && type_spec?(remaining.first)
+            assign_type(definition, remaining.shift) if remaining.first && type_spec?(remaining.first)
 
             remaining.each do |predicate|
               case predicate
@@ -314,16 +343,31 @@ module Dry
           end
 
           def type_spec?(spec)
-            spec.is_a?(Symbol) && TYPES.include?(spec)
+            builtin_type?(spec) || custom_type?(spec)
           end
 
-          def normalize_type(type)
-            unless type_spec?(type)
+          def assign_type(target, type)
+            if builtin_type?(type)
+              target.type = type == :datetime ? :date_time : type
+            elsif custom_type?(type)
+              target.type = :any
+              target.ruby_type = type
+            else
               raise UnsupportedFeatureError,
-                    "custom dry-types objects are not supported by the native plan yet (got #{type.inspect})"
+                    "unsupported type or predicate specification: #{type.class.name}"
             end
+          end
 
-            type == :datetime ? :date_time : type
+          def builtin_type?(type)
+            type.is_a?(Symbol) && TYPES.include?(type)
+          end
+
+          def custom_type?(type)
+            !type.is_a?(Symbol) && type.respond_to?(:try)
+          end
+
+          def nested_value_block?
+            definition.type == :hash || (definition.type == :array && definition.member&.type == :hash)
           end
 
           def nested_target(block)
@@ -341,8 +385,66 @@ module Dry
           end
         end
 
+        class PredicateBlock
+          def initialize(definition)
+            @definition = definition
+          end
+
+          def method_missing(name, *args, **kwargs, &block)
+            if name.to_s.end_with?('?') && block.nil?
+              argument = if kwargs.empty?
+                           args.length <= 1 ? args.first : args
+                         else
+                           kwargs
+                         end
+              @definition.add_predicate(name, argument: argument.nil? || argument)
+              return self
+            end
+
+            raise UnsupportedFeatureError,
+                  "unsupported predicate composition expression: #{name.inspect}"
+          end
+
+          def respond_to_missing?(name, include_private = false)
+            name.to_s.end_with?('?') || super
+          end
+        end
+
+        class RubyTypeProcessor
+          def self.apply(definitions, data, messages, message_backend)
+            error_paths = messages.to_set(&:path)
+            apply_at(definitions, data, [], messages, error_paths, message_backend)
+          end
+
+          def self.apply_at(definitions, data, prefix, messages, error_paths, message_backend)
+            return unless data.is_a?(Hash)
+
+            definitions.each do |field|
+              next unless data.key?(field.name)
+
+              path = [*prefix, field.name]
+              if field.ruby_type && !error_paths.include?(path)
+                result = field.ruby_type.try(data[field.name])
+                data[field.name] = result.input
+                unless result.success?
+                  messages << Message.new(
+                    message_backend.message(code: :type, type: field.type, fallback: 'is invalid'),
+                    path: path, code: :type, source: :schema
+                  )
+                  error_paths << path
+                end
+              end
+
+              apply_at(field.children, data[field.name], path, messages, error_paths, message_backend)
+            end
+          end
+
+          private_class_method :apply_at
+        end
+
         attr_reader :mode, :fields, :engine
 
+        # Builds a schema from a DSL block and optional Rust schemas to import.
         def self.define(mode = :schema, *external_schemas, &block)
           dsl = DSL.new(mode: mode)
           external_schemas.each { |schema| dsl.import(schema) }
@@ -350,42 +452,58 @@ module Dry
           dsl.compile
         end
 
-        def self.Params(*external_schemas, &)
-          define(:params, *external_schemas, &)
-        end
+        def self.Params(*external_schemas, &) = define(:params, *external_schemas, &)
+        def self.JSON(*external_schemas, &) = define(:json, *external_schemas, &)
 
-        def self.JSON(*external_schemas, &)
-          define(:json, *external_schemas, &)
-        end
-
-        def initialize(mode:, fields:)
+        # Compiles field definitions into a native schema plan.
+        def initialize(mode:, fields:, before_hooks: [], after_hooks: [], validate_keys: false,
+                       messages: MessageConfig.new)
           @mode = mode.to_sym
           @fields = fields.freeze
-          plan = { engine_version: ENGINE_VERSION, mode: mode.to_s, fields: fields.map(&:to_native_h) }
-          @engine = Native::Engine.new(JSON.generate(plan, max_nesting: false))
-        rescue StandardError => e
-          raise NativeExtensionError, "could not compile native schema plan: #{e.message}"
+          @before_hooks, @after_hooks = [before_hooks, after_hooks].map { _1.dup.freeze }
+          @message_backend = MessageBackend.new(messages)
+          begin
+            plan = {
+              engine_version: ENGINE_VERSION,
+              mode: mode.to_s,
+              validate_keys: validate_keys,
+              fields: fields.map(&:to_native_h)
+            }
+            @engine = Native::Engine.new(JSON.generate(plan, max_nesting: false))
+          rescue StandardError => e
+            raise NativeExtensionError, "could not compile native schema plan: #{e.message}"
+          end
         end
 
+        # Validates a Hash and returns its output and schema messages.
         def call(input)
           raise ArgumentError, "Input must be a Hash. #{input.class} was given." unless input.is_a?(Hash)
 
-          output, native_errors = engine.call(input)
+          prepared_input = ProcessorHooks.apply(before_hooks, input.dup)
+          output, native_errors = engine.call(prepared_input)
+          output = ProcessorHooks.apply(after_hooks, output)
           messages = native_errors_to_messages(native_errors)
+          RubyTypeProcessor.apply(fields, output, messages, @message_backend)
           apply_ruby_predicates(fields, output, [], messages)
           SchemaResult.new(output, messages.freeze)
         end
+
+        # Alias for #call.
         alias [] call
 
+        # Returns all declared field paths, including nested array paths.
         def key_paths
           paths_for(fields)
         end
 
+        # Returns a diagnostic representation of this compiled schema.
         def inspect
           "#<#{self.class} mode=#{mode.inspect} fields=#{fields.map(&:name).inspect} native=true>"
         end
 
         private
+
+        attr_reader :before_hooks, :after_hooks
 
         def native_errors_to_messages(native_errors)
           unless native_errors.fetch(0) == NATIVE_ERROR_BUFFER_VERSION
@@ -395,7 +513,6 @@ module Dry
 
           messages = []
           offset = NATIVE_ERROR_BUFFER_HEADER_SIZE
-
           while offset < native_errors.length
             path_length = native_errors.fetch(offset)
             unless path_length.is_a?(Integer) && path_length >= 0
@@ -411,19 +528,30 @@ module Dry
             code = native_errors.fetch(trailer_start + NATIVE_ERROR_RECORD_CODE_OFFSET)
             text = native_errors.fetch(trailer_start + NATIVE_ERROR_RECORD_TEXT_OFFSET)
             offset = record_end
-            unless path.all? { |part| part.is_a?(Symbol) || part.is_a?(Integer) } &&
-                   code.is_a?(Symbol) && text.is_a?(String)
+            valid_path = path.all? { |part| part.is_a?(Symbol) || part.is_a?(Integer) }
+            unless valid_path && code.is_a?(Symbol) && text.is_a?(String)
               raise NativeExtensionError, 'malformed native error buffer'
             end
 
             predicate, args = native_predicate_details(path, code)
-            messages << Message.new(
-              text, path: path, code: code, source: :schema,
-                    predicate: predicate, args: args
-            )
+            messages << native_message(path, code, text, predicate, args)
           end
-
           messages
+        end
+
+        def native_message(path, code, text, predicate, args)
+          Message.new(
+            native_error_message(code, text, predicate, args, path),
+            path: path, code: code, source: :schema, predicate: predicate, args: args
+          )
+        end
+
+        def native_error_message(code, native_text, predicate, args, path)
+          field = field_at_path(fields, path)
+          @message_backend.message(
+            code: code, predicate: predicate&.to_s&.delete_suffix('?'), args: args,
+            type: field&.normalized_type, fallback: code == :unexpected_key ? 'is not allowed' : native_text
+          )
         end
 
         def paths_for(definitions, prefix = [])
@@ -500,6 +628,9 @@ module Dry
                  when :not_eql then "must not be equal to #{predicate.argument}"
                  else 'is invalid'
                  end
+          text = @message_backend.message(
+            code: predicate.name, predicate: predicate.name, args: [predicate.argument], fallback: text
+          )
           Message.new(
             text, path: path, code: predicate.name, source: :schema,
                   predicate: "#{predicate.name}?", args: [predicate.argument]

@@ -6,6 +6,39 @@ require 'open3'
 class ApiTest < Minitest::Test
   CONCURRENCY_THREAD_COUNT = 50
   CONCURRENCY_CALLS_PER_THREAD = 1_000
+  SIDE_BY_SIDE_PUBLIC_API = {
+    Dry::Validation::Rust::Contract => {
+      class: %i[build config import_predicates_as_macros inherited json macro_registry option option_definitions own_rules params register_macro rule rules schema schema_definition],
+      instance: %i[[] call default_context inspect macro_registered? resolve_macro]
+    },
+    Dry::Validation::Rust::Schema => {
+      class: %i[JSON Params define],
+      instance: %i[[] call engine fields inspect key_paths mode]
+    },
+    Dry::Validation::Rust::Result => {
+      class: [],
+      instance: %i[[] add_error base_rule_error? context deconstruct deconstruct_keys error? errors failure? finalize! inspect key? rule_error? schema_error? schema_result success? to_h values]
+    },
+    Dry::Validation::Rust::MessageSet => {
+      class: [],
+      instance: %i[[] add each empty? filter freeze messages options to_h with]
+    },
+    Dry::Validation::Rust::Evaluator => {
+      class: [],
+      instance: %i[_context base base_rule_error? context contract error? execute failures index key key? key_name paths result rule_error? schema_error? value values]
+    },
+    Dry::Validation::Rust::Values => {
+      class: [],
+      instance: %i[[] data deconstruct_keys each fetch key? to_h]
+    }
+  }.freeze
+
+  def test_side_by_side_public_api_is_locked_for_the_0_1_line
+    SIDE_BY_SIDE_PUBLIC_API.each do |klass, expected|
+      assert_equal expected.fetch(:class).sort, klass.singleton_methods(false).sort, "#{klass} class API"
+      assert_equal expected.fetch(:instance).sort, klass.public_instance_methods(false).sort, "#{klass} instance API"
+    end
+  end
 
   def test_native_plan_metadata
     contract = build_contract do
@@ -129,6 +162,19 @@ class ApiTest < Minitest::Test
     assert_equal 'key :name is already defined', error.message
   end
 
+  def test_native_engine_rejects_malformed_plan_json_with_argument_error
+    malformed_plans = [
+      '{"engine_version":',
+      ('[' * 513) + (']' * 513)
+    ]
+
+    malformed_plans.each do |plan|
+      error = assert_raises(ArgumentError) { Dry::Validation::Rust::Native::Engine.new(plan) }
+
+      assert_match(/native schema plan/, error.message)
+    end
+  end
+
   def test_imported_nested_predicates_are_independent_from_the_source_schema
     address = Dry::Validation::Rust::Schema.Params do
       required(:profile).hash do
@@ -198,13 +244,18 @@ class ApiTest < Minitest::Test
     assert_equal "ok\n", stdout
   end
 
-  def test_unsupported_strict_key_configuration_fails_loudly
-    error = assert_raises(Dry::Validation::Rust::UnsupportedFeatureError) do
-      Class.new(Dry::Validation::Rust::Contract) do
-        config.validate_keys = true
-      end
+  def test_validate_keys_configuration_is_inherited
+    parent = build_contract do
+      config.validate_keys = true
+      params { required(:name).value(:string) }
     end
-    assert_match(/validate_keys/, error.message)
+    child = Class.new(parent)
+
+    assert child.config.validate_keys
+    assert_equal(
+      { unexpected: ['is not allowed'] },
+      child.new.call(name: 'Jane', unexpected: true).errors.to_h
+    )
   end
 
   def test_compiled_contract_remains_isolated_during_concurrent_valid_and_invalid_calls

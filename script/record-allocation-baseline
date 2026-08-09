@@ -1,0 +1,24 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+require 'fileutils'
+require 'json'
+require 'rbconfig'
+
+PROJECT_ROOT = File.expand_path('..', __dir__)
+DEFAULT_OUTPUT_PATH = File.join(PROJECT_ROOT, 'benchmark', 'baseline_allocations.json')
+
+abort "Usage: #{File.basename($PROGRAM_NAME)} [output-path]" if ARGV.length > 1
+
+output_path = File.expand_path(ARGV.fetch(0, DEFAULT_OUTPUT_PATH))
+success = system('rake', 'compile', chdir: PROJECT_ROOT)
+abort 'native extension compilation failed' unless success
+
+command = [RbConfig.ruby, '-Ilib', '-rfileutils', '-rjson', '-e', <<~'RUBY', output_path]
+  require_relative 'benchmark/allocation_profiler'
+  FileUtils.mkdir_p(File.dirname(ARGV.fetch(0)))
+  File.write(ARGV.fetch(0), JSON.pretty_generate(AllocationProfiler.measure) + "\n")
+  puts "Wrote allocation baseline to #{ARGV.fetch(0)}"
+RUBY
+
+exec(*command, chdir: PROJECT_ROOT)

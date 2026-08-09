@@ -5,7 +5,7 @@ engine with familiar dry-validation-style contract syntax and a precisely
 documented compatible subset. Rust handles the immutable declarative schema
 execution path; Ruby preserves dynamic rules and Ruby-specific semantics.
 
-> Status: feasibility prototype / `0.1.0.pre2`. It is deliberately not
+> Status: feasibility prototype / `0.1.0.pre3`. It is deliberately not
 > presented as a production-ready drop-in replacement.
 
 Read [the support matrix](docs/SUPPORT_MATRIX.md), [compatibility matrix](docs/COMPATIBILITY.md),
@@ -38,6 +38,27 @@ desirable. Calling those blocks through Ruby preserves the feature that makes
 - It does not claim full upstream compatibility without fixture-backed,
   version-pinned differential evidence.
 - It does not claim general speedups without representative benchmarks.
+
+## Installation
+
+### Precompiled (recommended)
+
+When a precompiled gem is published for your platform, install it with:
+
+```bash
+gem install dry-validation-rust
+```
+
+The current `0.1.x` support target is source builds; see the
+[support matrix](docs/SUPPORT_MATRIX.md) for the authoritative platform status.
+
+### From source
+
+Requires Rust 1.85 or newer, libclang, and a C toolchain.
+
+```bash
+gem install dry-validation-rust --platform ruby
+```
 
 ## Primary safe API
 
@@ -78,6 +99,15 @@ result.errors.to_h
 This is the primary supported API. Version, platform, and upstream-reference
 targets are listed in [SUPPORT_MATRIX.md](docs/SUPPORT_MATRIX.md). Supported
 DSL and semantic differences are listed in [COMPATIBILITY.md](docs/COMPATIBILITY.md).
+
+### Side-by-side API stability
+
+For the `0.1.x` line, the public side-by-side API is
+`Dry::Validation::Rust::Contract` and the directly exposed `Schema`, `Result`,
+`MessageSet`, `Evaluator`, and `Values` types. Their documented public methods
+will not be removed or changed incompatibly in a patch release; a breaking
+side-by-side API change requires the next minor release. The exact-compatibility
+entrypoints are explicitly experimental and are not covered by this promise.
 
 ## Migration-compatible subset
 
@@ -202,23 +232,72 @@ The test suite covers the native plan, coercion modes, nested data, rules,
 rule skipping, array rules, macros, options, context, inheritance, external
 schemas, loading modes, pattern matching, metadata, and concurrent calls.
 
-Run a local throughput/allocation sanity benchmark with:
+Run the representative benchmark matrix with:
 
 ```bash
 ruby -Ilib benchmark/schema_throughput.rb
 N=500000 ruby -Ilib benchmark/schema_throughput.rb
 ENGINE=rust ruby -Ilib benchmark/schema_throughput.rb
 ENGINE=upstream ruby -Ilib benchmark/schema_throughput.rb
+SCENARIO=array_of_objects ENGINE=rust ruby -Ilib benchmark/schema_throughput.rb
 ```
+
+The six fixed scenarios cover small (5-field), medium (25-field, 80% valid),
+and large (100-field, 50% valid) forms; a 10-level nested object; 100 objects
+with five fields each (90% valid); and a 20-field all-invalid case. Each result
+includes validations/second, sampled p50/p95/p99 latency, Ruby allocations per
+call, and peak process RSS under the sustained run. Use `FORMAT=json` for
+machine-readable output, and tune `WARMUP`, `N`, and `LATENCY_SAMPLES` when
+collecting evidence.
+
+Refresh the allocation-regression baseline only after intentionally reviewing an
+allocation change:
+
+```bash
+bundle exec script/record-allocation-baseline
+```
+
+The manual **Record Allocation Baseline** workflow produces the same JSON as an
+artifact without changing the repository. Review its value before replacing
+`benchmark/baseline_allocations.json`; do not accept an allocation regression
+merely by refreshing the baseline.
 
 By default the benchmark compares this Rust-backed hybrid implementation with
 the upstream `dry-validation` gem in a separate Ruby process. The upstream gem
 is intentionally not a project dependency; install it for the same Ruby with
 `gem install dry-validation` before running `ENGINE=all` or `ENGINE=upstream`.
-Do not interpret a single synthetic result as proof that the gem is faster than
-upstream. Real comparisons must use representative schemas, payload sizes,
-valid/invalid mixes, warmup, multiple Ruby versions, and RSS as well as
-throughput.
+The matrix is a reproducible measurement harness, not a published performance
+claim: compare repeated runs on the same machine and report neutral or negative
+results alongside favorable ones.
+
+## Representative benchmark results
+
+The following baseline was measured on 2026-08-08 with CRuby 3.3.7 on x86_64 Linux (Ubuntu 7.0.0-29-generic), comparing dry-validation-rust 0.1.0.pre2 with dry-validation 1.11.1. Each `SCENARIO` ran in its own process three times
+with `N=1000`, `WARMUP=200`, and `LATENCY_SAMPLES=200`; the table shows medians and the throughput range across those runs. Values are evidence for this host and workload only, not a general performance guarantee.
+
+| `SCENARIO`         | Rust validations/s (range) | Upstream validations/s (range) | Throughput ratio |           Rust p50/p95/p99 |       Upstream p50/p95/p99 |
+| ------------------ | -------------------------: | -----------------------------: | ---------------: | -------------------------: | -------------------------: |
+| `small_form`       |     76,680 (76,481–77,275) |         36,879 (36,269–37,652) |            2.08× |         13.6/17.2/152.5 µs |          24.9/35.8/73.1 µs |
+| `medium_form`      |       9,936 (9,873–10,001) |            2,880 (2,861–2,915) |            3.45× |        41.8/322.0/451.9 µs |    77.9/1,581.6/1,669.9 µs |
+| `large_form`       |        1,062 (1,057–1,078) |                  323 (317–328) |            3.29× | 1,573.1/1,834.5/1,909.2 µs | 5,331.9/6,948.5/7,477.1 µs |
+| `nested_object`    |     49,064 (48,960–50,160) |         19,589 (17,365–20,476) |            2.50× |         19.6/35.2/219.9 µs |         49.2/69.7/182.4 µs |
+| `array_of_objects` |        1,897 (1,890–1,923) |                  806 (802–815) |            2.35× |       495.2/728.0/844.5 µs | 1,196.9/1,588.6/2,028.1 µs |
+| `all_invalid`      |        3,860 (3,693–3,898) |                  814 (790–819) |            4.74× |       243.5/420.0/561.5 µs | 1,134.5/1,420.7/1,541.7 µs |
+
+| `SCENARIO`         | Rust Ruby allocations/call | Upstream Ruby allocations/call | Rust peak RSS | Upstream peak RSS |
+| ------------------ | -------------------------: | -----------------------------: | ------------: | ----------------: |
+| `small_form`       |                      85.01 |                          49.01 |      25.1 MiB |          30.3 MiB |
+| `medium_form`      |                     470.01 |                       1,116.81 |      25.7 MiB |          30.7 MiB |
+| `large_form`       |                   2,885.01 |                      10,286.01 |      25.9 MiB |          31.0 MiB |
+| `nested_object`    |                     145.01 |                         113.01 |      25.2 MiB |          30.6 MiB |
+| `array_of_objects` |                   3,659.61 |                       1,713.61 |      25.6 MiB |          30.5 MiB |
+| `all_invalid`      |                     975.01 |                       4,063.01 |      25.7 MiB |          30.8 MiB |
+
+The Rust path had higher Ruby allocation counts for the small, nested, and array scenarios; this benchmark does not establish a native-allocation total. Peak RSS is process high-water memory, not per-call memory. Reproduce an individual row with, for example:
+
+```bash
+N=1000 WARMUP=200 LATENCY_SAMPLES=200 ENGINE=all SCENARIO=large_form ruby -Ilib benchmark/schema_throughput.rb
+```
 
 ## Important performance caveat
 

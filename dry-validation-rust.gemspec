@@ -39,10 +39,13 @@ Gem::Specification.new do |spec|
   spec.extensions = ['ext/dry_validation_rust/extconf.rb']
   spec.add_dependency 'bigdecimal', '>= 3.1', '< 5.0'
   spec.add_dependency 'rb_sys', '~> 0.9'
+  spec.add_development_dependency 'memory_profiler', '~> 1.1'
   spec.add_development_dependency 'minitest', '~> 6.0'
   spec.add_development_dependency 'mutex_m', '~> 0.2'
   spec.add_development_dependency 'ostruct', '~> 0.6'
   spec.add_development_dependency 'rake', '~> 13.1'
+  spec.add_development_dependency 'rake-compiler', '~> 1.3'
+  spec.add_development_dependency 'rake-compiler-dock', '~> 1.12'
 
   spec.metadata['rubygems_mfa_required'] = 'true'
   spec.metadata['source_code_uri'] = 'https://github.com/alex-tomilov/dry-validation-rust'

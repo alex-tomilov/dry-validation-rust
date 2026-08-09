@@ -54,6 +54,27 @@ should wait until a fix or practical mitigation is available, unless active
 exploitation or another overriding public-interest concern requires a
 different timeline.
 
+## Coordinated disclosure and embargo
+
+The project uses a 90-calendar-day embargo for public technical details after
+a fixed version is released. During that period, the maintainer may publish a
+minimal advisory and upgrade guidance, but will not publish a proof of concept
+or detailed exploitation steps without coordinating with the reporter.
+
+The embargo may end earlier only with the reporter's agreement, or when active
+exploitation, an already-public disclosure, or another overriding
+public-interest concern makes earlier disclosure necessary. At the end of the
+embargo, the maintainer will publish the advisory through GitHub Security
+Advisories when practical and credit the reporter if requested.
+
+## Dependency-audit schedule
+
+The [Security workflow](.github/workflows/security.yml) runs on pull requests,
+pushes to `main` and `develop`, and every Monday. It runs `bundler-audit` for
+Ruby dependencies and `cargo audit --deny warnings` for Rust dependencies.
+Audit failures are handled under
+[the dependency-security policy](docs/DEPENDENCY_SECURITY.md).
+
 Security releases and advisories remain subject to maintainer approval. No
 report grants permission to publish a gem, create a tag, or disclose private
 project information.

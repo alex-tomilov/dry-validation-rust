@@ -55,7 +55,9 @@ Expired exceptions are treated as audit failures until renewed or resolved.
 
 ## Artifact provenance
 
-Release automation is intentionally out of scope until packaging is stable. A
-future release workflow should use RubyGems trusted publishing, produce
-checksums, retain workflow logs, avoid long-lived RubyGems tokens, and consider
-attestations after the core release process is reliable.
+The release workflow is prepared but has not yet been validated by a published
+release. The `rubygems:push` workflow uses RubyGems trusted publishing instead of a
+long-lived token. It signs every built source and native gem with keyless
+Sigstore and stores the resulting bundles with the workflow artifacts. Configure
+RubyGems.org to trust `.github/workflows/rubygems-push.yml` before its first
+release.

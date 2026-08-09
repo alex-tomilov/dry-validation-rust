@@ -5,5 +5,6 @@
 /ext/dry_validation_rust/mkmf.log
 /ext/dry_validation_rust/native.*
 /ext/dry_validation_rust/target/
+/ext/dry_validation_rust/fuzz/target/
 /tmp/
 /build-week-2026/

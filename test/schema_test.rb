@@ -1,9 +1,115 @@
 # frozen_string_literal: true
 
 require_relative 'test_helper'
+require 'dry/types'
+require 'tempfile'
 
 class SchemaTest < Minitest::Test
   TRAVERSAL_DEPTH_LIMIT = 128
+
+  def test_processor_hooks_sanitize_before_validation_and_transform_output_afterwards
+    hook_inputs = []
+    contract = build_contract do
+      params do
+        before(:value_coercer) do |input|
+          hook_inputs << input.dup
+          input.merge('name' => input.fetch('name').strip)
+        end
+        before(:value_coercer) { |input| input.merge('name' => "#{input.fetch('name')}!") }
+        after(:value_coercer) do |output|
+          hook_inputs << output.dup
+          output.merge(name: output.fetch(:name).upcase)
+        end
+
+        required(:name).value(:string, min_size?: 5)
+      end
+    end
+
+    result = contract.new.call('name' => ' Jane ')
+
+    assert result.success?
+    assert_equal({ name: 'JANE!' }, result.to_h)
+    assert_equal([{ 'name' => ' Jane ' }, { name: 'Jane!' }], hook_inputs)
+  end
+
+  def test_processor_hooks_keep_the_current_hash_when_a_hook_mutates_it_without_returning_a_hash
+    contract = build_contract do
+      params do
+        before(:value_coercer) { |input| input['age'] = input.fetch('age').strip }
+        after(:value_coercer) { |output| output[:age] += 1 }
+        required(:age).value(:integer)
+      end
+    end
+
+    assert_equal({ age: 43 }, contract.new.call('age' => ' 42 ').to_h)
+  end
+
+  def test_processor_hooks_reject_unknown_stages_and_missing_blocks
+    unknown_stage = assert_raises(ArgumentError) do
+      build_contract { params { before(:coerce) { |input| input } } }
+    end
+    missing_block = assert_raises(ArgumentError) do
+      build_contract { params { after(:value_coercer) } }
+    end
+
+    assert_equal(
+      'Undefined step name :coerce. Available names: [:value_coercer]',
+      unknown_stage.message
+    )
+    assert_equal 'processor hooks require a block', missing_block.message
+  end
+
+  def test_yaml_message_backend_uses_load_paths_and_interpolates_predicate_tokens
+    with_message_file(<<~YAML) do |path|
+      es:
+        dry_validation:
+          errors:
+            gt?: "debe ser mayor que %<num>s"
+            type: "debe ser %<type>s"
+    YAML
+      contract = build_contract do
+        config.messages.default_locale = :es
+        config.messages.top_namespace = :dry_validation
+        config.messages.load_paths << path
+        params { required(:age).value(:integer, gt?: 18) }
+      end
+
+      assert_equal({ age: ['debe ser mayor que 18'] }, contract.new.call(age: '18').errors.to_h)
+      assert_equal({ age: ['debe ser integer'] }, contract.new.call(age: 'invalid').errors.to_h)
+    end
+  end
+
+  def test_i18n_message_backend_loads_paths_and_delegates_interpolation
+    skip 'i18n is not installed' if Gem::Specification.find_all_by_name('i18n').empty?
+
+    with_message_file(<<~YAML) do |path|
+      fr:
+        dry_validation:
+          errors:
+            included_in?: "doit être %<list>s"
+    YAML
+      contract = build_contract do
+        config.messages.backend = :i18n
+        config.messages.default_locale = :fr
+        config.messages.top_namespace = :dry_validation
+        config.messages.load_paths << path
+        params { required(:role).value(:string, included_in?: %w[admin editor]) }
+      end
+
+      assert_equal({ role: ['doit être admin, editor'] }, contract.new.call(role: 'reader').errors.to_h)
+    end
+  end
+
+  def test_message_backend_rejects_unknown_identifiers
+    error = assert_raises(ArgumentError) do
+      build_contract do
+        config.messages.backend = :database
+        params { required(:name).value(:string) }
+      end
+    end
+
+    assert_equal '+database+ is not a valid messages identifier', error.message
+  end
 
   def test_schema_at_the_nesting_limit_preserves_the_entire_output
     schema = Dry::Validation::Rust::Schema.Params(&nested_schema(TRAVERSAL_DEPTH_LIMIT))
@@ -33,6 +139,19 @@ class SchemaTest < Minitest::Test
     _output, native_errors = schema.engine.call(age: 'invalid')
 
     assert_equal Dry::Validation::Rust::Schema::NATIVE_ERROR_BUFFER_VERSION, native_errors.first
+  end
+
+  def test_native_engine_keeps_date_class_lookup_from_initialization
+    schema = Dry::Validation::Rust::Schema.Params { required(:value).value(:date) }
+    date_class = Object.const_get(:Date)
+
+    Object.send(:remove_const, :Date)
+    output, native_errors = schema.engine.call(value: '2026-08-03')
+
+    assert_equal({ value: date_class.new(2026, 8, 3) }, output)
+    assert_equal [Dry::Validation::Rust::Schema::NATIVE_ERROR_BUFFER_VERSION], native_errors
+  ensure
+    Object.const_set(:Date, date_class) unless Object.const_defined?(:Date, false)
   end
 
   def test_native_error_buffer_rejects_unsupported_versions_and_truncated_records
@@ -112,6 +231,51 @@ class SchemaTest < Minitest::Test
     schema_result = schema.new.call(mixed_keys)
     assert_equal({ age: 21 }, schema_result.to_h)
     assert_equal({ profile: ['is missing'] }, schema_result.errors.to_h)
+  end
+
+  def test_validate_keys_rejects_unknown_keys_in_params_and_json_at_every_hash_level
+    declaration = proc do
+      required(:profile).hash { required(:name).value(:string) }
+      required(:people).array(:hash) { required(:id).value(:integer) }
+    end
+    params = build_contract do
+      config.validate_keys = true
+      params(&declaration)
+    end
+    json = build_contract do
+      config.validate_keys = true
+      json(&declaration)
+    end
+    input = {
+      'unexpected' => true,
+      'profile' => { 'name' => 'Jane', 'unexpected' => true },
+      'people' => [{ 'id' => 1, 'unexpected' => true }]
+    }
+    expected_errors = {
+      unexpected: ['is not allowed'],
+      profile: { unexpected: ['is not allowed'] },
+      people: { 0 => { unexpected: ['is not allowed'] } }
+    }
+
+    [params, json].each do |contract|
+      result = contract.new.call(input)
+
+      assert_equal expected_errors, result.errors.to_h
+      assert_equal({ profile: { name: 'Jane' }, people: [{ id: 1 }] }, result.to_h)
+      assert_equal %i[unexpected_key unexpected_key unexpected_key], result.errors.map(&:code)
+    end
+  end
+
+  def test_validate_keys_does_not_make_schema_mode_strict
+    contract = build_contract do
+      config.validate_keys = true
+      schema { required(:name).value(:string) }
+    end
+
+    result = contract.new.call(name: 'Jane', unexpected: true)
+
+    assert result.success?
+    assert_equal({ name: 'Jane' }, result.to_h)
   end
 
   def test_schema_mode_requires_symbol_keys_at_each_nested_level
@@ -357,6 +521,79 @@ class SchemaTest < Minitest::Test
     assert_equal 'must be greater than or equal to 18', result.errors.to_h[:age].first
   end
 
+  def test_predicate_composition_blocks_collect_native_and_ruby_predicates
+    contract = build_contract do
+      params do
+        required(:age).value(:integer) { gt? 18 }
+        required(:email).value(:string) { format?(/\A[^@]+@[^@]+\z/) }
+      end
+    end
+
+    invalid = contract.new.call(age: '18', email: 'invalid')
+    valid = contract.new.call(age: '19', email: 'jane@example.test')
+
+    assert_equal({ age: ['must be greater than 18'], email: ['is in invalid format'] }, invalid.errors.to_h)
+    assert_equal %i[gt? format?], invalid.errors.map(&:predicate)
+    assert valid.success?
+  end
+
+  def test_custom_dry_types_are_processed_in_ruby_alongside_native_fields
+    email_type = Dry::Types['params.string'].constructor { |value| value.strip.downcase }
+    identifier_type = Dry::Types['params.integer'] | Dry::Types['params.string']
+    contract = build_contract do
+      params do
+        required(:age).value(:integer)
+        required(:email).value(email_type)
+        required(:identifier).value(identifier_type)
+      end
+    end
+
+    valid = contract.new.call(age: '42', email: ' JANE@EXAMPLE.TEST ', identifier: 'abc')
+    invalid = contract.new.call(age: 'bad', email: ' JANE@EXAMPLE.TEST ', identifier: [])
+
+    assert_equal({ age: 42, email: 'jane@example.test', identifier: 'abc' }, valid.to_h)
+    assert valid.success?
+    assert_equal({ age: 'bad', email: 'jane@example.test', identifier: [] }, invalid.to_h)
+    assert_equal({ age: ['must be an integer'], identifier: ['is invalid'] }, invalid.errors.to_h)
+  end
+
+  def test_custom_dry_types_array_members_fail_explicitly
+    type = Dry::Types['params.integer']
+
+    error = assert_raises(Dry::Validation::Rust::UnsupportedFeatureError) do
+      build_contract { params { required(:ids).array(type) } }
+    end
+
+    assert_equal 'custom dry-types array members are not supported by the Ruby fallback yet', error.message
+  end
+
+  def test_predicate_composition_blocks_reject_non_predicate_expressions_explicitly
+    error = assert_raises(Dry::Validation::Rust::UnsupportedFeatureError) do
+      build_contract do
+        params { required(:age).value(:integer) { required(:child) } }
+      end
+    end
+
+    assert_equal 'unsupported predicate composition expression: :required', error.message
+  end
+
+  def test_value_hash_blocks_continue_to_define_nested_fields
+    contract = build_contract do
+      params do
+        required(:profile).value(:hash) do
+          required(:name).value(:string)
+        end
+      end
+    end
+
+    valid = contract.new.call(profile: { name: 'Jane' })
+    invalid = contract.new.call(profile: {})
+
+    assert_equal({ profile: { name: 'Jane' } }, valid.to_h)
+    assert valid.success?
+    assert_equal({ profile: { name: ['is missing'] } }, invalid.errors.to_h)
+  end
+
   def test_ruby_predicates_are_skipped_for_paths_with_native_errors
     contract = build_contract do
       params do
@@ -497,6 +734,14 @@ class SchemaTest < Minitest::Test
 
     child_schema = nested_schema(nesting_depth, level + 1)
     proc { required(:"level_#{level}").hash(&child_schema) }
+  end
+
+  def with_message_file(contents)
+    Tempfile.create(['dry-validation-rust-messages', '.yml']) do |file|
+      file.write(contents)
+      file.flush
+      yield file.path
+    end
   end
 
   def nested_input(nesting_depth)

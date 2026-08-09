@@ -5,6 +5,7 @@ cd "$(dirname "$0")/.."
 
 N="${N:-1000}" \
 WARMUP="${WARMUP:-100}" \
+LATENCY_SAMPLES="${LATENCY_SAMPLES:-20}" \
 ENGINE="${ENGINE:-rust}" \
 FORMAT=json \
 ruby -Ilib benchmark/schema_throughput.rb

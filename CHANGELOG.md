@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+## 0.1.0.pre3 — 2026-08-09
+
+- Added `config.validate_keys = true` for `params` and `json` schemas to
+  report undeclared keys, including in nested hashes.
+- Added supported predicate-composition blocks to schema value declarations.
+- Added `:value_coercer` schema processor hooks that run before and after
+  native schema evaluation.
+- Added direct-field support for custom `dry-types` objects and constructors.
+- Added configurable YAML message templates and an optional I18n message
+  backend for schema errors.
+- Added source-gem package auditing with an isolated installation smoke test.
+- Documented the coordinated vulnerability-disclosure process, including a
+  90-day post-fix-release embargo and the weekly dependency-audit schedule.
+
 ## 0.1.0.pre2 — 2026-08-03
 
 - Added typed native predicate arguments; invalid null and object arguments are

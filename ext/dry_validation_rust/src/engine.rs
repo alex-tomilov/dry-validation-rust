@@ -1,8 +1,11 @@
-use magnus::{Error, Integer, RArray, RClass, RHash, RModule, Ruby, Value, prelude::*};
+use magnus::{
+    DataTypeFunctions, Error, Integer, RArray, RClass, RHash, RModule, Ruby, TypedData, Value,
+    gc::Marker, prelude::*, r_hash::ForEach,
+};
 
 use crate::{
     coercion::{coerce, empty_value, null_if_empty_nullable_param, type_matches},
-    error::{NativeError, PathPart, clone_path, type_message},
+    error::{NativeError, PathPart, type_message},
     plan::{FieldPlan, Mode, SchemaPlan, parse_plan},
     predicates::apply_predicates,
     ruby_bridge::RuntimeClasses,
@@ -11,21 +14,30 @@ use crate::{
 const MAX_TRAVERSAL_DEPTH: u16 = 128;
 const DEPTH_ERROR_CODE: &str = "depth";
 
-#[magnus::wrap(
+#[derive(TypedData)]
+#[magnus(
     class = "Dry::Validation::Rust::Native::Engine",
     free_immediately,
+    mark,
     size
 )]
-#[derive(Debug)]
 pub(crate) struct Engine {
     plan: SchemaPlan,
+    classes: RuntimeClasses,
     plan_bytes: usize,
+}
+
+impl DataTypeFunctions for Engine {
+    fn mark(&self, marker: &Marker) {
+        self.classes.mark(marker);
+    }
 }
 
 struct Traversal<'a> {
     ruby: &'a Ruby,
     classes: &'a RuntimeClasses,
     mode: Mode,
+    validate_keys: bool,
     errors: &'a mut Vec<NativeError>,
 }
 
@@ -36,24 +48,27 @@ enum TypeValidation {
 
 impl Engine {
     pub(crate) fn new(ruby: &Ruby, json: String) -> Result<Self, Error> {
+        let plan = parse_plan(ruby, &json)?;
+        let classes = RuntimeClasses::new(ruby, &plan)?;
         Ok(Self {
-            plan: parse_plan(ruby, &json)?,
+            plan,
+            classes,
             plan_bytes: json.len(),
         })
     }
 
     pub(crate) fn call(&self, input: RHash) -> Result<RArray, Error> {
         let ruby = Ruby::get_with(input);
-        let classes = RuntimeClasses::new(&ruby, &self.plan)?;
         let mut errors = Vec::new();
         let output = {
             let mut traversal = Traversal {
                 ruby: &ruby,
-                classes: &classes,
+                classes: &self.classes,
                 mode: self.plan.mode,
+                validate_keys: self.plan.validate_keys,
                 errors: &mut errors,
             };
-            process_hash(&mut traversal, &self.plan.fields, input, &[], 0)?
+            process_hash(&mut traversal, &self.plan.fields, input, &mut Vec::new(), 0)?
         };
         // Ruby owns this private format's version. Reading it here makes the
         // encoder and decoder share one authority without duplicating a value.
@@ -111,17 +126,49 @@ fn process_hash(
     traversal: &mut Traversal<'_>,
     fields: &[FieldPlan],
     input: RHash,
-    prefix: &[PathPart],
+    path: &mut Vec<PathPart>,
     depth: u16,
 ) -> Result<RHash, Error> {
     let output = traversal.ruby.hash_new_capa(fields.len());
-    if !within_depth_limit(depth, prefix, traversal.errors) {
+    if !within_depth_limit(depth, path, traversal.errors) {
         return Ok(output);
     }
     for field in fields {
-        process_field(traversal, &output, field, input, prefix, depth)?;
+        process_field(traversal, &output, field, input, path, depth)?;
     }
+    report_unexpected_keys(traversal, fields, input, path)?;
     Ok(output)
+}
+
+fn report_unexpected_keys(
+    traversal: &mut Traversal<'_>,
+    fields: &[FieldPlan],
+    input: RHash,
+    path: &[PathPart],
+) -> Result<(), Error> {
+    if !traversal.validate_keys || traversal.mode == Mode::Schema {
+        return Ok(());
+    }
+
+    input.foreach(|key: Value, _: Value| {
+        let mut declared = false;
+        for field in fields {
+            let name = field.name.as_deref().unwrap_or_default();
+            if key.eql(traversal.ruby.to_symbol(name))? || key.eql(traversal.ruby.str_new(name))? {
+                declared = true;
+                break;
+            }
+        }
+        if !declared {
+            let key_name: String = key.funcall("to_s", ())?;
+            let mut error_path = path.to_vec();
+            error_path.push(PathPart::Key(key_name));
+            traversal
+                .errors
+                .push(NativeError::new(&error_path, "unexpected_key", ""));
+        }
+        Ok(ForEach::Continue)
+    })
 }
 
 fn process_field(
@@ -129,19 +176,23 @@ fn process_field(
     output: &RHash,
     field: &FieldPlan,
     input: RHash,
-    prefix: &[PathPart],
+    path: &mut Vec<PathPart>,
     depth: u16,
 ) -> Result<(), Error> {
     let name = field.name.as_deref().unwrap_or_default();
-    let mut path = clone_path(prefix);
     path.push(PathPart::Key(name.to_owned()));
-    let Some(raw) = resolve_field_input(input, traversal.ruby, traversal.mode, name) else {
-        report_missing_field(traversal, field, &path);
-        return Ok(());
-    };
-
-    let processed = process_value(traversal, field, raw, &path, depth)?;
-    output.aset(traversal.ruby.to_symbol(name), processed)
+    let result = (|| match resolve_field_input(input, traversal.ruby, traversal.mode, name) {
+        Some(raw) => {
+            let processed = process_value(traversal, field, raw, path, depth)?;
+            output.aset(traversal.ruby.to_symbol(name), processed)
+        }
+        None => {
+            report_missing_field(traversal, field, path);
+            Ok(())
+        }
+    })();
+    path.pop();
+    result
 }
 
 fn resolve_field_input(input: RHash, ruby: &Ruby, mode: Mode, name: &str) -> Option<Value> {
@@ -166,7 +217,7 @@ fn process_value(
     traversal: &mut Traversal<'_>,
     field: &FieldPlan,
     raw: Value,
-    path: &[PathPart],
+    path: &mut Vec<PathPart>,
     depth: u16,
 ) -> Result<Value, Error> {
     if !within_depth_limit(depth, path, traversal.errors) {
@@ -266,7 +317,7 @@ fn process_children(
     traversal: &mut Traversal<'_>,
     field: &FieldPlan,
     value: Value,
-    path: &[PathPart],
+    path: &mut Vec<PathPart>,
     depth: u16,
 ) -> Result<Value, Error> {
     if field.kind == "hash" && !field.children.is_empty() {
@@ -283,7 +334,7 @@ fn process_array_members(
     traversal: &mut Traversal<'_>,
     field: &FieldPlan,
     value: Value,
-    path: &[PathPart],
+    path: &mut Vec<PathPart>,
     depth: u16,
 ) -> Result<Value, Error> {
     let (Some(member), Some(array)) = (field.member.as_ref(), RArray::from_value(value)) else {
@@ -292,15 +343,10 @@ fn process_array_members(
 
     let output = traversal.ruby.ary_new_capa(array.len());
     for (index, item) in array.into_iter().enumerate() {
-        let mut item_path = clone_path(path);
-        item_path.push(PathPart::Index(index));
-        output.push(process_value(
-            traversal,
-            member,
-            item,
-            &item_path,
-            depth + 1,
-        )?)?;
+        path.push(PathPart::Index(index));
+        let processed = process_value(traversal, member, item, path, depth + 1);
+        path.pop();
+        output.push(processed?)?;
     }
     Ok(output.as_value())
 }
@@ -344,6 +390,7 @@ mod tests {
         let plan = serde_json::from_str(json).expect("valid plan");
         let engine = Engine {
             plan,
+            classes: RuntimeClasses::default(),
             plan_bytes: json.len(),
         };
         assert_eq!(engine.field_count(), 2);

@@ -1,0 +1,19 @@
+[package]
+name = "dry_validation_rust_native-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2024"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+native = { package = "dry_validation_rust_native", path = ".." }
+
+[[bin]]
+name = "parse_plan"
+path = "fuzz_targets/parse_plan.rs"
+test = false
+doc = false
+bench = false
