@@ -172,6 +172,9 @@ Dir.chdir(EXTENSION_DIR) do
     # `native`, matching `[lib] name` in Cargo.toml and the Ruby require path.
     ext.name = 'native'
     ext.lib_dir = 'lib/dry/validation/rust'
+    def ext.source_files
+      super.exclude("#{ext_dir}/fuzz/**/*", '**/fuzz/**/*')
+    end
     unless ENV.key?('RUBY_TARGET')
       ext.cross_compile = true
       ext.cross_platform = CROSS_COMPILE_PLATFORMS

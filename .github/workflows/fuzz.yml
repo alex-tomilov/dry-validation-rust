@@ -37,13 +37,13 @@ jobs:
       - name: Setup Rust toolchain
         uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
-          toolchain: stable
+          toolchain: nightly
 
-      - name: Run bounded native preflight
+      - name: Run plan-deserialization fuzz target
+        working-directory: ext/dry_validation_rust/fuzz
         run: |
-          mkdir -p tmp/fuzz/corpus tmp/fuzz/crashes
-          timeout 5m cargo test --locked --manifest-path ext/dry_validation_rust/Cargo.toml
-          printf '%s\n' 'No dedicated fuzz target exists yet; this scheduled workflow is the non-blocking placeholder for Milestone B.' > tmp/fuzz/corpus/README.txt
+          cargo install cargo-fuzz --locked
+          cargo fuzz run parse_plan -- -max_total_time=300
 
       - name: Upload fuzz corpus and crashes
         uses: actions/upload-artifact@v7
@@ -51,6 +51,6 @@ jobs:
         with:
           name: fuzz-corpus-and-crashes
           path: |
-            tmp/fuzz/corpus
-            tmp/fuzz/crashes
+            ext/dry_validation_rust/fuzz/corpus
+            ext/dry_validation_rust/fuzz/artifacts
           if-no-files-found: warn

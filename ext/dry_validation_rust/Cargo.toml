@@ -8,7 +8,7 @@ publish = false
 
 [lib]
 name = "native"
-crate-type = ["cdylib"]
+crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 magnus = { version = "~0.8.2", default-features = false }

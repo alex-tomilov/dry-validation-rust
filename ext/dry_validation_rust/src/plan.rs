@@ -176,27 +176,20 @@ pub(crate) struct SchemaPlan {
 }
 
 pub(crate) fn parse_plan(ruby: &Ruby, json: &str) -> Result<SchemaPlan, Error> {
-    ensure_plan_json_nesting(json).map_err(|depth| {
-        Error::new(
-            ruby.exception_arg_error(),
-            format!("native schema plan nesting exceeds limit ({depth})"),
-        )
-    })?;
+    deserialize_plan(json).map_err(|message| Error::new(ruby.exception_arg_error(), message))
+}
+
+pub(crate) fn deserialize_plan(json: &str) -> Result<SchemaPlan, String> {
+    ensure_plan_json_nesting(json)
+        .map_err(|depth| format!("native schema plan nesting exceeds limit ({depth})"))?;
     let mut deserializer = serde_json::Deserializer::from_str(json);
     deserializer.disable_recursion_limit();
-    let mut plan = SchemaPlan::deserialize(&mut deserializer).map_err(|error| {
-        Error::new(
-            ruby.exception_arg_error(),
-            format!("invalid native schema plan: {error}"),
-        )
-    })?;
+    let mut plan = SchemaPlan::deserialize(&mut deserializer)
+        .map_err(|error| format!("invalid native schema plan: {error}"))?;
     if plan.engine_version != 1 {
-        return Err(Error::new(
-            ruby.exception_arg_error(),
-            format!(
-                "unsupported schema engine version {}; expected 1",
-                plan.engine_version
-            ),
+        return Err(format!(
+            "unsupported schema engine version {}; expected 1",
+            plan.engine_version
         ));
     }
     plan.used_kinds = collect_used_kinds(&plan.fields);
