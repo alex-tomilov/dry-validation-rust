@@ -90,7 +90,7 @@ class CiWorkflowsTest < Minitest::Test
   def test_actions_use_reviewable_version_pins
     workflows.each_key do |path|
       File.read(path).scan(/uses:\s+([^@\s]+)@([^\s]+)/).each do |action, ref|
-        assert_match(/\Av\d+\z|[a-f0-9]{40}\z/, ref, "#{path}: #{action}@#{ref}")
+        assert_match(/\A(?:v\d+(?:\.\d+){0,2}|[a-f0-9]{40})\z/, ref, "#{path}: #{action}@#{ref}")
       end
     end
   end
