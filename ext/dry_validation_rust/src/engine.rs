@@ -25,6 +25,7 @@ pub(crate) struct Engine {
     plan: SchemaPlan,
     classes: RuntimeClasses,
     plan_bytes: usize,
+    error_buffer_version: usize,
 }
 
 impl DataTypeFunctions for Engine {
@@ -50,10 +51,15 @@ impl Engine {
     pub(crate) fn new(ruby: &Ruby, json: String) -> Result<Self, Error> {
         let plan = parse_plan(ruby, &json)?;
         let classes = RuntimeClasses::new(ruby, &plan)?;
+        // The Ruby schema class remains the authority for this private format,
+        // but its version is fixed for an engine once its plan is compiled.
+        // Avoid resolving the constant hierarchy for every GVL-held call.
+        let error_buffer_version = native_error_buffer_version(ruby)?;
         Ok(Self {
             plan,
             classes,
             plan_bytes: json.len(),
+            error_buffer_version,
         })
     }
 
@@ -70,11 +76,8 @@ impl Engine {
             };
             process_hash(&mut traversal, &self.plan.fields, input, &mut Vec::new(), 0)?
         };
-        // Ruby owns this private format's version. Reading it here makes the
-        // encoder and decoder share one authority without duplicating a value.
-        let error_buffer_version = native_error_buffer_version(&ruby)?;
         let ruby_errors = ruby.ary_new();
-        ruby_errors.push(error_buffer_version)?;
+        ruby_errors.push(self.error_buffer_version)?;
         for error in errors {
             ruby_errors.push(error.path.len())?;
             for part in error.path {
@@ -392,6 +395,7 @@ mod tests {
             plan,
             classes: RuntimeClasses::default(),
             plan_bytes: json.len(),
+            error_buffer_version: 1,
         };
         assert_eq!(engine.field_count(), 2);
         assert_eq!(engine.plan_bytes(), json.len());

@@ -27,12 +27,14 @@ pub(crate) fn coerce(
         return Ok(None);
     };
     let converted = match kind {
-        // Delegate numeric syntax to Ruby so Bignum values and underscore
-        // separators follow the pinned dry-types coercion path.
-        "integer" => ruby
-            .module_kernel()
-            .funcall::<_, _, Value>("Integer", (source.as_str(), 10))
-            .ok(),
+        // Canonical signed 64-bit decimal literals avoid a Ruby callback on
+        // the common params path. Delegate every other spelling and Bignum to
+        // Ruby so its syntax and arbitrary-precision semantics are preserved.
+        "integer" => fast_integer(ruby, &source).or_else(|| {
+            ruby.module_kernel()
+                .funcall::<_, _, Value>("Integer", (source.as_str(), 10))
+                .ok()
+        }),
         "float" if non_finite_literal(&source) => None,
         "float" => ruby
             .module_kernel()
@@ -73,6 +75,13 @@ pub(crate) fn coerce(
         _ => None,
     };
     Ok(converted)
+}
+
+fn fast_integer(ruby: &Ruby, source: &str) -> Option<Value> {
+    source
+        .parse::<i64>()
+        .ok()
+        .map(|value| ruby.integer_from_i64(value).as_value())
 }
 
 fn params_boolean(source: &str) -> Option<bool> {
@@ -210,6 +219,32 @@ mod tests {
         for source in ["0.0", "-0.0", "1e308", "1e309", ""] {
             assert!(!non_finite_literal(source), "literal {source:?}");
         }
+    }
+
+    #[test]
+    fn fast_integer_accepts_only_signed_64_bit_decimal_literals() {
+        Ruby::init(|ruby| {
+            for (source, expected) in [
+                ("42", 42),
+                ("-42", -42),
+                ("+42", 42),
+                ("9223372036854775807", i64::MAX),
+                ("-9223372036854775808", i64::MIN),
+            ] {
+                let value =
+                    fast_integer(ruby, source).expect("canonical integer should use fast path");
+                assert_eq!(Integer::from_value(value).unwrap().to_i64()?, expected);
+            }
+
+            for source in ["", " 42", "1_000", "0x10", "9223372036854775808"] {
+                assert!(
+                    fast_integer(ruby, source).is_none(),
+                    "{source:?} should delegate to Ruby"
+                );
+            }
+            Ok(())
+        })
+        .expect("integer fast path boundaries should pass");
     }
 
     #[test]

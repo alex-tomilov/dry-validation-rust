@@ -141,6 +141,19 @@ class SchemaTest < Minitest::Test
     assert_equal Dry::Validation::Rust::Schema::NATIVE_ERROR_BUFFER_VERSION, native_errors.first
   end
 
+  def test_native_engine_caches_error_buffer_version_when_compiled
+    schema = Dry::Validation::Rust::Schema.Params { required(:age).value(:integer) }
+    schema_class = Dry::Validation::Rust::Schema
+    version = schema_class::NATIVE_ERROR_BUFFER_VERSION
+
+    schema_class.send(:remove_const, :NATIVE_ERROR_BUFFER_VERSION)
+    _output, native_errors = schema.engine.call(age: 'invalid')
+
+    assert_equal version, native_errors.first
+  ensure
+    schema_class.const_set(:NATIVE_ERROR_BUFFER_VERSION, version) if schema_class && version
+  end
+
   def test_native_engine_keeps_date_class_lookup_from_initialization
     schema = Dry::Validation::Rust::Schema.Params { required(:value).value(:date) }
     date_class = Object.const_get(:Date)
@@ -192,6 +205,16 @@ class SchemaTest < Minitest::Test
 
     assert result.success?
     assert_equal({ age: 42, ratio: 1.5, enabled: false, role: :admin, nickname: nil }, result.to_h)
+  end
+
+  def test_params_integer_coercion_preserves_ruby_syntax_and_bignum_fallbacks
+    contract = build_contract do
+      params { required(:value).value(:integer) }
+    end
+
+    assert_equal 42, contract.new.call('value' => '+42').to_h.fetch(:value)
+    assert_equal 1_000, contract.new.call('value' => '1_000').to_h.fetch(:value)
+    assert_equal 9_223_372_036_854_775_808, contract.new.call('value' => '9223372036854775808').to_h.fetch(:value)
   end
 
   def test_schema_does_not_coerce_keys_or_values
