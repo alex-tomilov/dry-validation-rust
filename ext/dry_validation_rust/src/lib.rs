@@ -7,6 +7,16 @@ mod plan;
 mod predicates;
 mod ruby_bridge;
 
+/// Entrypoints used only by the standalone `cargo fuzz` harness.
+///
+/// Keeping this module small ensures the fuzzer exercises the same plan parser
+/// that Ruby uses without requiring a Ruby VM for every generated input.
+pub mod fuzzing {
+    pub fn parse_plan(json: &str) {
+        let _ = crate::plan::deserialize_plan(json);
+    }
+}
+
 use engine::Engine;
 
 #[magnus::init(name = "native")]

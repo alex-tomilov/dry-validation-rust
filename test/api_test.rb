@@ -162,6 +162,19 @@ class ApiTest < Minitest::Test
     assert_equal 'key :name is already defined', error.message
   end
 
+  def test_native_engine_rejects_malformed_plan_json_with_argument_error
+    malformed_plans = [
+      '{"engine_version":',
+      ('[' * 513) + (']' * 513)
+    ]
+
+    malformed_plans.each do |plan|
+      error = assert_raises(ArgumentError) { Dry::Validation::Rust::Native::Engine.new(plan) }
+
+      assert_match(/native schema plan/, error.message)
+    end
+  end
+
   def test_imported_nested_predicates_are_independent_from_the_source_schema
     address = Dry::Validation::Rust::Schema.Params do
       required(:profile).hash do

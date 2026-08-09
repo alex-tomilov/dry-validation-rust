@@ -103,7 +103,7 @@ will produce `docs/BENCHMARKS.md`.
 | ------------------- | ---------------- | ------------------------------------------ |
 | `ci.yml`            | push, PR         | Tests + lint + compile                     |
 | `compatibility.yml` | push, PR, weekly | Differential suite against pinned upstream |
-| `fuzz.yml`          | weekly, manual   | Malformed-input corpus                     |
+| `fuzz.yml`          | weekly, manual   | Five-minute `cargo fuzz` plan-deserialization run |
 | `package.yml`       | push, PR         | Gemspec/Cargo metadata audit               |
 | `security.yml`      | push, PR, weekly | `cargo audit` + `bundle audit`             |
 
