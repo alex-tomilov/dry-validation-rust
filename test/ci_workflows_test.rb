@@ -42,7 +42,7 @@ class CiWorkflowsTest < Minitest::Test
 
     steps = build.fetch('steps')
     assert_includes steps.map { |step| step['run'] }.compact.join("\n"), 'rb-sys-dock --platform'
-    assert_includes steps.map { |step| step['uses'] }.compact, 'sigstore/cosign-installer@v4'
+    assert_includes steps.map { |step| step['uses'] }.compact, 'sigstore/cosign-installer@v4.1.2'
     assert_includes steps.map { |step| step['run'] }.compact.join("\n"), 'cosign sign-blob --yes --bundle'
     assert_includes steps.map { |step| step['uses'] }.compact, 'actions/upload-artifact@v7'
   end

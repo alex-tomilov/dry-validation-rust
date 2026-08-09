@@ -69,7 +69,7 @@ jobs:
           gem build dry-validation-rust.gemspec --output "pkg/dry-validation-rust-$(bundle exec ruby -Ilib -e 'require "dry/validation/rust/version"; print Dry::Validation::Rust::VERSION').gem"
 
       - name: Install Cosign
-        uses: sigstore/cosign-installer@v4
+        uses: sigstore/cosign-installer@v4.1.2
 
       - name: Sign source gem with Sigstore
         run: |
@@ -117,7 +117,7 @@ jobs:
           bundle exec rb-sys-dock --platform ${{ matrix.platform }} --ruby-versions 3.3 -- "bundle exec rake native:\$RUBY_TARGET pkg/dry-validation-rust-${GEM_VERSION}-\$RUBY_TARGET.gem"
 
       - name: Install Cosign
-        uses: sigstore/cosign-installer@v4
+        uses: sigstore/cosign-installer@v4.1.2
 
       - name: Sign native gem with Sigstore
         run: |
