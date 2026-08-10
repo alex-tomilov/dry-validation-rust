@@ -555,6 +555,28 @@ class SchemaTest < Minitest::Test
     assert valid.success?
   end
 
+  def test_predicate_composition_blocks_reject_invalid_predicate_arities
+    multiple_arguments = assert_raises(ArgumentError) do
+      build_contract do
+        params { required(:age).value(:integer) { gt?(18, 19) } }
+      end
+    end
+    missing_argument = assert_raises(ArgumentError) do
+      build_contract do
+        params { required(:age).value(:integer) { gt? } }
+      end
+    end
+    unexpected_argument = assert_raises(ArgumentError) do
+      build_contract do
+        params { required(:age).value(:integer) { odd? 1 } }
+      end
+    end
+
+    assert_equal 'gt? expects exactly one argument, got 2', multiple_arguments.message
+    assert_equal 'gt? expects exactly one argument, got 0', missing_argument.message
+    assert_equal 'odd? expects no arguments, got 1', unexpected_argument.message
+  end
+
   def test_custom_dry_types_are_processed_in_ruby_alongside_native_fields
     email_type = Dry::Types['params.string'].constructor { |value| value.strip.downcase }
     identifier_type = Dry::Types['params.integer'] | Dry::Types['params.string']
