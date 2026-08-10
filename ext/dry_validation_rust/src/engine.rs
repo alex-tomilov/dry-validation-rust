@@ -13,6 +13,7 @@ use crate::{
 
 const MAX_TRAVERSAL_DEPTH: u16 = 128;
 const DEPTH_ERROR_CODE: &str = "depth";
+const DEPTH_ERROR_TEXT: &str = "schema nesting depth exceeds limit (128)";
 
 #[derive(TypedData)]
 #[magnus(
@@ -368,11 +369,7 @@ fn within_depth_limit(depth: u16, path: &[PathPart], errors: &mut Vec<NativeErro
         return true;
     }
 
-    errors.push(NativeError::new(
-        path,
-        DEPTH_ERROR_CODE,
-        format!("schema nesting depth exceeds limit ({MAX_TRAVERSAL_DEPTH})"),
-    ));
+    errors.push(NativeError::new(path, DEPTH_ERROR_CODE, DEPTH_ERROR_TEXT));
     false
 }
 
