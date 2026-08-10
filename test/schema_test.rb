@@ -133,12 +133,12 @@ class SchemaTest < Minitest::Test
     assert_equal nested_output(TRAVERSAL_DEPTH_LIMIT, {}), result.to_h
   end
 
-  def test_native_engine_uses_schema_error_buffer_version
+  def test_native_engine_returns_structured_errors
     schema = Dry::Validation::Rust::Schema.Params { required(:age).value(:integer) }
 
     _output, native_errors = schema.engine.call(age: 'invalid')
 
-    assert_equal Dry::Validation::Rust::Schema::NATIVE_ERROR_BUFFER_VERSION, native_errors.first
+    assert_equal [{ path: [:age], code: :type, text: 'must be an integer' }], native_errors
   end
 
   def test_native_engine_supplies_the_unexpected_key_error_text
@@ -150,26 +150,7 @@ class SchemaTest < Minitest::Test
 
     _output, native_errors = schema.engine.call(unexpected: true)
 
-    assert_equal [
-      Dry::Validation::Rust::Schema::NATIVE_ERROR_BUFFER_VERSION,
-      1,
-      :unexpected,
-      :unexpected_key,
-      'is not allowed'
-    ], native_errors
-  end
-
-  def test_native_engine_caches_error_buffer_version_when_compiled
-    schema = Dry::Validation::Rust::Schema.Params { required(:age).value(:integer) }
-    schema_class = Dry::Validation::Rust::Schema
-    version = schema_class::NATIVE_ERROR_BUFFER_VERSION
-
-    schema_class.send(:remove_const, :NATIVE_ERROR_BUFFER_VERSION)
-    _output, native_errors = schema.engine.call(age: 'invalid')
-
-    assert_equal version, native_errors.first
-  ensure
-    schema_class.const_set(:NATIVE_ERROR_BUFFER_VERSION, version) if schema_class && version
+    assert_equal [{ path: [:unexpected], code: :unexpected_key, text: 'is not allowed' }], native_errors
   end
 
   def test_native_engine_keeps_date_class_lookup_from_initialization
@@ -180,29 +161,9 @@ class SchemaTest < Minitest::Test
     output, native_errors = schema.engine.call(value: '2026-08-03')
 
     assert_equal({ value: date_class.new(2026, 8, 3) }, output)
-    assert_equal [Dry::Validation::Rust::Schema::NATIVE_ERROR_BUFFER_VERSION], native_errors
+    assert_empty native_errors
   ensure
     Object.const_set(:Date, date_class) unless Object.const_defined?(:Date, false)
-  end
-
-  def test_native_error_buffer_rejects_unsupported_versions_and_truncated_records
-    schema = Dry::Validation::Rust::Schema.Params { required(:age).value(:integer) }
-    format_version = Dry::Validation::Rust::Schema::NATIVE_ERROR_BUFFER_VERSION
-
-    version_error = assert_raises(Dry::Validation::Rust::NativeExtensionError) do
-      schema.send(:native_errors_to_messages, [format_version + 1])
-    end
-    assert_equal "unsupported native error buffer version: #{format_version + 1}", version_error.message
-
-    malformed_error = assert_raises(Dry::Validation::Rust::NativeExtensionError) do
-      schema.send(:native_errors_to_messages, [format_version, 1, :age])
-    end
-    assert_equal 'malformed native error buffer', malformed_error.message
-
-    invalid_value_error = assert_raises(Dry::Validation::Rust::NativeExtensionError) do
-      schema.send(:native_errors_to_messages, [format_version, 1, 'age', :type, 'must be an integer'])
-    end
-    assert_equal 'malformed native error buffer', invalid_value_error.message
   end
 
   def test_params_coerces_keys_and_scalar_values
