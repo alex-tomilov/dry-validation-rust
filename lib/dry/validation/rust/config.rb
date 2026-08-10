@@ -94,6 +94,18 @@ module Dry
 
         def tokens_for(args, type)
           argument = args.first
+
+          if argument.is_a?(Range)
+            return {
+              num: argument.begin,
+              size: argument,
+              left: argument.begin,
+              right: argument.end,
+              list: "#{argument.begin} to #{argument.end}",
+              type: type
+            }
+          end
+
           {
             num: argument,
             size: argument,
