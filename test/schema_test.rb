@@ -116,6 +116,22 @@ class SchemaTest < Minitest::Test
     end
   end
 
+  def test_yaml_message_backend_interpolates_range_predicate_tokens
+    with_message_file(<<~YAML) do |path|
+      en:
+        dry_validation:
+          errors:
+            included_in?: "must be between %<left>s and %<right>s"
+    YAML
+      contract = build_contract do
+        config.messages.load_paths << path
+        params { required(:rating).value(:integer, included_in?: 3..5) }
+      end
+
+      assert_equal({ rating: ['must be between 3 and 5'] }, contract.new.call(rating: 6).errors.to_h)
+    end
+  end
+
   def test_message_backend_rejects_unknown_identifiers
     error = assert_raises(ArgumentError) do
       build_contract do
