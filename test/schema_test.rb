@@ -141,6 +141,24 @@ class SchemaTest < Minitest::Test
     assert_equal Dry::Validation::Rust::Schema::NATIVE_ERROR_BUFFER_VERSION, native_errors.first
   end
 
+  def test_native_engine_supplies_the_unexpected_key_error_text
+    schema = Dry::Validation::Rust::Schema.new(
+      mode: :params,
+      fields: [],
+      validate_keys: true
+    )
+
+    _output, native_errors = schema.engine.call(unexpected: true)
+
+    assert_equal [
+      Dry::Validation::Rust::Schema::NATIVE_ERROR_BUFFER_VERSION,
+      1,
+      :unexpected,
+      :unexpected_key,
+      'is not allowed'
+    ], native_errors
+  end
+
   def test_native_engine_caches_error_buffer_version_when_compiled
     schema = Dry::Validation::Rust::Schema.Params { required(:age).value(:integer) }
     schema_class = Dry::Validation::Rust::Schema

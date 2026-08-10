@@ -168,7 +168,7 @@ fn report_unexpected_keys(
             error_path.push(PathPart::Key(key_name));
             traversal
                 .errors
-                .push(NativeError::new(&error_path, "unexpected_key", ""));
+                .push(NativeError::new(&error_path, "unexpected_key", "is not allowed"));
         }
         Ok(ForEach::Continue)
     })

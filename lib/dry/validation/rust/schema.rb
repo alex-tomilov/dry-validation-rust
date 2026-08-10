@@ -550,7 +550,7 @@ module Dry
           field = field_at_path(fields, path)
           @message_backend.message(
             code: code, predicate: predicate&.to_s&.delete_suffix('?'), args: args,
-            type: field&.normalized_type, fallback: code == :unexpected_key ? 'is not allowed' : native_text
+            type: field&.normalized_type, fallback: native_text
           )
         end
 
