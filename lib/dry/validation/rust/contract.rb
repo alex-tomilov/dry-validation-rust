@@ -171,7 +171,7 @@ module Dry
             if rule.each?
               execute_each(rule, result, shared_context)
             else
-              next if rule.paths.any? { |path| dependency_error?(schema_error_paths, schema_error_path_prefixes, path) }
+              next if rule.paths.any? { |path| dependency_error?(schema_error_path_prefixes, path) }
 
               execute_rule(rule, result, shared_context)
             end
@@ -222,10 +222,8 @@ module Dry
           end
         end
 
-        def dependency_error?(schema_error_paths, schema_error_path_prefixes, path)
-          return true if schema_error_path_prefixes.include?(path)
-
-          path.length.downto(0).any? { |length| schema_error_paths.include?(path.take(length)) }
+        def dependency_error?(schema_error_path_prefixes, path)
+          path.length.downto(1).any? { |length| schema_error_path_prefixes.include?(path.take(length)) }
         end
 
         def execute_rule(rule, result, context)
