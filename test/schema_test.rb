@@ -44,6 +44,22 @@ class SchemaTest < Minitest::Test
     assert_equal({ age: 43 }, contract.new.call('age' => ' 42 ').to_h)
   end
 
+  def test_before_processor_hooks_receive_a_shallow_duplicate_of_input
+    contract = build_contract do
+      params do
+        before(:value_coercer) { |input| input.fetch('account')['name'] = 'Jane' }
+        required(:account).hash { required(:name).value(:string) }
+      end
+    end
+    input = { 'account' => { 'name' => 'John' } }
+
+    result = contract.new.call(input)
+
+    assert result.success?
+    assert_equal({ account: { name: 'Jane' } }, result.to_h)
+    assert_equal({ 'account' => { 'name' => 'Jane' } }, input)
+  end
+
   def test_processor_hooks_reject_unknown_stages_and_missing_blocks
     unknown_stage = assert_raises(ArgumentError) do
       build_contract { params { before(:coerce) { |input| input } } }

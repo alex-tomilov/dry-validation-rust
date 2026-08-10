@@ -471,6 +471,7 @@ module Dry
         def call(input)
           raise ArgumentError, "Input must be a Hash. #{input.class} was given." unless input.is_a?(Hash)
 
+          # Before hooks receive a shallow duplicate; mutating nested values also mutates input.
           prepared_input = ProcessorHooks.apply(before_hooks, input.dup)
           output, native_errors = engine.call(prepared_input)
           output = ProcessorHooks.apply(after_hooks, output)
