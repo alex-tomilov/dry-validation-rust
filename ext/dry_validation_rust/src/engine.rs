@@ -185,16 +185,14 @@ fn process_field(
 ) -> Result<(), Error> {
     let name = field.name.as_deref().unwrap_or_default();
     path.push(PathPart::Key(name.to_owned()));
-    let result = (|| match resolve_field_input(input, traversal.ruby, traversal.mode, name) {
-        Some(raw) => {
-            let processed = process_value(traversal, field, raw, path, depth)?;
-            output.aset(traversal.ruby.to_symbol(name), processed)
-        }
+    let result = match resolve_field_input(input, traversal.ruby, traversal.mode, name) {
+        Some(raw) => process_value(traversal, field, raw, path, depth)
+            .and_then(|processed| output.aset(traversal.ruby.to_symbol(name), processed)),
         None => {
             report_missing_field(traversal, field, path);
             Ok(())
         }
-    })();
+    };
     path.pop();
     result
 }
