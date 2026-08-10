@@ -271,8 +271,8 @@ class SchemaTest < Minitest::Test
     end
     input = {
       'unexpected' => true,
-      'profile' => { 'name' => 'Jane', 'unexpected' => true },
-      'people' => [{ 'id' => 1, 'unexpected' => true }]
+      profile: { name: 'Jane', 'unexpected' => true },
+      'people' => [{ id: 1, 'unexpected' => true }]
     }
     expected_errors = {
       unexpected: ['is not allowed'],

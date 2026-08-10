@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use magnus::{
     DataTypeFunctions, Error, Integer, RArray, RClass, RHash, RModule, Ruby, TypedData, Value,
     gc::Marker, prelude::*, r_hash::ForEach,
@@ -154,17 +156,14 @@ fn report_unexpected_keys(
         return Ok(());
     }
 
+    let declared: HashSet<&str> = fields
+        .iter()
+        .map(|field| field.name.as_deref().unwrap_or_default())
+        .collect();
+
     input.foreach(|key: Value, _: Value| {
-        let mut declared = false;
-        for field in fields {
-            let name = field.name.as_deref().unwrap_or_default();
-            if key.eql(traversal.ruby.to_symbol(name))? || key.eql(traversal.ruby.str_new(name))? {
-                declared = true;
-                break;
-            }
-        }
-        if !declared {
-            let key_name: String = key.funcall("to_s", ())?;
+        let key_name: String = key.funcall("to_s", ())?;
+        if !declared.contains(key_name.as_str()) {
             let mut error_path = path.to_vec();
             error_path.push(PathPart::Key(key_name));
             traversal
