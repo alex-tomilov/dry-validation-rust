@@ -123,10 +123,16 @@ pub(crate) fn null_if_empty_nullable_param(
 }
 
 fn non_finite_literal(source: &str) -> bool {
-    matches!(
-        source.trim().to_ascii_lowercase().as_str(),
-        "infinity" | "+infinity" | "-infinity" | "inf" | "+inf" | "-inf" | "nan" | "+nan" | "-nan"
-    )
+    let source = source.trim();
+    source.eq_ignore_ascii_case("infinity")
+        || source.eq_ignore_ascii_case("+infinity")
+        || source.eq_ignore_ascii_case("-infinity")
+        || source.eq_ignore_ascii_case("inf")
+        || source.eq_ignore_ascii_case("+inf")
+        || source.eq_ignore_ascii_case("-inf")
+        || source.eq_ignore_ascii_case("nan")
+        || source.eq_ignore_ascii_case("+nan")
+        || source.eq_ignore_ascii_case("-nan")
 }
 
 pub(crate) fn type_matches(
