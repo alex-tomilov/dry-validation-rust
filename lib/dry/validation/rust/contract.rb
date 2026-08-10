@@ -229,17 +229,7 @@ module Dry
         end
 
         def execute_rule(rule, result, context)
-          evaluator = Evaluator.new(
-            contract: self,
-            result: result,
-            paths: rule.paths,
-            default_path: rule.default_path,
-            context: context
-          )
-          evaluator.execute(rule.block, rule.macro_calls,
-                            keyword_params: rule.keyword_params).failures.each do |failure|
-            result.add_error(failure)
-          end
+          run_evaluator(rule, result, context, paths: rule.paths, default_path: rule.default_path)
         end
 
         def execute_each(rule, result, context)
@@ -252,17 +242,22 @@ module Dry
             item_path = [*root, index]
             next if result.schema_error?(item_path)
 
-            evaluator = Evaluator.new(
-              contract: self,
-              result: result,
-              paths: [item_path],
-              context: context,
-              index: index
-            )
-            evaluator.execute(rule.block, rule.macro_calls,
-                              keyword_params: rule.keyword_params).failures.each do |failure|
-              result.add_error(failure)
-            end
+            run_evaluator(rule, result, context, paths: [item_path], default_path: item_path, index: index)
+          end
+        end
+
+        def run_evaluator(rule, result, context, paths:, default_path:, index: nil)
+          evaluator = Evaluator.new(
+            contract: self,
+            result: result,
+            paths: paths,
+            default_path: default_path,
+            context: context,
+            index: index
+          )
+          evaluator.execute(rule.block, rule.macro_calls,
+                            keyword_params: rule.keyword_params).failures.each do |failure|
+            result.add_error(failure)
           end
         end
       end
