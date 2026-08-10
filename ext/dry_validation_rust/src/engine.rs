@@ -166,9 +166,11 @@ fn report_unexpected_keys(
         if !declared.contains(key_name.as_str()) {
             let mut error_path = path.to_vec();
             error_path.push(PathPart::Key(key_name));
-            traversal
-                .errors
-                .push(NativeError::new(&error_path, "unexpected_key", ""));
+            traversal.errors.push(NativeError::new(
+                &error_path,
+                "unexpected_key",
+                "is not allowed",
+            ));
         }
         Ok(ForEach::Continue)
     })
