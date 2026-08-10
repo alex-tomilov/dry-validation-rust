@@ -460,6 +460,7 @@ module Dry
                        messages: MessageConfig.new)
           @mode = mode.to_sym
           @fields = fields.freeze
+          @fields_by_name = fields.to_h { |field| [field.name, field] }.freeze
           @before_hooks, @after_hooks = [before_hooks, after_hooks].map { _1.dup.freeze }
           @message_backend = MessageBackend.new(messages)
           begin
@@ -547,7 +548,7 @@ module Dry
         end
 
         def native_error_message(code, native_text, predicate, args, path)
-          field = field_at_path(fields, path)
+          field = field_at_path(path)
           @message_backend.message(
             code: code, predicate: predicate&.to_s&.delete_suffix('?'), args: args,
             type: field&.normalized_type, fallback: native_text
@@ -638,12 +639,12 @@ module Dry
         end
 
         def native_predicate_details(path, code)
-          field = field_at_path(fields, path)
+          field = field_at_path(path)
           predicate = field&.predicates&.find { |candidate| candidate.name == code.to_sym }
           predicate ? [:"#{predicate.name}?", [predicate.argument]] : [nil, []]
         end
 
-        def field_at_path(definitions, path)
+        def field_at_path(path)
           definition = nil
 
           path.each do |part|
@@ -652,11 +653,7 @@ module Dry
 
               definition = definition.member
             else
-              definition = if definition
-                             definition.child_at(part)
-                           else
-                             definitions.find { |field| field.name == part.to_sym }
-                           end
+              definition = definition ? definition.child_at(part) : @fields_by_name[part.to_sym]
               return nil unless definition
             end
           end
