@@ -121,6 +121,17 @@ class RulesTest < Minitest::Test
     )
   end
 
+  def test_rule_each_keeps_the_declared_root_path_unchanged
+    contract = build_contract do
+      params { required(:numbers).array(:integer) }
+      rule(:numbers).each { key.failure('must be positive') if value <= 0 }
+    end
+
+    contract.new.call(numbers: ['0', '-1'])
+
+    assert_equal([:numbers], contract.rules.first.paths.first)
+  end
+
   def test_rule_each_skips_only_members_with_schema_errors
     contract = build_contract do
       params { required(:numbers).array(:integer) }
