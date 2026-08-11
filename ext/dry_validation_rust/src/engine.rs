@@ -28,6 +28,7 @@ pub(crate) struct Engine {
     plan: SchemaPlan,
     classes: RuntimeClasses,
     plan_bytes: usize,
+    field_count: usize,
 }
 
 impl DataTypeFunctions for Engine {
@@ -53,10 +54,12 @@ impl Engine {
     pub(crate) fn new(ruby: &Ruby, json: String) -> Result<Self, Error> {
         let plan = parse_plan(ruby, &json)?;
         let classes = RuntimeClasses::new(ruby, &plan)?;
+        let field_count = count_fields(&plan.fields);
         Ok(Self {
             plan,
             classes,
             plan_bytes: json.len(),
+            field_count,
         })
     }
 
@@ -95,24 +98,25 @@ impl Engine {
     }
 
     pub(crate) fn field_count(&self) -> usize {
-        fn count(fields: &[FieldPlan]) -> usize {
-            fields
-                .iter()
-                .map(|field| {
-                    1 + count(&field.children)
-                        + field
-                            .member
-                            .as_ref()
-                            .map_or(0, |member| count(&member.children))
-                })
-                .sum()
-        }
-        count(&self.plan.fields)
+        self.field_count
     }
 
     pub(crate) fn plan_bytes(&self) -> usize {
         self.plan_bytes
     }
+}
+
+fn count_fields(fields: &[FieldPlan]) -> usize {
+    fields
+        .iter()
+        .map(|field| {
+            1 + count_fields(&field.children)
+                + field
+                    .member
+                    .as_ref()
+                    .map_or(0, |member| count_fields(&member.children))
+        })
+        .sum()
 }
 
 fn process_hash(
@@ -373,11 +377,13 @@ mod tests {
             "children": [], "predicates": []
           }]
         }"#;
-        let plan = serde_json::from_str(json).expect("valid plan");
+        let plan: SchemaPlan = serde_json::from_str(json).expect("valid plan");
+        let field_count = count_fields(&plan.fields);
         let engine = Engine {
             plan,
             classes: RuntimeClasses::default(),
             plan_bytes: json.len(),
+            field_count,
         };
         assert_eq!(engine.field_count(), 2);
         assert_eq!(engine.plan_bytes(), json.len());
