@@ -13,9 +13,9 @@ Version, platform, and release-line support are documented in
 
 For `0.1.x`, the side-by-side API rooted at
 `Dry::Validation::Rust::Contract` is stable: a breaking change to its documented
-public surface, including `Schema`, `Result`, `MessageSet`, `Evaluator`, and
-`Values`, requires a minor release. Exact-compatibility entrypoints remain
-experimental and are excluded from this compatibility promise.
+public surface, including its nested `Result` and `Values` types and the `Schema`,
+`MessageSet`, and `Evaluator` types, requires a minor release. Exact-compatibility
+entrypoints remain experimental and are excluded from this compatibility promise.
 
 Legend:
 

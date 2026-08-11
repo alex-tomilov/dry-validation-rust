@@ -10,7 +10,7 @@ module Dry
         attr_reader :result
         # @return [Array<Array<Symbol, Integer>>] paths declared for the rule.
         attr_reader :paths
-        # @return [Values] validated output available to the rule.
+        # @return [Contract::Values] validated output available to the rule.
         attr_reader :values
         # @return [Hash] mutable context for the current contract call.
         attr_reader :context

@@ -15,7 +15,7 @@ class ApiTest < Minitest::Test
       class: %i[JSON Params define],
       instance: %i[[] call engine fields inspect key_paths mode]
     },
-    Dry::Validation::Rust::Result => {
+    Dry::Validation::Rust::Contract::Result => {
       class: [],
       instance: %i[[] add_error base_rule_error? context deconstruct deconstruct_keys error? errors failure? finalize! inspect key? rule_error? schema_error? schema_result success? to_h values]
     },
@@ -27,7 +27,7 @@ class ApiTest < Minitest::Test
       class: [],
       instance: %i[_context base base_rule_error? context contract error? execute failures index key key? key_name paths result rule_error? schema_error? value values]
     },
-    Dry::Validation::Rust::Values => {
+    Dry::Validation::Rust::Contract::Values => {
       class: [],
       instance: %i[[] data deconstruct_keys each fetch key? to_h]
     }
