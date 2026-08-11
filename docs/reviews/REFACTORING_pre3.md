@@ -503,7 +503,7 @@ This checks if any prefix of `path` (including `path` itself) is a prefix of any
 ### 4.1 `schema.rb` is 23,874 bytes with 8 distinct concepts
 
 **Current contents:**
-- `SchemaResult` (~30 lines)
+- `Schema::Result` (~30 lines)
 - `ProcessorHooks` (~25 lines)
 - `Schema` (~100 lines, main orchestrator)
 - `DSL` (~50 lines)
@@ -523,7 +523,7 @@ This checks if any prefix of `path` (including `path` itself) is a prefix of any
 ```
 lib/dry/validation/rust/
 ├── schema/
-│   ├── result.rb              # SchemaResult
+│   ├── result.rb              # Schema::Result
 │   ├── processor_hooks.rb     # ProcessorHooks
 │   ├── field_definition.rb    # FieldDefinition
 │   ├── field_builder.rb       # FieldBuilder + PredicateBlock
@@ -539,7 +539,7 @@ lib/dry/validation/rust/
 - Private helpers: `paths_for`, `apply_ruby_predicates`, `predicate_valid?`, `predicate_message`, `native_predicate_details`
 
 **What moves out:**
-- `SchemaResult` → `schema/result.rb`
+- `Schema::Result` → `schema/result.rb`
 - `ProcessorHooks` → `schema/processor_hooks.rb`
 - `FieldDefinition` + `Predicate` struct → `schema/field_definition.rb`
 - `FieldBuilder` + `PredicateBlock` → `schema/field_builder.rb`

@@ -4,7 +4,7 @@ module Dry
   module Validation
     module Rust
       class Result
-        # @return [SchemaResult] structural validation outcome.
+        # @return [Schema::Result] structural validation outcome.
         attr_reader :schema_result
         # @return [Hash] context supplied to the contract call.
         attr_reader :context
