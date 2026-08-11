@@ -1,624 +1,514 @@
-# Refactoring, Optimization & Polish — `dry-validation-rust` 0.1.0.pre3
+# Refactoring, Optimization & Polish — `dry-validation-rust` 0.1.0.pre3 (post-split)
 
-> Review date: 2026-08-10  
-> Target: develop branch @ 0.1.0.pre3  
-> Scope: Rust native extension, Ruby contract layer, file organization
+> Review date: 2026-08-11
+> Target: develop branch @ 0.1.0.pre3, commit `fdd43ff` + PR #132
+> Scope: Rust native extension, Ruby layer, file organization, Data migration
 
 ---
 
 ## Table of Contents
 
-1. [What pre3 Already Fixed](#1-what-pre3-already-fixed)
-2. [Rust Core — Remaining](#2-rust-core--remaining)
-3. [Ruby Layer — Remaining](#3-ruby-layer--remaining)
-4. [File Organization — New for pre3](#4-file-organization--new-for-pre3)
-5. [Quick-Win Checklist](#5-quick-win-checklist)
+1. [What Was Fixed Since Last Review](#1-what-was-fixed-since-last-review)
+2. [Remaining Rust Opportunities](#2-remaining-rust-opportunities)
+3. [Remaining Ruby Opportunities](#3-remaining-ruby-opportunities)
+4. [Data Class Migration — The Next Internal Cleanup](#4-data-class-migration--the-next-internal-cleanup)
+5. [File Organization — Remaining](#5-file-organization--remaining)
+6. [Quick-Win Checklist](#6-quick-win-checklist)
 
 ---
 
-## 1. What pre3 Already Fixed
+## 1. What Was Fixed Since Last Review
 
-| # | Previous recommendation | Status | Evidence |
-|---|------------------------|--------|----------|
-| 1 | Cache `native_error_buffer_version` in Engine | ✅ Done | `error_buffer_version` field, resolved once in `Engine::new` |
-| 2 | Integer coercion fast-path | ✅ Done | `fast_integer()` in `coercion.rs`, delegates to Ruby for non-canonical forms |
-| 3 | `validate_keys` → Rust | ✅ Done | `Traversal.validate_keys`, `report_unexpected_keys` in `engine.rs` |
-| 4 | `cargo fuzz` target for plan parsing | ✅ Done | PR #114 merged |
-| 5 | Ruby-level engine stability fuzzer | ✅ Done | PR #116 merged |
-| 6 | GVL-held integer coercion optimization | ✅ Done | PR #117 merged |
-
----
-
-## 2. Rust Core — Remaining
-
-### 2.1 `coercion.rs` — `non_finite_literal` still allocates
-
-**Current state:**
-
-```rust
-fn non_finite_literal(source: &str) -> bool {
-    matches!(
-        source.trim().to_ascii_lowercase().as_str(),
-        "infinity" | "+infinity" | "-infinity" | "inf" | "+inf" | "-inf" | "nan" | "+nan" | "-nan"
-    )
-}
-```
-
-**Problem:** `trim().to_ascii_lowercase()` allocates a `String` on every float coercion attempt. The same fix applied to `params_boolean` (using `eq_ignore_ascii_case`) was not applied here.
-
-**Fix:**
-
-```rust
-fn non_finite_literal(source: &str) -> bool {
-    let s = source.trim();
-    s.eq_ignore_ascii_case("infinity")
-        || s.eq_ignore_ascii_case("+infinity")
-        || s.eq_ignore_ascii_case("-infinity")
-        || s.eq_ignore_ascii_case("inf")
-        || s.eq_ignore_ascii_case("+inf")
-        || s.eq_ignore_ascii_case("-inf")
-        || s.eq_ignore_ascii_case("nan")
-        || s.eq_ignore_ascii_case("+nan")
-        || s.eq_ignore_ascii_case("-nan")
-}
-```
-
-**Impact:** Low effort, eliminates allocation on every float field validation.
-
----
-
-### 2.2 `engine.rs` — `within_depth_limit` allocates on error path
-
-**Current state:**
-
-```rust
-errors.push(NativeError::new(
-    path,
-    DEPTH_ERROR_CODE,
-    format!("schema nesting depth exceeds limit ({MAX_TRAVERSAL_DEPTH})"),
-));
-```
-
-**Problem:** `format!` allocates a `String` only when the depth limit is exceeded. For hostile/malformed payloads this could be frequent.
-
-**Fix:** Use a statically formatted message or `format_args!`:
-
-```rust
-const DEPTH_ERROR_TEXT: &str = "schema nesting depth exceeds limit (128)";
-// Or keep dynamic but use a lazy static:
-fn depth_error_text() -> &'static str {
-    "schema nesting depth exceeds limit (128)"
-}
-```
-
-Since `MAX_TRAVERSAL_DEPTH` is a `const`, the message is statically known at compile time.
-
-**Impact:** Trivial, reduces allocation on adversarial input.
-
----
-
-### 2.3 `engine.rs` — `process_field` IIFE closure
-
-**Current state:**
-
-```rust
-let result = (|| match resolve_field_input(...) {
-    Some(raw) => { ... }
-    None => { ... }
-})();
-path.pop();
-result
-```
-
-**Problem:** The immediately-invoked closure is used solely to ensure `path.pop()` runs. This adds an unnecessary closure layer and makes stack traces slightly harder to read.
-
-**Fix:**
-
-```rust
-path.push(PathPart::Key(name.to_owned()));
-let result = match resolve_field_input(input, traversal.ruby, traversal.mode, name) {
-    Some(raw) => {
-        let processed = process_value(traversal, field, raw, path, depth)?;
-        output.aset(traversal.ruby.to_symbol(name), processed)
-    }
-    None => {
-        report_missing_field(traversal, field, path);
-        Ok(())
-    }
-};
-path.pop();
-result
-```
-
-**Impact:** Trivial, improves readability and stack traces.
-
----
-
-### 2.4 `engine.rs` — `report_unexpected_keys` is O(n·m)
-
-**Current state:**
-
-```rust
-input.foreach(|key: Value, _: Value| {
-    let mut declared = false;
-    for field in fields {
-        let name = field.name.as_deref().unwrap_or_default();
-        if key.eql(traversal.ruby.to_symbol(name))? || key.eql(traversal.ruby.str_new(name))? {
-            declared = true;
-            break;
-        }
-    }
-    // ...
-})
-```
-
-**Problem:** For every key in the input hash, it scans all declared fields. For schemas with many fields and large input hashes, this is quadratic.
-
-**Fix:** Build a `HashSet` of declared names once, before the loop:
-
-```rust
-fn report_unexpected_keys(
-    traversal: &mut Traversal<'_>,
-    fields: &[FieldPlan],
-    input: RHash,
-    path: &[PathPart],
-) -> Result<(), Error> {
-    if !traversal.validate_keys || traversal.mode == Mode::Schema {
-        return Ok(());
-    }
-
-    let declared: std::collections::HashSet<&str> = fields
-        .iter()
-        .filter_map(|f| f.name.as_deref())
-        .collect();
-
-    input.foreach(|key: Value, _: Value| {
-        let key_name: String = key.funcall("to_s", ())?;
-        if !declared.contains(key_name.as_str()) {
-            let mut error_path = path.to_vec();
-            error_path.push(PathPart::Key(key_name));
-            traversal.errors.push(NativeError::new(&error_path, "unexpected_key", ""));
-        }
-        Ok(ForEach::Continue)
-    })
-}
-```
-
-**Note:** The current code compares `key.eql(symbol)` and `key.eql(string)`. Using `HashSet<&str>` with `key_name` from `to_s` is equivalent for Symbol and String keys but avoids the per-key Ruby `eql` calls.
-
-**Impact:** Low effort, significant speedup for wide schemas with `validate_keys`.
-
----
-
-### 2.5 `engine.rs` — `report_unexpected_keys` pushes empty-string error text
-
-**Current state:**
-
-```rust
-traversal.errors.push(NativeError::new(&error_path, "unexpected_key", ""));
-```
-
-**Problem:** The error text is empty. Ruby `schema.rb` has a fallback:
-
-```ruby
-fallback: code == :unexpected_key ? 'is not allowed' : native_text
-```
-
-This means the Rust side emits an empty string that Ruby immediately replaces. The two sides are coupled by a magic code name.
-
-**Fix:** Emit the full text from Rust:
-
-```rust
-traversal.errors.push(NativeError::new(&error_path, "unexpected_key", "is not allowed"));
-```
-
-Then remove the special-case fallback in Ruby. This makes the error text authoritative in one place.
-
-**Impact:** Trivial, reduces cross-language coupling.
-
----
-
-## 3. Ruby Layer — Remaining
-
-### 3.1 `schema.rb` — Root-level `field_at_path` is still linear
-
-**Current state:**
-
-```ruby
-definition = if definition
-  definition.child_at(part)
-else
-  definitions.find { |field| field.name == part.to_sym }
-end
-```
-
-**Problem:** The top-level `definitions` is still an Array. `child_at` is O(1) for nested children (via `children_by_name` Hash), but the root level is O(siblings).
-
-**Fix:** Store top-level fields in a Hash as well. Add `@fields_by_name` to `Schema`:
-
-```ruby
-def initialize(mode:, fields:, ...)
-  @mode = mode.to_sym
-  @fields = fields.freeze
-  @fields_by_name = fields.to_h { |f| [f.name, f] }.freeze
-  # ...
-end
-
-def field_at_path(path)
-  definition = nil
-  path.each do |part|
-    if part.is_a?(Integer)
-      return nil unless definition&.member
-      definition = definition.member
-    else
-      definition = definition ? definition.child_at(part) : @fields_by_name[part.to_sym]
-      return nil unless definition
-    end
-  end
-  definition
-end
-```
-
-**Impact:** Low effort, completes the O(1) path lookup optimization.
-
----
-
-### 3.2 `schema.rb` — `native_errors_to_messages` is manual buffer parsing
-
-**Current state:** ~50 lines of index arithmetic decoding the flat native buffer:
-
-```ruby
-def native_errors_to_messages(native_errors)
-  unless native_errors.fetch(0) == NATIVE_ERROR_BUFFER_VERSION
-    raise NativeExtensionError, ...
-  end
-  messages = []
-  offset = NATIVE_ERROR_BUFFER_HEADER_SIZE
-  while offset < native_errors.length
-    path_length = native_errors.fetch(offset)
-    # ... 30 more lines of arithmetic
-  end
-  messages
-end
-```
-
-**Problem:** This is the last major coupling between Rust encoder and Ruby decoder. The format is private, versioned, and fragile. If the Rust side changes header sizes, this silently mis-parses or crashes.
-
-**Fix options:**
-
-**Option A (recommended):** Move decoding to Rust. Return an array of `{path:, code:, text:}` hashes:
-
-```rust
-// In engine.rs
-let messages = ruby.ary_new();
-for error in errors {
-    let hash = ruby.hash_new();
-    let path_ary = ruby.ary_new();
-    for part in &error.path { ... }
-    hash.aset(ruby.to_symbol("path"), path_ary)?;
-    hash.aset(ruby.to_symbol("code"), ruby.to_symbol(error.code))?;
-    hash.aset(ruby.to_symbol("text"), ruby.str_new(error.text))?;
-    messages.push(hash)?;
-}
-let result = ruby.ary_new_capa(2);
-result.push(output)?;
-result.push(messages)?;
-Ok(result)
-```
-
-Then Ruby becomes:
-
-```ruby
-def call(input)
-  output, error_hashes = engine.call(input)
-  messages = error_hashes.map do |hash|
-    path = hash[:path]
-    code = hash[:code]
-    text = hash[:text]
-    predicate, args = native_predicate_details(path, code)
-    Message.new(...)
-  end
-  # ...
-end
-```
-
-This eliminates:
-- `NATIVE_ERROR_BUFFER_VERSION`
-- `NATIVE_ERROR_BUFFER_HEADER_SIZE`
-- `NATIVE_ERROR_RECORD_PATH_LENGTH_SIZE`
-- `NATIVE_ERROR_RECORD_CODE_OFFSET`
-- `NATIVE_ERROR_RECORD_TEXT_OFFSET`
-- `NATIVE_ERROR_RECORD_TRAILER_SIZE`
-- `native_errors_to_messages` method entirely
-
-**Option B:** Keep the flat buffer but add a corruption test that deliberately mutates the buffer and asserts `NativeExtensionError`.
-
-**Recommendation:** Option A. It removes ~40 lines of fragile Ruby code and ~6 constants.
-
-**Impact:** Medium effort, high architectural cleanliness.
-
----
-
-### 3.3 `schema.rb` — `ProcessorHooks.apply` mutates `input.dup` shallow copy
-
-**Current state:**
-
-```ruby
-prepared_input = ProcessorHooks.apply(before_hooks, input.dup)
-```
-
-**Problem:** `input.dup` is a shallow copy. If a `before` hook mutates nested hashes in place, the original `input` is still mutated. This is surprising for callers.
-
-**Fix options:**
-1. **Document it:** Add a comment: "Hooks receive a shallow dup; in-place mutation of nested structures affects the original input."
-2. **Deep copy:** Use `Marshal.load(Marshal.dump(input))` — expensive but safe.
-3. **Freeze and document:** Freeze the input before passing to hooks, forcing hooks to return new hashes.
-
-**Recommendation:** Option 1 for now (document the behavior). Option 3 if hooks become a common source of bug reports.
-
----
-
-### 3.4 `schema.rb` — `PredicateBlock` lacks arity validation
-
-**Current state:**
-
-```ruby
-def method_missing(name, *args, **kwargs, &block)
-  if name.to_s.end_with?('?') && block.nil?
-    argument = if kwargs.empty?
-      args.length <= 1 ? args.first : args
-    else
-      kwargs
-    end
-    @definition.add_predicate(name, argument: argument.nil? || argument)
-    return self
-  end
-  # ...
-end
-```
-
-**Problem:** `gt?(18, 19)` produces `argument = [18, 19]`. When serialized to JSON, this becomes a JSON array. The Rust `PredicateArg::List` would deserialize it, but `gt?` expects a single numeric argument. This will likely panic or behave unexpectedly.
-
-**Fix:** Add arity validation per predicate:
-
-```ruby
-# In PredicateBlock or FieldBuilder
-SINGLE_ARG_PREDICATES = %i[gt gteq lt lteq min_size max_size size eql not_eql].freeze
-LIST_ARG_PREDICATES = %i[included_in excluded_from format].freeze
-
-def method_missing(name, *args, **kwargs, &block)
-  normalized = name.to_s.delete_suffix('?').to_sym
-
-  if SINGLE_ARG_PREDICATES.include?(normalized) && args.length > 1
-    raise ArgumentError, "#{name} expects exactly one argument, got #{args.length}"
-  end
-
-  # ... existing logic
-end
-```
-
-**Impact:** Low effort, prevents silent misbehavior from invalid DSL usage.
-
----
-
-### 3.5 `schema.rb` — `MessageBackend#tokens_for` assumes single argument
-
-**Current state:**
-
-```ruby
-def tokens_for(args, type)
-  argument = args.first
-  { num: argument, size: argument, left: argument, list: Array(argument).join(', '), type: type }
-end
-```
-
-**Problem:** `size?` with a range (`size?: 3..5`) produces `argument = 3..5`. A template like `"must be %{num}"` stringifies as `"must be 3..5"`, which is unhelpful.
-
-**Fix:** Handle Range arguments specially:
-
-```ruby
-def tokens_for(args, type)
-  argument = args.first
-
-  if argument.is_a?(Range)
-    { num: argument.begin, size: argument, left: argument.begin, 
-      right: argument.end, list: "#{argument.begin} to #{argument.end}", type: type }
-  else
-    { num: argument, size: argument, left: argument, 
-      list: Array(argument).join(', '), type: type }
-  end
-end
-```
-
-**Impact:** Low effort, improves message quality for range predicates.
-
----
-
-### 3.6 `contract.rb` — `execute_rule` and `execute_each` duplicate evaluator pattern
-
-**Current state:**
-
-```ruby
-def execute_rule(rule, result, context)
-  evaluator = Evaluator.new(...)
-  evaluator.execute(...).failures.each { |failure| result.add_error(failure) }
-end
-
-def execute_each(rule, result, context)
-  evaluator = Evaluator.new(...)
-  evaluator.execute(...).failures.each { |failure| result.add_error(failure) }
-end
-```
-
-**Problem:** The `Evaluator` construction + execution + failure collection is duplicated.
-
-**Fix:** Extract a helper:
-
-```ruby
-def run_evaluator(rule, result, context, paths:, index: nil)
-  evaluator = Evaluator.new(
-    contract: self, result: result, paths: paths,
-    default_path: rule.default_path, context: context, index: index
-  )
-  evaluator.execute(rule.block, rule.macro_calls, keyword_params: rule.keyword_params)
-    .failures.each { |failure| result.add_error(failure) }
-end
-```
-
-Then `execute_rule` becomes `run_evaluator(rule, result, context, paths: rule.paths)` and `execute_each` becomes `run_evaluator(rule, result, context, paths: [item_path], index: index)`.
-
-**Impact:** Trivial, DRY.
-
----
-
-### 3.7 `contract.rb` — `dependency_error?` can be simplified
-
-**Current state:**
-
-```ruby
-def dependency_error?(schema_error_paths, schema_error_path_prefixes, path)
-  return true if schema_error_path_prefixes.include?(path)
-  path.length.downto(0).any? { |length| schema_error_paths.include?(path.take(length)) }
-end
-```
-
-**Problem:** Two checks with overlapping semantics. `schema_error_path_prefixes` already contains all prefixes of all error paths (including the error paths themselves).
-
-**Fix:** A single check suffices:
-
-```ruby
-def dependency_error?(schema_error_path_prefixes, path)
-  path.length.downto(1).any? { |length| schema_error_path_prefixes.include?(path.take(length)) }
-end
-```
-
-This checks if any prefix of `path` (including `path` itself) is a prefix of any error path. This is equivalent to the original logic.
-
-**Impact:** Trivial, cleaner.
-
----
-
-## 4. File Organization — New for pre3
-
-### 4.1 `schema.rb` is 23,874 bytes with 8 distinct concepts
-
-**Current contents:**
-- `Schema::Result` (~30 lines)
-- `ProcessorHooks` (~25 lines)
-- `Schema` (~100 lines, main orchestrator)
-- `DSL` (~50 lines)
-- `FieldDefinition` (~60 lines)
-- `FieldBuilder` + `PredicateBlock` (~120 lines)
-- `RubyTypeProcessor` (~30 lines)
-- `native_errors_to_messages` and buffer constants (~50 lines)
-
-**Why split:**
-- **Cognitive load:** A developer fixing a predicate-block bug must read through all 8 concepts.
-- **Merge conflicts:** PRs adding `each` support and PRs adding custom-type handling both touch the same file.
-- **Test isolation:** Testing `FieldDefinition#deep_dup` requires loading the entire engine, DSL, hooks, and message backend.
-- **YARD docs:** 8 classes in one file make generated docs noisy.
-
-**Proposed structure:**
+PR #132 "refactor(schema): split schema collaborators" landed. The monolithic `schema.rb` (23,874 bytes) is now split into:
 
 ```
 lib/dry/validation/rust/
-├── schema/
-│   ├── result.rb              # Schema::Result
-│   ├── processor_hooks.rb     # ProcessorHooks
-│   ├── field_definition.rb    # FieldDefinition
-│   ├── field_builder.rb       # FieldBuilder + PredicateBlock
-│   ├── ruby_type_processor.rb # RubyTypeProcessor
-│   └── dsl.rb                 # DSL
-├── schema.rb                  # Schema (orchestrator only)
+├── schema.rb                  # 8,806 bytes — orchestrator only
+└── schema/
+    ├── dsl.rb                 # Schema::DSL
+    ├── field_builder.rb       # Schema::FieldBuilder
+    ├── field_definition.rb    # Schema::FieldDefinition
+    ├── predicate_block.rb     # Schema::PredicateBlock
+    ├── processor_hooks.rb     # Schema::ProcessorHooks
+    ├── result.rb              # Schema::Result
+    └── ruby_type_processor.rb # Schema::RubyTypeProcessor
 ```
 
-**What stays in `schema.rb`:**
-- `Schema.define`, `Schema.Params`, `Schema.JSON`
-- `Schema#initialize`, `Schema#call`, `Schema#key_paths`, `Schema#inspect`
-- `Schema#field_at_path` (after hash-ifying root level)
-- Private helpers: `paths_for`, `apply_ruby_predicates`, `predicate_valid?`, `predicate_message`, `native_predicate_details`
+**Previously fixed items (all done):**
 
-**What moves out:**
-- `Schema::Result` → `schema/result.rb`
-- `ProcessorHooks` → `schema/processor_hooks.rb`
-- `FieldDefinition` + `Predicate` struct → `schema/field_definition.rb`
-- `FieldBuilder` + `PredicateBlock` → `schema/field_builder.rb`
-- `RubyTypeProcessor` → `schema/ruby_type_processor.rb`
-- `DSL` → `schema/dsl.rb`
+| #   | Item                                       | Evidence                                                  |
+| --- | ------------------------------------------ | --------------------------------------------------------- |
+| 1   | `schema.rb` split into `schema/` directory | PR #132                                                   |
+| 2   | `non_finite_literal` allocation-free       | `eq_ignore_ascii_case` in `coercion.rs`                   |
+| 3   | `fast_integer()` GVL fast-path             | `coercion.rs`                                             |
+| 4   | Error buffer → structured hashes           | `engine.call` returns `{path:, code:, text:}` hashes      |
+| 5   | Root-level `field_at_path` hash-ified      | `@fields_by_name` in `Schema#initialize`                  |
+| 6   | `report_unexpected_keys` HashSet           | `HashSet<&str>` in `engine.rs`                            |
+| 7   | `dependency_error?` simplified             | Single prefix check in `contract.rb`                      |
+| 8   | `run_evaluator` extracted                  | `contract.rb`                                             |
+| 9   | `PredicateBlock` arity validation          | `SINGLE_ARGUMENT_PREDICATES` / `ZERO_ARGUMENT_PREDICATES` |
+| 10  | Processor hooks shallow-copy docs          | Comment in `Schema#call`                                  |
 
-**Require graph in `lib/dry/validation/rust.rb`:**
+---
 
-```ruby
-require_relative 'rust/schema/result'
-require_relative 'rust/schema/processor_hooks'
-require_relative 'rust/schema/field_definition'
-require_relative 'rust/schema/field_builder'
-require_relative 'rust/schema/ruby_type_processor'
-require_relative 'rust/schema/dsl'
-require_relative 'rust/schema'
+## 2. Remaining Rust Opportunities
+
+### 2.1 `fast_float()` coercion fast-path
+
+**Current state:**
+
+```rust
+"float" if non_finite_literal(&source) => None,
+"float" => ruby
+    .module_kernel()
+    .funcall::<_, _, Value>("Float", (source.as_str(),))
+    .ok(),
+```
+
+**Problem:** Every float coercion calls back into Ruby's `Kernel#Float`, holding the GVL. For simple decimal strings like `"3.14"` or `"-0.5"`, this is unnecessary.
+
+**Fix:** Add `fast_float()` analogous to `fast_integer()`:
+
+```rust
+fn fast_float(source: &str) -> Option<f64> {
+    if source.is_empty() { return None; }
+    let bytes = source.as_bytes();
+    let mut start = 0;
+    if bytes[0] == b'-' { start = 1; }
+    let mut dot_seen = false;
+    let mut digit_seen = false;
+    for &b in &bytes[start..] {
+        if b == b'.' {
+            if dot_seen { return None; }
+            dot_seen = true;
+        } else if b.is_ascii_digit() {
+            digit_seen = true;
+        } else {
+            return None;
+        }
+    }
+    if !digit_seen { return None; }
+    source.parse::<f64>().ok().filter(|f| f.is_finite())
+}
+```
+
+Then in `coerce`:
+
+```rust
+"float" if non_finite_literal(&source) => None,
+"float" => fast_float(&source)
+    .map(|n| ruby.float_from_f64(n).as_value())
+    .or_else(|| ruby.module_kernel()
+        .funcall::<_, _, Value>("Float", (source.as_str(),))
+        .ok()),
+```
+
+**Impact:** Medium. Float fields are common in params. This removes a GVL callback for the 80% case of simple decimals.
+
+**Tests to add:**
+
+```rust
+#[test]
+fn fast_float_handles_common_cases() {
+    assert_eq!(fast_float("3.14"), Some(3.14));
+    assert_eq!(fast_float("-0.5"), Some(-0.5));
+    assert_eq!(fast_float("42"), Some(42.0));
+    assert_eq!(fast_float("1_000.5"), None); // underscore → fallback
+    assert_eq!(fast_float("1e10"), None);    // scientific → fallback
+    assert_eq!(fast_float("Infinity"), None); // non-finite → fallback
+}
 ```
 
 ---
 
-### 4.2 `contract.rb` is 10,134 bytes with nested classes
+### 2.2 `engine.rs` — `field_count` walks the tree on every call
 
-**Current contents:**
-- `Contract` class methods (`inherited`, `config`, `params`, `json`, `schema`, `rule`, `option`, `register_macro`, etc.)
-- `Contract` instance methods (`initialize`, `call`, `macro_registered?`, `resolve_macro`, `inspect`)
-- `Contract::Result` (used only by Contract)
-- `Contract::Values` (used only by Contract)
-- `Contract::Failures` (already in separate `failures.rb`)
+**Current state:** `field_count()` recursively walks the entire plan tree every time.
 
-**Proposed structure:**
+**Problem:** `O(n)` where `n` is total fields. Only used in tests and diagnostics.
+
+**Fix:** Cache at construction:
+
+```rust
+pub(crate) struct Engine {
+    plan: SchemaPlan,
+    classes: RuntimeClasses,
+    plan_bytes: usize,
+    field_count: usize, // <-- add
+}
+
+impl Engine {
+    pub(crate) fn new(ruby: &Ruby, json: String) -> Result<Self, Error> {
+        let plan = parse_plan(ruby, &json)?;
+        let classes = RuntimeClasses::new(ruby, &plan)?;
+        let field_count = count_fields(&plan.fields); // <-- compute once
+        Ok(Self { plan, classes, plan_bytes: json.len(), field_count })
+    }
+
+    pub(crate) fn field_count(&self) -> usize {
+        self.field_count
+    }
+}
+```
+
+**Impact:** Trivial. Not performance-critical but cleaner.
+
+---
+
+## 3. Remaining Ruby Opportunities
+
+### 3.1 `PredicateBlock#validate_arity` — frozen arrays instead of Hash
+
+**Current state:**
+
+```ruby
+SINGLE_ARGUMENT_PREDICATES = %i[gt gteq lt lteq min_size max_size size format included_in excluded_from eql not_eql].freeze
+ZERO_ARGUMENT_PREDICATES = %i[odd even].freeze
+
+def validate_arity(name, args, kwargs)
+  normalized_name = name.to_s.delete_suffix('?').to_sym
+  argument_count = args.length + (kwargs.empty? ? 0 : 1)
+
+  if SINGLE_ARGUMENT_PREDICATES.include?(normalized_name) && argument_count != 1
+    raise ArgumentError, "#{name} expects exactly one argument, got #{argument_count}"
+  end
+
+  return unless ZERO_ARGUMENT_PREDICATES.include?(normalized_name) && argument_count != 0
+  raise ArgumentError, "#{name} expects no arguments, got #{argument_count}"
+end
+```
+
+**Problem:** Two `include?` calls on frozen arrays. For common predicates, this does two linear scans.
+
+**Fix:** Use a Hash for O(1) lookup:
+
+```ruby
+ARITY_MAP = {
+  gt: 1, gteq: 1, lt: 1, lteq: 1, min_size: 1, max_size: 1, size: 1,
+  format: 1, included_in: 1, excluded_from: 1, eql: 1, not_eql: 1,
+  odd: 0, even: 0
+}.freeze
+
+def validate_arity(name, args, kwargs)
+  normalized_name = name.to_s.delete_suffix('?').to_sym
+  expected = ARITY_MAP[normalized_name]
+  return unless expected
+
+  argument_count = args.length + (kwargs.empty? ? 0 : 1)
+  if argument_count != expected
+    article = expected == 1 ? 'exactly one argument' : 'no arguments'
+    raise ArgumentError, "#{name} expects #{article}, got #{argument_count}"
+  end
+end
+```
+
+**Impact:** Trivial. Arrays are tiny (14 and 2 elements), so this is micro-optimization. But it's cleaner and easier to extend.
+
+---
+
+### 3.2 `contract.rb` — `execute_each` mutates `item_path` array
+
+**Current state:**
+
+```ruby
+def execute_each(rule, result, context)
+  root = rule.paths.first
+  collection = Path.fetch(result.to_h, root)
+  return if collection.equal?(Path::Undefined) || collection.nil?
+  return unless collection.respond_to?(:each_with_index)
+
+  collection.each_with_index do |_item, index|
+    item_path = [*root, index]
+    next if result.schema_error?(item_path)
+    run_evaluator(rule, result, context, paths: [item_path], default_path: item_path, index: index)
+  end
+end
+```
+
+**Problem:** `item_path = [*root, index]` creates a new array on every iteration. For large collections, this is unnecessary allocation.
+
+**Fix:** Build the path incrementally:
+
+```ruby
+def execute_each(rule, result, context)
+  root = rule.paths.first
+  collection = Path.fetch(result.to_h, root)
+  return if collection.equal?(Path::Undefined) || collection.nil?
+  return unless collection.respond_to?(:each_with_index)
+
+  collection.each_with_index do |_item, index|
+    item_path = root.dup
+    item_path << index
+    next if result.schema_error?(item_path)
+    run_evaluator(rule, result, context, paths: [item_path], default_path: item_path, index: index)
+  end
+end
+```
+
+Actually, `[*root, index]` is already efficient (it splats and appends). The `dup + <<` approach might be slightly faster for large arrays because it avoids the splat allocation. But this is truly micro-optimization.
+
+**Recommendation:** Leave as-is. The current code is readable and the allocation is negligible.
+
+---
+
+## 4. Data Class Migration — The Next Internal Cleanup
+
+Ruby 3.2+ `Data` provides immutable value semantics, automatic equality, and the `with` copy method. The gem requires Ruby `>= 3.3`, so `Data` is fully available.
+
+### 4.1 `Predicate` — P0, trivial
+
+**Current:**
+
+```ruby
+# In schema.rb
+Predicate = Struct.new(:name, :argument, keyword_init: true)
+```
+
+**After:**
+
+```ruby
+Predicate = Data.define(:name, :argument) do
+  def initialize(name:, argument: true)
+    super(name: name.to_s.delete_suffix('?').to_sym, argument: argument)
+  end
+end
+```
+
+**Call-site update in `FieldDefinition#deep_dup`:**
+
+```ruby
+# Before:
+copy.predicates << Predicate.new(name: predicate.name, argument: duplicate_value(predicate.argument))
+
+# After:
+copy.predicates << predicate.with(argument: duplicate_value(predicate.argument))
+```
+
+**Impact:** 5 minutes. One-line change. `Data` removes `Struct` overhead.
+
+---
+
+### 4.2 `OptionDefinition` — P0, trivial
+
+**Current:**
+
+```ruby
+# In contract.rb
+OptionDefinition = Struct.new(:name, :default, :optional, keyword_init: true)
+```
+
+**After:**
+
+```ruby
+OptionDefinition = Data.define(:name, :default, :optional) do
+  def initialize(name:, default: Contract::Undefined, optional: false)
+    super
+  end
+end
+```
+
+**Impact:** 5 minutes. One-line change.
+
+---
+
+### 4.3 `Message` — P0, high value
+
+**Current:**
+
+```ruby
+class Message
+  attr_reader :text, :path, :meta, :code, :source, :predicate, :args
+
+  def initialize(text, path:, meta: {}, code: nil, source: :rule, predicate: nil, args: [])
+    @text = text.to_s.freeze
+    @path = Array(path).freeze
+    @meta = meta.freeze
+    @code = code&.to_sym
+    @source = source
+    @predicate = predicate&.to_sym
+    @args = args.freeze
+  end
+
+  def with_text(new_text)
+    self.class.new(new_text, path: path, meta: meta, code: code, source: source, predicate: predicate, args: args)
+  end
+
+  def ==(other)
+    other.is_a?(Message) && [text, path, meta, code, source] ==
+      [other.text, other.path, other.meta, other.code, other.source]
+  end
+  # ... 15 more lines
+end
+```
+
+**Problem:**
+
+- 30+ lines of boilerplate
+- `with_text` is a custom copy method
+- `==` excludes `predicate` and `args` — **likely a bug**
+
+**After:**
+
+```ruby
+Message = Data.define(:text, :path, :meta, :code, :source, :predicate, :args) do
+  def initialize(text:, path:, meta: {}, code: nil, source: :rule, predicate: nil, args: [])
+    super(
+      text: text.to_s,
+      path: Array(path).freeze,
+      meta: meta.freeze,
+      code: code&.to_sym,
+      source: source,
+      predicate: predicate&.to_sym,
+      args: args.freeze
+    )
+  end
+
+  def base?
+    path.compact.empty?
+  end
+
+  def schema?
+    source == :schema
+  end
+
+  def rule?
+    source == :rule
+  end
+
+  def payload
+    meta.empty? ? text : { text: text, **meta }
+  end
+
+  def to_s
+    text
+  end
+end
+```
+
+**Benefits:**
+
+- Eliminates 20 lines of boilerplate (`attr_reader`, `==`, `with_text`)
+- `Data#with` replaces `with_text` — `message.with(text: "new")`
+- Automatic value equality includes **all** fields (fixes the `predicate`/`args` exclusion bug)
+- Pattern matching support out of the box
+
+**Call-site updates:**
+
+```ruby
+# Before:
+Message.new(text, path: path, code: code, ...)
+# After:
+Message.new(text: text, path: path, code: code, ...)  # keyword-only
+
+# Before:
+message.with_text(new_text)
+# After:
+message.with(text: new_text)
+```
+
+All `Message.new` call sites in `schema.rb`, `contract.rb`, and tests need updating. There are ~10–15 call sites.
+
+**Impact:** 30 minutes. High value (bug fix + cleaner code).
+
+---
+
+### 4.4 `Schema::Result` — P1, medium value
+
+**Current:**
+
+```ruby
+class Result
+  attr_reader :output, :messages
+
+  def initialize(output, messages)
+    @output = output
+    @messages = messages
+  end
+  # ... 20 more lines
+end
+```
+
+**After:**
+
+```ruby
+Result = Data.define(:output, :messages) do
+  alias to_h output
+
+  def success?
+    messages.empty?
+  end
+
+  def failure?
+    !success?
+  end
+
+  def errors(options = {})
+    MessageSet.new(messages, options).with(options)
+  end
+  # ... remaining methods
+end
+```
+
+**Impact:** 15 minutes. Eliminates boilerplate. Value equality useful for tests.
+
+---
+
+### 4.5 What NOT to migrate
+
+| Class                             | Why not                                                                    |
+| --------------------------------- | -------------------------------------------------------------------------- |
+| `Schema`                          | Orchestrator with Rust engine reference. Not a value object.               |
+| `Contract`                        | Class-level DSL with mutable state.                                        |
+| `FieldDefinition`                 | Mutable builder state (`attr_accessor` for 7 fields). Built incrementally. |
+| `FieldBuilder` / `PredicateBlock` | DSL builders that accumulate state via method calls.                       |
+| `Evaluator`                       | Execution context with mutable state during rule evaluation.               |
+| `MessageSet`                      | Mutable collection with lazy caches.                                       |
+| `Result` (Contract)               | Mutable accumulator (`@rule_messages` grows via `add_error`).              |
+| `Values`                          | Hash delegate with `method_missing`.                                       |
+| `MessageBackend`                  | Service object with loaded YAML/i18n state.                                |
+| `ProcessorHooks`                  | Static method namespace.                                                   |
+| `Path`                            | Utility module.                                                            |
+| `Rule`                            | Needs review — if immutable after construction, could be a candidate.      |
+
+---
+
+## 5. File Organization — Remaining
+
+### 5.1 `contract.rb` nested classes
+
+**Current:** `Contract::Result` and `Contract::Values` are defined inside `contract.rb` (10,134 bytes).
+
+**Proposed:**
 
 ```
 lib/dry/validation/rust/
 ├── contract/
 │   ├── result.rb              # Contract::Result
 │   └── values.rb              # Contract::Values
-├── contract.rb                # Contract (main orchestrator)
+├── contract.rb                # Contract (orchestrator)
 ```
 
-**What stays in `contract.rb`:**
-- All class-level DSL methods
-- `Contract#initialize`, `Contract#call`, `Contract#inspect`
-- Private helpers: `initialize_options`, `dependency_error?`, `execute_rule`, `execute_each`
+**Note:** Check if `Contract::Values` is identical to top-level `Values` in `values.rb`. If so, merge them. If different, keep the namespace.
 
-**What moves out:**
-- `Contract::Result` → `contract/result.rb` (or merge with existing `result.rb` if namespace-compatible)
-- `Contract::Values` → `contract/values.rb` (or merge with existing `values.rb`)
-
-**Note:** There is already a top-level `Values` class in `values.rb`. Check if `Contract::Values` is the same concept or a different one. If different, keep the namespace prefix.
+**Impact:** 30 minutes. Low priority — `contract.rb` is not as large as `schema.rb` was.
 
 ---
 
-### 4.3 What NOT to split
+## 6. Quick-Win Checklist
 
-- `PredicateBlock` stays in `field_builder.rb` — it's only used by `FieldBuilder#value`.
-- `Message` (~15 lines) stays in `message.rb` — too small to split further.
-- `Path` (~20 lines) stays in `path.rb` — fine as-is.
-- Don't create circular requires. If `FieldBuilder` needs `FieldDefinition` and `FieldDefinition` needs `Predicate` (defined in `FieldBuilder`), keep `Predicate` in `field_builder.rb` or extract to a shared `schema/types.rb`.
-
----
-
-## 5. Quick-Win Checklist
-
-| # | Task | File(s) | Effort | Impact |
-|---|------|---------|--------|--------|
-| 1 | Fix `non_finite_literal` allocation | `coercion.rs` | 10 min | Medium |
-| 2 | Static string for depth limit error | `engine.rs` | 5 min | Low |
-| 3 | Remove IIFE closure in `process_field` | `engine.rs` | 10 min | Low |
-| 4 | Hash-ify `report_unexpected_keys` | `engine.rs` | 20 min | Medium |
-| 5 | Emit full error text from Rust for `unexpected_key` | `engine.rs` + `schema.rb` | 10 min | Low |
-| 6 | Hash-ify root-level field lookup | `schema.rb` | 20 min | Medium |
-| 7 | Move error buffer parsing to Rust | `engine.rs` + `schema.rb` | 2–4 hrs | High |
-| 8 | Add arity validation to `PredicateBlock` | `schema.rb` | 20 min | Medium |
-| 9 | Handle Range arguments in `tokens_for` | `message_backend.rb` | 15 min | Low |
-| 10 | Extract `run_evaluator` helper | `contract.rb` | 15 min | Low |
-| 11 | Simplify `dependency_error?` | `contract.rb` | 15 min | Low |
-| 12 | Split `schema.rb` into `schema/` directory | `lib/dry/validation/rust/` | 1–2 hrs | High |
-| 13 | Split `contract.rb` nested classes | `lib/dry/validation/rust/` | 30 min | Medium |
+| #   | Task                                                            | File(s)                           | Effort | Impact |
+| --- | --------------------------------------------------------------- | --------------------------------- | ------ | ------ |
+| 1   | Add `fast_float()` coercion fast-path                           | `coercion.rs`                     | 30 min | Medium |
+| 2   | Cache `field_count` at engine construction                      | `engine.rs`                       | 10 min | Low    |
+| 3   | `Predicate = Data.define(:name, :argument)`                     | `schema.rb`                       | 5 min  | High   |
+| 4   | Update `deep_dup` to use `predicate.with`                       | `schema/field_definition.rb`      | 5 min  | Low    |
+| 5   | `OptionDefinition = Data.define(:name, :default, :optional)`    | `contract.rb`                     | 5 min  | High   |
+| 6   | `Message = Data.define(...)` + `with_text` → `with`             | `message.rb`                      | 30 min | High   |
+| 7   | Update all `Message.new(text, ...)` → `Message.new(text:, ...)` | `schema.rb`, `contract.rb`, tests | 30 min | Medium |
+| 8   | `Schema::Result = Data.define(:output, :messages)`              | `schema/result.rb`                | 15 min | Medium |
+| 9   | Hash-ify `PredicateBlock` arity map                             | `schema/predicate_block.rb`       | 10 min | Low    |
+| 10  | Split `contract.rb` nested classes                              | `lib/dry/validation/rust/`        | 30 min | Low    |
 
 ---
 
-*End of pre3 refactoring review.*
+_End of post-split refactoring review._

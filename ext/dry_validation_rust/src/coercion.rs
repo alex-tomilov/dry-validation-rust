@@ -36,10 +36,16 @@ pub(crate) fn coerce(
                 .ok()
         }),
         "float" if non_finite_literal(&source) => None,
-        "float" => ruby
-            .module_kernel()
-            .funcall::<_, _, Value>("Float", (source.as_str(),))
-            .ok(),
+        // Canonical finite decimal literals avoid a Ruby callback on the
+        // common params path. Delegate every other spelling so Ruby retains
+        // its syntax and non-finite result semantics.
+        "float" => fast_float(&source)
+            .map(|value| ruby.float_from_f64(value).as_value())
+            .or_else(|| {
+                ruby.module_kernel()
+                    .funcall::<_, _, Value>("Float", (source.as_str(),))
+                    .ok()
+            }),
         "bool" | "true" | "false" => params_boolean(&source).map(|value| {
             if value {
                 ruby.qtrue().as_value()
@@ -82,6 +88,35 @@ fn fast_integer(ruby: &Ruby, source: &str) -> Option<Value> {
         .parse::<i64>()
         .ok()
         .map(|value| ruby.integer_from_i64(value).as_value())
+}
+
+fn fast_float(source: &str) -> Option<f64> {
+    if source.is_empty() {
+        return None;
+    }
+
+    let bytes = source.as_bytes();
+    let start = usize::from(bytes[0] == b'-');
+    let mut dot_seen = false;
+    let mut digit_seen = false;
+
+    for &byte in &bytes[start..] {
+        if byte == b'.' {
+            if dot_seen {
+                return None;
+            }
+            dot_seen = true;
+        } else if byte.is_ascii_digit() {
+            digit_seen = true;
+        } else {
+            return None;
+        }
+    }
+
+    digit_seen
+        .then(|| source.parse::<f64>().ok())
+        .flatten()
+        .filter(|value| value.is_finite())
 }
 
 fn params_boolean(source: &str) -> Option<bool> {
@@ -224,6 +259,21 @@ mod tests {
 
         for source in ["0.0", "-0.0", "1e308", "1e309", ""] {
             assert!(!non_finite_literal(source), "literal {source:?}");
+        }
+    }
+
+    #[test]
+    fn fast_float_handles_common_cases() {
+        assert_eq!(fast_float("3.14"), "3.14".parse().ok());
+        assert_eq!(fast_float("-0.5"), Some(-0.5));
+        assert_eq!(fast_float("42"), Some(42.0));
+
+        for source in ["", "-", ".", "1_000.5", "1e10", "Infinity", "1..0"] {
+            assert_eq!(
+                fast_float(source),
+                None,
+                "{source:?} should delegate to Ruby"
+            );
         }
     }
 
