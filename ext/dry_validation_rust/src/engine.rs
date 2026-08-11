@@ -1,14 +1,14 @@
 use std::collections::HashSet;
 
 use magnus::{
-    gc::Marker, prelude::*, r_hash::ForEach, DataTypeFunctions, Error, RArray, RHash, Ruby,
-    TypedData, Value,
+    DataTypeFunctions, Error, RArray, RHash, Ruby, TypedData, Value, gc::Marker, prelude::*,
+    r_hash::ForEach,
 };
 
 use crate::{
     coercion::{coerce, empty_value, null_if_empty_nullable_param, type_matches},
-    error::{type_message, NativeError, PathPart},
-    plan::{parse_plan, FieldPlan, Mode, SchemaPlan},
+    error::{NativeError, PathPart, type_message},
+    plan::{FieldPlan, Mode, SchemaPlan, parse_plan},
     predicates::apply_predicates,
     ruby_bridge::RuntimeClasses,
 };
