@@ -43,7 +43,7 @@ module Dry
     end
 
     Contract = Rust::Contract unless const_defined?(:Contract, false)
-    Result = Rust::Result unless const_defined?(:Result, false)
+    Result = Rust::Contract::Result unless const_defined?(:Result, false)
     Message = Rust::Message unless const_defined?(:Message, false)
     MessageSet = Rust::MessageSet unless const_defined?(:MessageSet, false)
     Evaluator = Rust::Evaluator unless const_defined?(:Evaluator, false)
