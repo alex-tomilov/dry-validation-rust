@@ -92,7 +92,7 @@ Test that `message_set.freeze.to_h.frozen?` is true.
 
 ### C-Q4: Split `schema.rb`
 
-**Problem:** `schema.rb` is 480 lines containing 5 classes: `SchemaResult`,
+**Problem:** `schema.rb` is 480 lines containing 5 classes: `Schema::Result`,
 `Schema`, `Schema::FieldDefinition`, `Schema::DSL`, `Schema::FieldBuilder`.
 
 **Task:** Split into:
@@ -102,7 +102,7 @@ Test that `message_set.freeze.to_h.frozen?` is true.
     ├── schema/
     │   ├── dsl.rb              # DSL + FieldBuilder
     │   ├── field_definition.rb # FieldDefinition + Predicate struct
-    │   └── result.rb           # SchemaResult (or merge into result.rb)
+    │   └── result.rb           # Schema::Result (or merge into result.rb)
 
 **Acceptance:** All existing tests pass. No file exceeds 200 lines.
 `require` graph is acyclic.

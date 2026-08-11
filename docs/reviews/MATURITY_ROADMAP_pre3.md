@@ -89,7 +89,7 @@ The project has crossed from **"feasibility prototype"** to **"feature-complete 
 **What:** Split `schema.rb` (23,874 bytes, 8 concepts) and reorganize `contract.rb` nested classes.
 
 **Why:**
-- **Cognitive load:** Contributors fixing a predicate-block bug must read through `SchemaResult`, `ProcessorHooks`, `RubyTypeProcessor`, `DSL`, and `FieldDefinition` to understand the file.
+- **Cognitive load:** Contributors fixing a predicate-block bug must read through `Schema::Result`, `ProcessorHooks`, `RubyTypeProcessor`, `DSL`, and `FieldDefinition` to understand the file.
 - **Merge conflicts:** PRs adding `each` support and PRs adding custom-type handling both touch `schema.rb`.
 - **Test isolation:** Testing `FieldDefinition#deep_dup` requires loading the entire engine, DSL, hooks, and message backend.
 - **YARD docs:** 8 classes in one file make generated docs noisy.
@@ -99,7 +99,7 @@ The project has crossed from **"feasibility prototype"** to **"feature-complete 
 ```
 lib/dry/validation/rust/
 ├── schema/
-│   ├── result.rb              # SchemaResult
+│   ├── result.rb              # Schema::Result
 │   ├── processor_hooks.rb     # ProcessorHooks
 │   ├── field_definition.rb    # FieldDefinition + Predicate
 │   ├── field_builder.rb       # FieldBuilder + PredicateBlock
