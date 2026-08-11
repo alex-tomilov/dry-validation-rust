@@ -237,7 +237,8 @@ module Dry
           return unless collection.respond_to?(:each_with_index)
 
           collection.each_with_index do |_item, index|
-            item_path = [*root, index]
+            item_path = root.dup
+            item_path << index
             next if result.schema_error?(item_path)
 
             run_evaluator(rule, result, context, paths: [item_path], default_path: item_path, index: index)
