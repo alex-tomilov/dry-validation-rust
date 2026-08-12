@@ -87,8 +87,8 @@ impl Engine {
                 }
             }
             ruby_error.aset(ruby.to_symbol("path"), path)?;
-            ruby_error.aset(ruby.to_symbol("code"), ruby.to_symbol(error.code))?;
-            ruby_error.aset(ruby.to_symbol("text"), ruby.str_new(&error.text))?;
+            ruby_error.aset(ruby.to_symbol("code"), ruby.to_symbol(error.code.as_ref()))?;
+            ruby_error.aset(ruby.to_symbol("text"), ruby.str_new(error.text.as_ref()))?;
             ruby_errors.push(ruby_error)?;
         }
         let result = ruby.ary_new_capa(2);
