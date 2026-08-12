@@ -47,13 +47,24 @@ class CiWorkflowsTest < Minitest::Test
     assert_includes steps.map { |step| step['uses'] }.compact, 'actions/upload-artifact@v7'
   end
 
-  def test_release_workflow_verifies_tag_then_uses_trusted_publishing
+  def test_release_workflow_verifies_tag_or_manual_release_tag_then_uses_trusted_publishing
     workflow = workflows.fetch(File.join(WORKFLOW_DIR, 'rubygems-push.yml'))
     jobs = workflow.fetch('jobs')
 
     verify_steps = jobs.fetch('verify-release').fetch('steps')
-    assert_includes verify_steps.map { |step| step['run'] }.compact.join("\n"), 'test "${GITHUB_REF_NAME}" = "v${VERSION}"'
+    verify_source = verify_steps.map { |step| step['run'] }.compact.join("\n")
+    assert_includes verify_source, 'test "${RELEASE_TAG}" = "v${VERSION}"'
+    assert_equal '${{ inputs.release_tag || github.ref_name }}',
+                 verify_steps.find { |step| step['name'] == 'Verify tag matches gem version' }
+                             .fetch('env').fetch('RELEASE_TAG')
     assert_includes verify_steps.map { |step| step['run'] }.compact, 'script/verify'
+
+    dispatch = workflow.fetch(true).fetch('workflow_dispatch')
+    assert_equal({
+                   'description' => 'Existing release tag whose version this commit publishes',
+                   'required' => true,
+                   'type' => 'string'
+                 }, dispatch.fetch('inputs').fetch('release_tag'))
 
     publish = jobs.fetch('publish')
     assert_equal({ 'contents' => 'read', 'id-token' => 'write' }, publish.fetch('permissions'))
