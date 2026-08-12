@@ -576,6 +576,41 @@ class SchemaTest < Minitest::Test
     assert_equal 'must be greater than or equal to 18', result.errors.to_h[:age].first
   end
 
+  def test_native_predicate_exceptions_propagate_from_schema_call
+    odd_error = Class.new do
+      def odd?
+        raise 'odd predicate failed'
+      end
+    end.new
+    comparison_error = Class.new do
+      def >(other)
+        raise TypeError, "cannot compare with #{other}"
+      end
+    end.new
+    size_error = Class.new do
+      def size
+        raise ArgumentError, 'size predicate failed'
+      end
+    end.new
+    odd_schema = Dry::Validation::Rust::Schema.define do
+      required(:value).value(:any, :odd?)
+    end
+    comparison_schema = Dry::Validation::Rust::Schema.define do
+      required(:value).value(:any, gt?: 18)
+    end
+    size_schema = Dry::Validation::Rust::Schema.define do
+      required(:value).value(:any, min_size?: 3)
+    end
+
+    odd_exception = assert_raises(RuntimeError) { odd_schema.call(value: odd_error) }
+    comparison_exception = assert_raises(TypeError) { comparison_schema.call(value: comparison_error) }
+    size_exception = assert_raises(ArgumentError) { size_schema.call(value: size_error) }
+
+    assert_equal 'odd predicate failed', odd_exception.message
+    assert_equal 'cannot compare with 18', comparison_exception.message
+    assert_equal 'size predicate failed', size_exception.message
+  end
+
   def test_predicate_composition_blocks_collect_native_and_ruby_predicates
     contract = build_contract do
       params do

@@ -24,19 +24,17 @@ pub(crate) fn apply_predicates(
                             PredicateOp::Lteq => "<=",
                             _ => unreachable!("comparison predicate operation must be recognized"),
                         };
-                        value
-                            .funcall::<_, _, bool>(operator, (argument,))
-                            .unwrap_or(false)
+                        value.funcall::<_, _, bool>(operator, (argument,))?
                     }
                     None => false,
                 }
             }
             PredicateOp::MinSize | PredicateOp::MaxSize | PredicateOp::Size => {
-                let actual = value.funcall::<_, _, usize>("size", ()).ok();
+                let actual = Some(value.funcall::<_, _, usize>("size", ())?);
                 size_predicate_valid(predicate.op, actual, &predicate.argument)
             }
-            PredicateOp::Odd => value.funcall::<_, _, bool>("odd?", ()).unwrap_or(false),
-            PredicateOp::Even => value.funcall::<_, _, bool>("even?", ()).unwrap_or(false),
+            PredicateOp::Odd => value.funcall::<_, _, bool>("odd?", ())?,
+            PredicateOp::Even => value.funcall::<_, _, bool>("even?", ())?,
             PredicateOp::Unsupported => true,
         };
         if !valid {
@@ -114,8 +112,94 @@ fn predicate_argument_json(argument: &PredicateArg) -> serde_json::Value {
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
+    use crate::plan::FieldPlan;
+    use magnus::{Exception, ExceptionClass};
+
+    // Magnus permits one embedded Ruby VM per test process. Keep native Ruby
+    // callback coverage in this single test so Cargo's parallel test runner
+    // cannot attempt a second initialization.
+    #[test]
+    fn native_ruby_callbacks_preserve_predicate_and_coercion_errors() {
+        Ruby::init(|ruby| {
+            crate::coercion::tests::params_coercion_handles_native_boundary_edge_cases(ruby)?;
+            predicate_method_exceptions_are_propagated(ruby)
+        })
+        .expect("native Ruby callback errors should remain observable");
+    }
+
+    pub(crate) fn predicate_method_exceptions_are_propagated(ruby: &Ruby) -> Result<(), Error> {
+        let odd_error = ruby.eval::<Value>(
+            "Class.new { def odd? = raise RuntimeError, 'odd predicate failed' }.new",
+        )?;
+        let comparison_error = ruby.eval::<Value>(
+            "Class.new { def >(value) = raise TypeError, \"cannot compare with #{value}\" }.new",
+        )?;
+        let odd_field = FieldPlan {
+            name: Some("value".to_owned()),
+            required: true,
+            nullable: false,
+            filled: false,
+            kind: "any".to_owned(),
+            member: None,
+            children: Vec::new(),
+            predicates: vec![PredicatePlan {
+                name: "odd".to_owned(),
+                op: PredicateOp::Odd,
+                argument: PredicateArg::Bool(true),
+            }],
+        };
+        let comparison_field = FieldPlan {
+            name: Some("value".to_owned()),
+            required: true,
+            nullable: false,
+            filled: false,
+            kind: "any".to_owned(),
+            member: None,
+            children: Vec::new(),
+            predicates: vec![PredicatePlan {
+                name: "gt".to_owned(),
+                op: PredicateOp::Gt,
+                argument: PredicateArg::Int(18),
+            }],
+        };
+
+        let odd_result = apply_predicates(ruby, &odd_field, odd_error, &[], &mut Vec::new());
+        let comparison_result = apply_predicates(
+            ruby,
+            &comparison_field,
+            comparison_error,
+            &[],
+            &mut Vec::new(),
+        );
+
+        assert_predicate_error(
+            odd_result,
+            ruby.exception_runtime_error(),
+            "odd predicate failed",
+        )?;
+        assert_predicate_error(
+            comparison_result,
+            ruby.exception_type_error(),
+            "cannot compare with 18",
+        )?;
+        Ok(())
+    }
+
+    fn assert_predicate_error(
+        result: Result<(), Error>,
+        expected_class: ExceptionClass,
+        expected_message: &str,
+    ) -> Result<(), Error> {
+        let error = result.expect_err("predicate call should fail");
+        let exception = Exception::from_value(error.value().expect("Ruby exception value"))
+            .expect("predicate failure should retain its Ruby exception");
+        assert!(exception.is_kind_of(expected_class));
+        let message: String = exception.funcall("message", ())?;
+        assert_eq!(message, expected_message);
+        Ok(())
+    }
 
     #[test]
     fn predicate_messages_preserve_arguments() {

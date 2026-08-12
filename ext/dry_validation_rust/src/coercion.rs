@@ -226,7 +226,7 @@ pub(crate) fn empty_value(value: Value) -> bool {
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
     use crate::plan::Mode;
     use magnus::Error;
@@ -284,76 +284,73 @@ mod tests {
         assert!(!allows_literal_coercion(Mode::Schema));
     }
 
-    #[test]
-    fn params_coercion_handles_native_boundary_edge_cases() {
-        Ruby::init(|ruby| {
-            let classes = runtime_classes(ruby)?;
+    pub(crate) fn params_coercion_handles_native_boundary_edge_cases(
+        ruby: &Ruby,
+    ) -> Result<(), Error> {
+        let classes = runtime_classes(ruby)?;
 
-            for (source, expected) in [
-                ("42", 42),
-                ("-42", -42),
-                ("+42", 42),
-                ("9223372036854775807", i64::MAX),
-                ("-9223372036854775808", i64::MIN),
-            ] {
-                let value =
-                    fast_integer(ruby, source).expect("canonical integer should use fast path");
-                assert_eq!(Integer::from_value(value).unwrap().to_i64()?, expected);
-            }
+        for (source, expected) in [
+            ("42", 42),
+            ("-42", -42),
+            ("+42", 42),
+            ("9223372036854775807", i64::MAX),
+            ("-9223372036854775808", i64::MIN),
+        ] {
+            let value = fast_integer(ruby, source).expect("canonical integer should use fast path");
+            assert_eq!(Integer::from_value(value).unwrap().to_i64()?, expected);
+        }
 
-            for source in ["", " 42", "1_000", "0x10", "9223372036854775808"] {
-                assert!(
-                    fast_integer(ruby, source).is_none(),
-                    "{source:?} should delegate to Ruby"
-                );
-            }
+        for source in ["", " 42", "1_000", "0x10", "9223372036854775808"] {
+            assert!(
+                fast_integer(ruby, source).is_none(),
+                "{source:?} should delegate to Ruby"
+            );
+        }
 
-            assert!(ruby.eval::<Value>("Date.iso8601('2026-02-30')").is_err());
+        assert!(ruby.eval::<Value>("Date.iso8601('2026-02-30')").is_err());
+        assert!(
+            coerce(
+                ruby,
+                &classes,
+                Mode::Params,
+                "date",
+                ruby.str_new("2026-02-30").as_value(),
+            )?
+            .is_none()
+        );
+
+        for source in ["Infinity", "-Infinity", "NaN"] {
             assert!(
                 coerce(
                     ruby,
                     &classes,
                     Mode::Params,
-                    "date",
-                    ruby.str_new("2026-02-30").as_value(),
+                    "decimal",
+                    ruby.str_new(source).as_value(),
                 )?
                 .is_none()
             );
+        }
 
-            for source in ["Infinity", "-Infinity", "NaN"] {
-                assert!(
-                    coerce(
-                        ruby,
-                        &classes,
-                        Mode::Params,
-                        "decimal",
-                        ruby.str_new(source).as_value(),
-                    )?
-                    .is_none()
-                );
-            }
+        let empty = ruby.str_new("").as_value();
+        assert!(
+            null_if_empty_nullable_param(ruby, Mode::Params, true, empty)
+                .expect("nullable params empty string should normalize")
+                .is_nil()
+        );
+        assert!(null_if_empty_nullable_param(ruby, Mode::Json, true, empty).is_none());
 
-            let empty = ruby.str_new("").as_value();
-            assert!(
-                null_if_empty_nullable_param(ruby, Mode::Params, true, empty)
-                    .expect("nullable params empty string should normalize")
-                    .is_nil()
-            );
-            assert!(null_if_empty_nullable_param(ruby, Mode::Json, true, empty).is_none());
+        let source = "роль/админ?!";
+        let value = coerce(
+            ruby,
+            &classes,
+            Mode::Params,
+            "symbol",
+            ruby.str_new(source).as_value(),
+        )?
+        .expect("symbol source should coerce");
+        assert_eq!(Symbol::from_value(value).unwrap().name()?.as_ref(), source);
 
-            let source = "роль/админ?!";
-            let value = coerce(
-                ruby,
-                &classes,
-                Mode::Params,
-                "symbol",
-                ruby.str_new(source).as_value(),
-            )?
-            .expect("symbol source should coerce");
-            assert_eq!(Symbol::from_value(value).unwrap().name()?.as_ref(), source);
-
-            Ok(())
-        })
-        .expect("embedded Ruby coercion edge cases should pass");
+        Ok(())
     }
 }
