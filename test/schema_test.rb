@@ -7,6 +7,18 @@ require 'tempfile'
 class SchemaTest < Minitest::Test
   TRAVERSAL_DEPTH_LIMIT = 128
 
+  def test_result_is_an_immutable_value_object
+    output = { age: 21 }
+    messages = [].freeze
+    result = Dry::Validation::Rust::Schema::Result.new(output, messages)
+
+    assert_equal Data, result.class.superclass
+    assert result.frozen?
+    assert_equal result, Dry::Validation::Rust::Schema::Result.new(output, messages)
+    assert_equal output, result.to_h
+    assert result.success?
+  end
+
   def test_predicate_is_an_immutable_value_object_with_normalized_name_and_default_argument
     predicate = Dry::Validation::Rust::Schema::Predicate.new(name: :gt?)
 

@@ -4,15 +4,8 @@ module Dry
   module Validation
     module Rust
       class Schema
-        class Result
-          attr_reader :output, :messages
-
-          def initialize(output, messages)
-            @output = output
-            @messages = messages
-          end
-
-          alias to_h output
+        Result = Data.define(:output, :messages) do
+          alias_method :to_h, :output
 
           def success?
             messages.empty?
