@@ -151,7 +151,7 @@ jobs:
           ruby-version: "3.3"
 
       - name: Download signed release artifacts
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           pattern: dry-validation-rust-*-release
           path: pkg
