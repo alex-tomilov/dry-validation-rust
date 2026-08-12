@@ -70,7 +70,7 @@ module Dry
               copy.member = member&.deep_dup
               copy.children = children.map(&:deep_dup)
               predicates.each do |predicate|
-                copy.predicates << Predicate.new(name: predicate.name, argument: duplicate_value(predicate.argument))
+                copy.predicates << predicate.with(argument: duplicate_value(predicate.argument))
               end
             end
           end
