@@ -5,7 +5,11 @@ module Dry
     module Rust
       class Contract
         Undefined = Object.new.freeze
-        OptionDefinition = Struct.new(:name, :default, :optional, keyword_init: true)
+        OptionDefinition = Data.define(:name, :default, :optional) do
+          def initialize(name:, default: Contract::Undefined, optional: false)
+            super
+          end
+        end
 
         class << self
           # Copies schema configuration and macros when a contract is inherited.

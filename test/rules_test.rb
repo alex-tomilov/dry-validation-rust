@@ -3,6 +3,16 @@
 require_relative 'test_helper'
 
 class RulesTest < Minitest::Test
+  def test_option_definition_is_an_immutable_value_object_with_defaults
+    definition = Dry::Validation::Rust::Contract::OptionDefinition.new(name: :repository)
+
+    assert_equal Data, definition.class.superclass
+    assert_equal :repository, definition.name
+    assert_same Dry::Validation::Rust::Contract::Undefined, definition.default
+    refute definition.optional
+    assert definition.frozen?
+  end
+
   def test_rules_run_after_schema_and_can_use_value
     contract = build_contract do
       params { required(:age).value(:integer) }
