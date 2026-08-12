@@ -7,6 +7,15 @@ require 'tempfile'
 class SchemaTest < Minitest::Test
   TRAVERSAL_DEPTH_LIMIT = 128
 
+  def test_predicate_is_an_immutable_value_object_with_normalized_name_and_default_argument
+    predicate = Dry::Validation::Rust::Schema::Predicate.new(name: :gt?)
+
+    assert_equal Data, predicate.class.superclass
+    assert_equal :gt, predicate.name
+    assert_equal true, predicate.argument
+    assert predicate.frozen?
+  end
+
   def test_processor_hooks_sanitize_before_validation_and_transform_output_afterwards
     hook_inputs = []
     contract = build_contract do

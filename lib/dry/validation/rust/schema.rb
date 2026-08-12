@@ -16,7 +16,11 @@ module Dry
         NATIVE_PREDICATES = %i[gt gteq lt lteq min_size max_size size odd even].freeze
         RUBY_PREDICATES = %i[format included_in excluded_from eql not_eql].freeze
 
-        Predicate = Struct.new(:name, :argument, keyword_init: true)
+        Predicate = Data.define(:name, :argument) do
+          def initialize(name:, argument: true)
+            super(name: name.to_s.delete_suffix('?').to_sym, argument: argument)
+          end
+        end
       end
 
       require_relative 'schema/result'
