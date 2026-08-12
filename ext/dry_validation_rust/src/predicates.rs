@@ -40,7 +40,7 @@ pub(crate) fn apply_predicates(
         if !valid {
             errors.push(NativeError::new(
                 path,
-                &predicate.name,
+                predicate.name.clone(),
                 predicate_message(predicate),
             ));
         }
