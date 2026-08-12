@@ -19,7 +19,7 @@ module Dry
 
         def failure(message, tokens = {})
           text, code, meta = normalize(message, tokens)
-          messages << Message.new(text, path: path, code: code, meta: meta, source: :rule)
+          messages << Message.new(text: text, path: path, code: code, meta: meta, source: :rule)
           self
         end
 

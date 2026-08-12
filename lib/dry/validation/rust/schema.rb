@@ -105,7 +105,7 @@ module Dry
 
         def native_message(path, code, text, predicate, args)
           Message.new(
-            native_error_message(code, text, predicate, args, path),
+            text: native_error_message(code, text, predicate, args, path),
             path: path, code: code, source: :schema, predicate: predicate, args: args
           )
         end
@@ -196,8 +196,8 @@ module Dry
             code: predicate.name, predicate: predicate.name, args: [predicate.argument], fallback: text
           )
           Message.new(
-            text, path: path, code: predicate.name, source: :schema,
-                  predicate: "#{predicate.name}?", args: [predicate.argument]
+            text: text, path: path, code: predicate.name, source: :schema,
+            predicate: "#{predicate.name}?", args: [predicate.argument]
           )
         end
 
