@@ -63,7 +63,7 @@ dependencies = [
 
 [[package]]
 name = "dry_validation_rust_native"
-version = "0.1.0-pre.3"
+version = "0.1.0-pre.4"
 dependencies = [
  "magnus",
  "rb-sys",

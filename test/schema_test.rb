@@ -7,6 +7,27 @@ require 'tempfile'
 class SchemaTest < Minitest::Test
   TRAVERSAL_DEPTH_LIMIT = 128
 
+  def test_result_is_an_immutable_value_object
+    output = { age: 21 }
+    messages = [].freeze
+    result = Dry::Validation::Rust::Schema::Result.new(output, messages)
+
+    assert_equal Data, result.class.superclass
+    assert result.frozen?
+    assert_equal result, Dry::Validation::Rust::Schema::Result.new(output, messages)
+    assert_equal output, result.to_h
+    assert result.success?
+  end
+
+  def test_predicate_is_an_immutable_value_object_with_normalized_name_and_default_argument
+    predicate = Dry::Validation::Rust::Schema::Predicate.new(name: :gt?)
+
+    assert_equal Data, predicate.class.superclass
+    assert_equal :gt, predicate.name
+    assert_equal true, predicate.argument
+    assert predicate.frozen?
+  end
+
   def test_processor_hooks_sanitize_before_validation_and_transform_output_afterwards
     hook_inputs = []
     contract = build_contract do
@@ -42,6 +63,22 @@ class SchemaTest < Minitest::Test
     end
 
     assert_equal({ age: 43 }, contract.new.call('age' => ' 42 ').to_h)
+  end
+
+  def test_before_processor_hooks_receive_a_shallow_duplicate_of_input
+    contract = build_contract do
+      params do
+        before(:value_coercer) { |input| input.fetch('account')['name'] = 'Jane' }
+        required(:account).hash { required(:name).value(:string) }
+      end
+    end
+    input = { 'account' => { 'name' => 'John' } }
+
+    result = contract.new.call(input)
+
+    assert result.success?
+    assert_equal({ account: { name: 'Jane' } }, result.to_h)
+    assert_equal({ 'account' => { 'name' => 'Jane' } }, input)
   end
 
   def test_processor_hooks_reject_unknown_stages_and_missing_blocks
@@ -100,6 +137,22 @@ class SchemaTest < Minitest::Test
     end
   end
 
+  def test_yaml_message_backend_interpolates_range_predicate_tokens
+    with_message_file(<<~YAML) do |path|
+      en:
+        dry_validation:
+          errors:
+            included_in?: "must be between %<left>s and %<right>s"
+    YAML
+      contract = build_contract do
+        config.messages.load_paths << path
+        params { required(:rating).value(:integer, included_in?: 3..5) }
+      end
+
+      assert_equal({ rating: ['must be between 3 and 5'] }, contract.new.call(rating: 6).errors.to_h)
+    end
+  end
+
   def test_message_backend_rejects_unknown_identifiers
     error = assert_raises(ArgumentError) do
       build_contract do
@@ -133,12 +186,24 @@ class SchemaTest < Minitest::Test
     assert_equal nested_output(TRAVERSAL_DEPTH_LIMIT, {}), result.to_h
   end
 
-  def test_native_engine_uses_schema_error_buffer_version
+  def test_native_engine_returns_structured_errors
     schema = Dry::Validation::Rust::Schema.Params { required(:age).value(:integer) }
 
     _output, native_errors = schema.engine.call(age: 'invalid')
 
-    assert_equal Dry::Validation::Rust::Schema::NATIVE_ERROR_BUFFER_VERSION, native_errors.first
+    assert_equal [{ path: [:age], code: :type, text: 'must be an integer' }], native_errors
+  end
+
+  def test_native_engine_supplies_the_unexpected_key_error_text
+    schema = Dry::Validation::Rust::Schema.new(
+      mode: :params,
+      fields: [],
+      validate_keys: true
+    )
+
+    _output, native_errors = schema.engine.call(unexpected: true)
+
+    assert_equal [{ path: [:unexpected], code: :unexpected_key, text: 'is not allowed' }], native_errors
   end
 
   def test_native_engine_keeps_date_class_lookup_from_initialization
@@ -149,29 +214,9 @@ class SchemaTest < Minitest::Test
     output, native_errors = schema.engine.call(value: '2026-08-03')
 
     assert_equal({ value: date_class.new(2026, 8, 3) }, output)
-    assert_equal [Dry::Validation::Rust::Schema::NATIVE_ERROR_BUFFER_VERSION], native_errors
+    assert_empty native_errors
   ensure
     Object.const_set(:Date, date_class) unless Object.const_defined?(:Date, false)
-  end
-
-  def test_native_error_buffer_rejects_unsupported_versions_and_truncated_records
-    schema = Dry::Validation::Rust::Schema.Params { required(:age).value(:integer) }
-    format_version = Dry::Validation::Rust::Schema::NATIVE_ERROR_BUFFER_VERSION
-
-    version_error = assert_raises(Dry::Validation::Rust::NativeExtensionError) do
-      schema.send(:native_errors_to_messages, [format_version + 1])
-    end
-    assert_equal "unsupported native error buffer version: #{format_version + 1}", version_error.message
-
-    malformed_error = assert_raises(Dry::Validation::Rust::NativeExtensionError) do
-      schema.send(:native_errors_to_messages, [format_version, 1, :age])
-    end
-    assert_equal 'malformed native error buffer', malformed_error.message
-
-    invalid_value_error = assert_raises(Dry::Validation::Rust::NativeExtensionError) do
-      schema.send(:native_errors_to_messages, [format_version, 1, 'age', :type, 'must be an integer'])
-    end
-    assert_equal 'malformed native error buffer', invalid_value_error.message
   end
 
   def test_params_coerces_keys_and_scalar_values
@@ -192,6 +237,16 @@ class SchemaTest < Minitest::Test
 
     assert result.success?
     assert_equal({ age: 42, ratio: 1.5, enabled: false, role: :admin, nickname: nil }, result.to_h)
+  end
+
+  def test_params_integer_coercion_preserves_ruby_syntax_and_bignum_fallbacks
+    contract = build_contract do
+      params { required(:value).value(:integer) }
+    end
+
+    assert_equal 42, contract.new.call('value' => '+42').to_h.fetch(:value)
+    assert_equal 1_000, contract.new.call('value' => '1_000').to_h.fetch(:value)
+    assert_equal 9_223_372_036_854_775_808, contract.new.call('value' => '9223372036854775808').to_h.fetch(:value)
   end
 
   def test_schema_does_not_coerce_keys_or_values
@@ -248,8 +303,8 @@ class SchemaTest < Minitest::Test
     end
     input = {
       'unexpected' => true,
-      'profile' => { 'name' => 'Jane', 'unexpected' => true },
-      'people' => [{ 'id' => 1, 'unexpected' => true }]
+      profile: { name: 'Jane', 'unexpected' => true },
+      'people' => [{ id: 1, 'unexpected' => true }]
     }
     expected_errors = {
       unexpected: ['is not allowed'],
@@ -535,6 +590,28 @@ class SchemaTest < Minitest::Test
     assert_equal({ age: ['must be greater than 18'], email: ['is in invalid format'] }, invalid.errors.to_h)
     assert_equal %i[gt? format?], invalid.errors.map(&:predicate)
     assert valid.success?
+  end
+
+  def test_predicate_composition_blocks_reject_invalid_predicate_arities
+    multiple_arguments = assert_raises(ArgumentError) do
+      build_contract do
+        params { required(:age).value(:integer) { gt?(18, 19) } }
+      end
+    end
+    missing_argument = assert_raises(ArgumentError) do
+      build_contract do
+        params { required(:age).value(:integer) { gt? } }
+      end
+    end
+    unexpected_argument = assert_raises(ArgumentError) do
+      build_contract do
+        params { required(:age).value(:integer) { odd? 1 } }
+      end
+    end
+
+    assert_equal 'gt? expects exactly one argument, got 2', multiple_arguments.message
+    assert_equal 'gt? expects exactly one argument, got 0', missing_argument.message
+    assert_equal 'odd? expects no arguments, got 1', unexpected_argument.message
   end
 
   def test_custom_dry_types_are_processed_in_ruby_alongside_native_fields

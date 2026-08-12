@@ -4,6 +4,12 @@ on:
   push:
     tags:
       - "v*"
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Existing release tag whose version this commit publishes
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -36,9 +42,11 @@ jobs:
           components: rustfmt, clippy
 
       - name: Verify tag matches gem version
+        env:
+          RELEASE_TAG: ${{ inputs.release_tag || github.ref_name }}
         run: |
           VERSION=$(bundle exec ruby -Ilib -e 'require "dry/validation/rust/version"; print Dry::Validation::Rust::VERSION')
-          test "${GITHUB_REF_NAME}" = "v${VERSION}"
+          test "${RELEASE_TAG}" = "v${VERSION}"
 
       - name: Run RuboCop
         run: bundle exec rubocop

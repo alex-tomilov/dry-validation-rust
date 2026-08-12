@@ -27,17 +27,25 @@ pub(crate) fn coerce(
         return Ok(None);
     };
     let converted = match kind {
-        // Delegate numeric syntax to Ruby so Bignum values and underscore
-        // separators follow the pinned dry-types coercion path.
-        "integer" => ruby
-            .module_kernel()
-            .funcall::<_, _, Value>("Integer", (source.as_str(), 10))
-            .ok(),
+        // Canonical signed 64-bit decimal literals avoid a Ruby callback on
+        // the common params path. Delegate every other spelling and Bignum to
+        // Ruby so its syntax and arbitrary-precision semantics are preserved.
+        "integer" => fast_integer(ruby, &source).or_else(|| {
+            ruby.module_kernel()
+                .funcall::<_, _, Value>("Integer", (source.as_str(), 10))
+                .ok()
+        }),
         "float" if non_finite_literal(&source) => None,
-        "float" => ruby
-            .module_kernel()
-            .funcall::<_, _, Value>("Float", (source.as_str(),))
-            .ok(),
+        // Canonical finite decimal literals avoid a Ruby callback on the
+        // common params path. Delegate every other spelling so Ruby retains
+        // its syntax and non-finite result semantics.
+        "float" => fast_float(&source)
+            .map(|value| ruby.float_from_f64(value).as_value())
+            .or_else(|| {
+                ruby.module_kernel()
+                    .funcall::<_, _, Value>("Float", (source.as_str(),))
+                    .ok()
+            }),
         "bool" | "true" | "false" => params_boolean(&source).map(|value| {
             if value {
                 ruby.qtrue().as_value()
@@ -73,6 +81,42 @@ pub(crate) fn coerce(
         _ => None,
     };
     Ok(converted)
+}
+
+fn fast_integer(ruby: &Ruby, source: &str) -> Option<Value> {
+    source
+        .parse::<i64>()
+        .ok()
+        .map(|value| ruby.integer_from_i64(value).as_value())
+}
+
+fn fast_float(source: &str) -> Option<f64> {
+    if source.is_empty() {
+        return None;
+    }
+
+    let bytes = source.as_bytes();
+    let start = usize::from(bytes[0] == b'-');
+    let mut dot_seen = false;
+    let mut digit_seen = false;
+
+    for &byte in &bytes[start..] {
+        if byte == b'.' {
+            if dot_seen {
+                return None;
+            }
+            dot_seen = true;
+        } else if byte.is_ascii_digit() {
+            digit_seen = true;
+        } else {
+            return None;
+        }
+    }
+
+    digit_seen
+        .then(|| source.parse::<f64>().ok())
+        .flatten()
+        .filter(|value| value.is_finite())
 }
 
 fn params_boolean(source: &str) -> Option<bool> {
@@ -114,10 +158,16 @@ pub(crate) fn null_if_empty_nullable_param(
 }
 
 fn non_finite_literal(source: &str) -> bool {
-    matches!(
-        source.trim().to_ascii_lowercase().as_str(),
-        "infinity" | "+infinity" | "-infinity" | "inf" | "+inf" | "-inf" | "nan" | "+nan" | "-nan"
-    )
+    let source = source.trim();
+    source.eq_ignore_ascii_case("infinity")
+        || source.eq_ignore_ascii_case("+infinity")
+        || source.eq_ignore_ascii_case("-infinity")
+        || source.eq_ignore_ascii_case("inf")
+        || source.eq_ignore_ascii_case("+inf")
+        || source.eq_ignore_ascii_case("-inf")
+        || source.eq_ignore_ascii_case("nan")
+        || source.eq_ignore_ascii_case("+nan")
+        || source.eq_ignore_ascii_case("-nan")
 }
 
 pub(crate) fn type_matches(
@@ -213,6 +263,21 @@ mod tests {
     }
 
     #[test]
+    fn fast_float_handles_common_cases() {
+        assert_eq!(fast_float("3.14"), "3.14".parse().ok());
+        assert_eq!(fast_float("-0.5"), Some(-0.5));
+        assert_eq!(fast_float("42"), Some(42.0));
+
+        for source in ["", "-", ".", "1_000.5", "1e10", "Infinity", "1..0"] {
+            assert_eq!(
+                fast_float(source),
+                None,
+                "{source:?} should delegate to Ruby"
+            );
+        }
+    }
+
+    #[test]
     fn only_params_mode_enables_literal_coercion() {
         assert!(allows_literal_coercion(Mode::Params));
         assert!(!allows_literal_coercion(Mode::Json));
@@ -223,6 +288,25 @@ mod tests {
     fn params_coercion_handles_native_boundary_edge_cases() {
         Ruby::init(|ruby| {
             let classes = runtime_classes(ruby)?;
+
+            for (source, expected) in [
+                ("42", 42),
+                ("-42", -42),
+                ("+42", 42),
+                ("9223372036854775807", i64::MAX),
+                ("-9223372036854775808", i64::MIN),
+            ] {
+                let value =
+                    fast_integer(ruby, source).expect("canonical integer should use fast path");
+                assert_eq!(Integer::from_value(value).unwrap().to_i64()?, expected);
+            }
+
+            for source in ["", " 42", "1_000", "0x10", "9223372036854775808"] {
+                assert!(
+                    fast_integer(ruby, source).is_none(),
+                    "{source:?} should delegate to Ruby"
+                );
+            }
 
             assert!(ruby.eval::<Value>("Date.iso8601('2026-02-30')").is_err());
             assert!(

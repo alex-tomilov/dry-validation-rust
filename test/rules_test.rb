@@ -3,6 +3,16 @@
 require_relative 'test_helper'
 
 class RulesTest < Minitest::Test
+  def test_option_definition_is_an_immutable_value_object_with_defaults
+    definition = Dry::Validation::Rust::Contract::OptionDefinition.new(name: :repository)
+
+    assert_equal Data, definition.class.superclass
+    assert_equal :repository, definition.name
+    assert_same Dry::Validation::Rust::Contract::Undefined, definition.default
+    refute definition.optional
+    assert definition.frozen?
+  end
+
   def test_rules_run_after_schema_and_can_use_value
     contract = build_contract do
       params { required(:age).value(:integer) }
@@ -119,6 +129,17 @@ class RulesTest < Minitest::Test
       { numbers: { 1 => ['item 1 must be positive'], 2 => ['item 2 must be positive'] } },
       result.errors.to_h
     )
+  end
+
+  def test_rule_each_keeps_the_declared_root_path_unchanged
+    contract = build_contract do
+      params { required(:numbers).array(:integer) }
+      rule(:numbers).each { key.failure('must be positive') if value <= 0 }
+    end
+
+    contract.new.call(numbers: ['0', '-1'])
+
+    assert_equal([:numbers], contract.rules.first.paths.first)
   end
 
   def test_rule_each_skips_only_members_with_schema_errors

@@ -5,7 +5,11 @@ module Dry
     module Rust
       class Contract
         Undefined = Object.new.freeze
-        OptionDefinition = Struct.new(:name, :default, :optional, keyword_init: true)
+        OptionDefinition = Data.define(:name, :default, :optional) do
+          def initialize(name:, default: Contract::Undefined, optional: false)
+            super
+          end
+        end
 
         class << self
           # Copies schema configuration and macros when a contract is inherited.
@@ -171,7 +175,7 @@ module Dry
             if rule.each?
               execute_each(rule, result, shared_context)
             else
-              next if rule.paths.any? { |path| dependency_error?(schema_error_paths, schema_error_path_prefixes, path) }
+              next if rule.paths.any? { |path| dependency_error?(schema_error_path_prefixes, path) }
 
               execute_rule(rule, result, shared_context)
             end
@@ -222,24 +226,12 @@ module Dry
           end
         end
 
-        def dependency_error?(schema_error_paths, schema_error_path_prefixes, path)
-          return true if schema_error_path_prefixes.include?(path)
-
-          path.length.downto(0).any? { |length| schema_error_paths.include?(path.take(length)) }
+        def dependency_error?(schema_error_path_prefixes, path)
+          path.length.downto(1).any? { |length| schema_error_path_prefixes.include?(path.take(length)) }
         end
 
         def execute_rule(rule, result, context)
-          evaluator = Evaluator.new(
-            contract: self,
-            result: result,
-            paths: rule.paths,
-            default_path: rule.default_path,
-            context: context
-          )
-          evaluator.execute(rule.block, rule.macro_calls,
-                            keyword_params: rule.keyword_params).failures.each do |failure|
-            result.add_error(failure)
-          end
+          run_evaluator(rule, result, context, paths: rule.paths, default_path: rule.default_path)
         end
 
         def execute_each(rule, result, context)
@@ -249,20 +241,26 @@ module Dry
           return unless collection.respond_to?(:each_with_index)
 
           collection.each_with_index do |_item, index|
-            item_path = [*root, index]
+            item_path = root.dup
+            item_path << index
             next if result.schema_error?(item_path)
 
-            evaluator = Evaluator.new(
-              contract: self,
-              result: result,
-              paths: [item_path],
-              context: context,
-              index: index
-            )
-            evaluator.execute(rule.block, rule.macro_calls,
-                              keyword_params: rule.keyword_params).failures.each do |failure|
-              result.add_error(failure)
-            end
+            run_evaluator(rule, result, context, paths: [item_path], default_path: item_path, index: index)
+          end
+        end
+
+        def run_evaluator(rule, result, context, paths:, default_path:, index: nil)
+          evaluator = Evaluator.new(
+            contract: self,
+            result: result,
+            paths: paths,
+            default_path: default_path,
+            context: context,
+            index: index
+          )
+          evaluator.execute(rule.block, rule.macro_calls,
+                            keyword_params: rule.keyword_params).failures.each do |failure|
+            result.add_error(failure)
           end
         end
       end

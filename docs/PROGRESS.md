@@ -1,22 +1,22 @@
 # Project Progress
 
 Status: living document.
-Last updated: 2026-08-08.
+Last updated: 2026-08-12.
 
 One-page project status for contributors, reviewers, and the maintainer.
 
 ## Milestone Status
 
-| #   | Milestone               | Status         | Notes                                                                                                                                                                                                                                                                                                                 |
-| --- | ----------------------- | -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 0   | Foundation              | ✅ Complete    | Steps 0.1 public side-by-side API lock, 0.2 SemVer policy, and 0.3 actionable security process completed 2026-08-04                                                                                                                                                                                                   |
-| A   | Trustworthy Baseline    | ✅ Complete    | PRs #48–#51                                                                                                                                                                                                                                                                                                           |
-| B   | Common Schema Subset    | ✅ Complete    | PRs #49–#56, #65–#71                                                                                                                                                                                                                                                                                                  |
-| C   | Ordinary Rules Subset   | 🔵 Active      | ~20% done; C-Q3 completed; hot-helper inline hints, cached rule/macro keyword introspection, and `MessageSet#to_h` memoization applied 2026-08-01                                                                                                                                                                     |
-| D   | Performance Proof       | 🔵 Active      | Phase 1 steps 1–2 and maturity-roadmap Steps 3.1–3.3 completed 2026-08-09; README records three-run results for all six scenarios, CI rejects Ruby-allocation regressions above 5% of `main`, and weekly CI runs five minutes of plan-deserialization fuzzing; broader-host and native-allocation evidence remain pending |
-| E   | Compatibility Slice     | 🔵 Active      | `config.validate_keys = true`, predicate-composition blocks, Ruby-owned custom dry-types/constructor and sum objects, YAML/I18n schema-message backends, and Ruby-side `before`/`after` processor hooks implemented for all schema modes by 2026-08-08                                                                |
-| F   | Packaging and Platforms | 🔵 Active      | Cross-compilation for four P0 platforms, a signed trusted-publishing release workflow, and README source/precompiled installation guidance added 2026-08-06; publication remains blocked on E                                                                                                                         |
-| G   | Stable Subset           | ⚪ Not started | Blocked on F                                                                                                                                                                                                                                                                                                          |
+| #   | Milestone               | Status         | Notes                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| --- | ----------------------- | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 0   | Foundation              | ✅ Complete    | Steps 0.1 public side-by-side API lock, 0.2 SemVer policy, and 0.3 actionable security process completed 2026-08-04                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| A   | Trustworthy Baseline    | ✅ Complete    | PRs #48–#51                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| B   | Common Schema Subset    | ✅ Complete    | PRs #49–#56, #65–#71                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| C   | Ordinary Rules Subset   | 🔵 Active      | ~20% done; C-Q3–C-Q5 completed; schema collaborators are one class per file, schema-owned types use only the `Schema` namespace, and `Message` is an immutable `Data` value object as of 2026-08-12                                                                                                                                                                                                                                                                                                                                                                                                             |
+| D   | Performance Proof       | 🔵 Active      | Phase 1 steps 1–2 and maturity-roadmap Steps 3.1–3.5 completed 2026-08-09; canonical 64-bit integers and finite decimal float parameters now coerce in Rust, while non-canonical spellings and Bignums retain Ruby behavior and explicit non-finite literals remain rejected. README records three-run results for all six scenarios, CI rejects Ruby-allocation regressions above 5% of `main`, weekly CI runs five minutes of plan-deserialization fuzzing, and the Ruby suite exercises a seeded hostile-hash corpus in an isolated subprocess; broader-host and native-allocation evidence remain pending |
+| E   | Compatibility Slice     | 🔵 Active      | `config.validate_keys = true`, predicate-composition blocks, Ruby-owned custom dry-types/constructor and sum objects, YAML/I18n schema-message backends, and Ruby-side `before`/`after` processor hooks implemented for all schema modes by 2026-08-08                                                                                                                                                                                                                                                                                                                                                        |
+| F   | Packaging and Platforms | 🔵 Active      | Cross-compilation for four P0 platforms, a signed trusted-publishing release workflow, and README source/precompiled installation guidance added 2026-08-06; publication remains blocked on E                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| G   | Stable Subset           | ⚪ Not started | Blocked on F                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 
 ## What Has Been Accomplished
 
@@ -43,9 +43,9 @@ One-page project status for contributors, reviewers, and the maintainer.
 ## What Is Next
 
 1. Build a dedicated 50-case rule corpus (see Milestone C file for distribution).
-2. Complete remaining C-Q1, C-Q2, and C-Q4 code-quality tasks.
+2. Complete remaining C-Q1 and C-Q2 code-quality tasks; the P0 `Message` Data migration (C-Q5) is complete.
 3. Stress-test rule dependencies and isolation, then wire the rule corpus into differential CI.
-4. Automate the benchmark matrix and complete the remaining Performance Proof work after Milestone C; Phase 1 path-vector reuse, Ruby class caching, Steps 3.1–3.3 (benchmark matrix, allocation gate, plan deserialization fuzzing) are complete. Ruby-level engine fuzzing remains separate work (Step 3.4).
+4. Automate the benchmark matrix and complete the remaining Performance Proof work after Milestone C; Phase 1 path-vector reuse, Ruby class caching, and Steps 3.1–3.5 (benchmark matrix, allocation gate, plan deserialization/Ruby-level engine fuzzing, and profiled GVL-path optimizations) are complete.
 5. Configure the RubyGems trusted publisher for `rubygems-push.yml`, then validate and publish the P0 precompiled gems so the documented recommended path becomes available.
 
 ## Code-Quality Tasks (from Milestone C)
@@ -55,20 +55,22 @@ One-page project status for contributors, reviewers, and the maintainer.
 | C-Q1 | Unify predicate evaluation (3 sites → 1) | ⚪ Pending |
 | C-Q2 | Unify `Undefined` sentinels              | ⚪ Pending |
 | C-Q3 | Fix `MessageSet#freeze` no-op            | ✅ Done    |
-| C-Q4 | Split `schema.rb` (480 lines → 4 files)  | ⚪ Pending |
+| C-Q4 | Split `schema.rb` (480 lines → 4 files)  | ✅ Done    |
+| C-Q5 | Migrate `Message` to immutable `Data`    | ✅ Done    |
 
 ## Key Metrics
 
-| Metric                     | Value                  |
-| -------------------------- | ---------------------- |
-| Ruby source files          | ~16                    |
+| Metric                     | Value                                  |
+| -------------------------- | -------------------------------------- |
+| Ruby source files          | 29                                     |
+| Ruby tests                 | 132                                    |
 | Rust source files          | 7 (lib.rs + 6 modules) + 1 fuzz target |
-| Ruby test files            | ~14                    |
-| Rust unit tests            | 18                     |
-| Differential fixture cases | 80+                    |
-| Malformed-input corpus     | 64                     |
-| CI workflows               | 8                      |
-| Documentation files        | 12+                    |
+| Ruby test files            | ~14                                    |
+| Rust unit tests            | 21                                     |
+| Differential fixture cases | 80+                                    |
+| Malformed-input corpus     | 64                                     |
+| CI workflows               | 8                                      |
+| Documentation files        | 12+                                    |
 
 ## Known Debt and Risks
 
@@ -82,6 +84,7 @@ One-page project status for contributors, reviewers, and the maintainer.
 - Governance documentation may be disproportionate to project scale.
 - Naming/affiliation with dry-rb not yet discussed (Milestone G).
 - `edition = "2024"` / `rust-version = "1.85"` may exclude contributors.
+- The Rust binding's Cargo configuration resolves Ruby 3.4 while the default Ruby suite uses 3.3.7; `script/verify` needs a Ruby 3.4 library path for native tests until the configurations are aligned.
 
 ## File Manifest
 

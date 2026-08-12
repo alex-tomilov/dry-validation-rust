@@ -1,6 +1,8 @@
+use std::collections::HashSet;
+
 use magnus::{
-    DataTypeFunctions, Error, Integer, RArray, RClass, RHash, RModule, Ruby, TypedData, Value,
-    gc::Marker, prelude::*, r_hash::ForEach,
+    DataTypeFunctions, Error, RArray, RHash, Ruby, TypedData, Value, gc::Marker, prelude::*,
+    r_hash::ForEach,
 };
 
 use crate::{
@@ -13,6 +15,7 @@ use crate::{
 
 const MAX_TRAVERSAL_DEPTH: u16 = 128;
 const DEPTH_ERROR_CODE: &str = "depth";
+const DEPTH_ERROR_TEXT: &str = "schema nesting depth exceeds limit (128)";
 
 #[derive(TypedData)]
 #[magnus(
@@ -25,6 +28,7 @@ pub(crate) struct Engine {
     plan: SchemaPlan,
     classes: RuntimeClasses,
     plan_bytes: usize,
+    field_count: usize,
 }
 
 impl DataTypeFunctions for Engine {
@@ -50,10 +54,12 @@ impl Engine {
     pub(crate) fn new(ruby: &Ruby, json: String) -> Result<Self, Error> {
         let plan = parse_plan(ruby, &json)?;
         let classes = RuntimeClasses::new(ruby, &plan)?;
+        let field_count = count_fields(&plan.fields);
         Ok(Self {
             plan,
             classes,
             plan_bytes: json.len(),
+            field_count,
         })
     }
 
@@ -70,21 +76,20 @@ impl Engine {
             };
             process_hash(&mut traversal, &self.plan.fields, input, &mut Vec::new(), 0)?
         };
-        // Ruby owns this private format's version. Reading it here makes the
-        // encoder and decoder share one authority without duplicating a value.
-        let error_buffer_version = native_error_buffer_version(&ruby)?;
         let ruby_errors = ruby.ary_new();
-        ruby_errors.push(error_buffer_version)?;
         for error in errors {
-            ruby_errors.push(error.path.len())?;
+            let ruby_error = ruby.hash_new();
+            let path = ruby.ary_new_capa(error.path.len());
             for part in error.path {
                 match part {
-                    PathPart::Key(key) => ruby_errors.push(ruby.to_symbol(key))?,
-                    PathPart::Index(index) => ruby_errors.push(index)?,
+                    PathPart::Key(key) => path.push(ruby.to_symbol(key))?,
+                    PathPart::Index(index) => path.push(index)?,
                 }
             }
-            ruby_errors.push(ruby.to_symbol(error.code))?;
-            ruby_errors.push(error.text)?;
+            ruby_error.aset(ruby.to_symbol("path"), path)?;
+            ruby_error.aset(ruby.to_symbol("code"), ruby.to_symbol(error.code))?;
+            ruby_error.aset(ruby.to_symbol("text"), ruby.str_new(&error.text))?;
+            ruby_errors.push(ruby_error)?;
         }
         let result = ruby.ary_new_capa(2);
         result.push(output)?;
@@ -93,19 +98,7 @@ impl Engine {
     }
 
     pub(crate) fn field_count(&self) -> usize {
-        fn count(fields: &[FieldPlan]) -> usize {
-            fields
-                .iter()
-                .map(|field| {
-                    1 + count(&field.children)
-                        + field
-                            .member
-                            .as_ref()
-                            .map_or(0, |member| count(&member.children))
-                })
-                .sum()
-        }
-        count(&self.plan.fields)
+        self.field_count
     }
 
     pub(crate) fn plan_bytes(&self) -> usize {
@@ -113,13 +106,17 @@ impl Engine {
     }
 }
 
-fn native_error_buffer_version(ruby: &Ruby) -> Result<usize, Error> {
-    let dry: RModule = ruby.class_object().const_get("Dry")?;
-    let validation: RModule = dry.const_get("Validation")?;
-    let rust: RModule = validation.const_get("Rust")?;
-    let schema: RClass = rust.const_get("Schema")?;
-    let version: Integer = schema.const_get("NATIVE_ERROR_BUFFER_VERSION")?;
-    version.to_usize()
+fn count_fields(fields: &[FieldPlan]) -> usize {
+    fields
+        .iter()
+        .map(|field| {
+            1 + count_fields(&field.children)
+                + field
+                    .member
+                    .as_ref()
+                    .map_or(0, |member| count_fields(&member.children))
+        })
+        .sum()
 }
 
 fn process_hash(
@@ -150,22 +147,21 @@ fn report_unexpected_keys(
         return Ok(());
     }
 
+    let declared: HashSet<&str> = fields
+        .iter()
+        .map(|field| field.name.as_deref().unwrap_or_default())
+        .collect();
+
     input.foreach(|key: Value, _: Value| {
-        let mut declared = false;
-        for field in fields {
-            let name = field.name.as_deref().unwrap_or_default();
-            if key.eql(traversal.ruby.to_symbol(name))? || key.eql(traversal.ruby.str_new(name))? {
-                declared = true;
-                break;
-            }
-        }
-        if !declared {
-            let key_name: String = key.funcall("to_s", ())?;
+        let key_name: String = key.funcall("to_s", ())?;
+        if !declared.contains(key_name.as_str()) {
             let mut error_path = path.to_vec();
             error_path.push(PathPart::Key(key_name));
-            traversal
-                .errors
-                .push(NativeError::new(&error_path, "unexpected_key", ""));
+            traversal.errors.push(NativeError::new(
+                &error_path,
+                "unexpected_key",
+                "is not allowed",
+            ));
         }
         Ok(ForEach::Continue)
     })
@@ -181,16 +177,14 @@ fn process_field(
 ) -> Result<(), Error> {
     let name = field.name.as_deref().unwrap_or_default();
     path.push(PathPart::Key(name.to_owned()));
-    let result = (|| match resolve_field_input(input, traversal.ruby, traversal.mode, name) {
-        Some(raw) => {
-            let processed = process_value(traversal, field, raw, path, depth)?;
-            output.aset(traversal.ruby.to_symbol(name), processed)
-        }
+    let result = match resolve_field_input(input, traversal.ruby, traversal.mode, name) {
+        Some(raw) => process_value(traversal, field, raw, path, depth)
+            .and_then(|processed| output.aset(traversal.ruby.to_symbol(name), processed)),
         None => {
             report_missing_field(traversal, field, path);
             Ok(())
         }
-    })();
+    };
     path.pop();
     result
 }
@@ -365,11 +359,7 @@ fn within_depth_limit(depth: u16, path: &[PathPart], errors: &mut Vec<NativeErro
         return true;
     }
 
-    errors.push(NativeError::new(
-        path,
-        DEPTH_ERROR_CODE,
-        format!("schema nesting depth exceeds limit ({MAX_TRAVERSAL_DEPTH})"),
-    ));
+    errors.push(NativeError::new(path, DEPTH_ERROR_CODE, DEPTH_ERROR_TEXT));
     false
 }
 
@@ -387,11 +377,13 @@ mod tests {
             "children": [], "predicates": []
           }]
         }"#;
-        let plan = serde_json::from_str(json).expect("valid plan");
+        let plan: SchemaPlan = serde_json::from_str(json).expect("valid plan");
+        let field_count = count_fields(&plan.fields);
         let engine = Engine {
             plan,
             classes: RuntimeClasses::default(),
             plan_bytes: json.len(),
+            field_count,
         };
         assert_eq!(engine.field_count(), 2);
         assert_eq!(engine.plan_bytes(), json.len());

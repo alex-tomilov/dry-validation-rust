@@ -11,6 +11,7 @@ LATENCY_SAMPLES = Integer(ENV.fetch('LATENCY_SAMPLES', '200'))
 ENGINE = ENV.fetch('ENGINE', 'all')
 FORMAT = ENV.fetch('FORMAT', 'text')
 SCENARIO_FILTER = ENV.fetch('SCENARIO', nil)
+VALIDATE_KEYS = ENV.fetch('VALIDATE_KEYS', 'false') == 'true'
 PROJECT_LIB = File.expand_path('../lib', __dir__)
 
 def flat_schema(field_count)
@@ -161,7 +162,8 @@ end
 
 def benchmark_engine(contract_class, engine:, version:)
   selected_scenarios.map do |scenario|
-    definition = "Class.new(#{contract_class}) do\nparams do\n#{scenario.fetch('source')}\nend\nend"
+    configuration = "config.validate_keys = true\n" if VALIDATE_KEYS
+    definition = "Class.new(#{contract_class}) do\n#{configuration}params do\n#{scenario.fetch('source')}\nend\nend"
     contract = eval(definition, TOPLEVEL_BINDING, __FILE__, __LINE__).new # rubocop:disable Security/Eval
     measure(contract, scenario.fetch('payloads')).merge(
       'scenario' => scenario.fetch('name'),

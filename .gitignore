@@ -4,6 +4,7 @@
 /ext/dry_validation_rust/Makefile
 /ext/dry_validation_rust/mkmf.log
 /ext/dry_validation_rust/native.*
+/lib/dry/validation/rust/native.so
 /ext/dry_validation_rust/target/
 /ext/dry_validation_rust/fuzz/target/
 /tmp/

@@ -15,7 +15,7 @@ class ApiTest < Minitest::Test
       class: %i[JSON Params define],
       instance: %i[[] call engine fields inspect key_paths mode]
     },
-    Dry::Validation::Rust::Result => {
+    Dry::Validation::Rust::Contract::Result => {
       class: [],
       instance: %i[[] add_error base_rule_error? context deconstruct deconstruct_keys error? errors failure? finalize! inspect key? rule_error? schema_error? schema_result success? to_h values]
     },
@@ -27,7 +27,7 @@ class ApiTest < Minitest::Test
       class: [],
       instance: %i[_context base base_rule_error? context contract error? execute failures index key key? key_name paths result rule_error? schema_error? value values]
     },
-    Dry::Validation::Rust::Values => {
+    Dry::Validation::Rust::Contract::Values => {
       class: [],
       instance: %i[[] data deconstruct_keys each fetch key? to_h]
     }
@@ -92,35 +92,53 @@ class ApiTest < Minitest::Test
   end
 
   def test_message_set_memoizes_to_h_and_invalidates_it_when_a_message_is_added
-    set = Dry::Validation::Rust::MessageSet.new([Dry::Validation::Rust::Message.new('is invalid', path: :name)])
+    set = Dry::Validation::Rust::MessageSet.new([Dry::Validation::Rust::Message.new(text: 'is invalid', path: :name)])
 
     first = set.to_h
     assert_same first, set.to_h
     assert_equal({ name: ['is invalid'] }, first)
 
-    set.add(Dry::Validation::Rust::Message.new('is too short', path: :name))
+    set.add(Dry::Validation::Rust::Message.new(text: 'is too short', path: :name))
 
     refute_same first, set.to_h
     assert_equal({ name: ['is invalid', 'is too short'] }, set.to_h)
   end
 
   def test_frozen_message_set_keeps_a_frozen_cached_hash
-    set = Dry::Validation::Rust::MessageSet.new([Dry::Validation::Rust::Message.new('is invalid', path: :name)])
+    set = Dry::Validation::Rust::MessageSet.new([Dry::Validation::Rust::Message.new(text: 'is invalid', path: :name)])
 
     assert set.freeze.to_h.frozen?
   end
 
   def test_message_set_exposes_a_frozen_messages_view_and_add_refreshes_it
-    set = Dry::Validation::Rust::MessageSet.new([Dry::Validation::Rust::Message.new('is invalid', path: :name)])
+    set = Dry::Validation::Rust::MessageSet.new([Dry::Validation::Rust::Message.new(text: 'is invalid', path: :name)])
 
     first = set.messages
     assert first.frozen?
-    assert_raises(FrozenError) { first << Dry::Validation::Rust::Message.new('is too short', path: :name) }
+    assert_raises(FrozenError) { first << Dry::Validation::Rust::Message.new(text: 'is too short', path: :name) }
 
-    set.add(Dry::Validation::Rust::Message.new('is too short', path: :name))
+    set.add(Dry::Validation::Rust::Message.new(text: 'is too short', path: :name))
 
     refute_same first, set.messages
     assert_equal ['is invalid', 'is too short'], set.messages.map(&:text)
+  end
+
+  def test_message_is_an_immutable_value_object
+    message = Dry::Validation::Rust::Message.new(
+      text: 'is invalid', path: :name, meta: { count: 1 }, code: 'invalid',
+      source: :schema, predicate: 'min_size?', args: [3]
+    )
+
+    assert_predicate message, :frozen?
+    assert_equal :invalid, message.code
+    assert_equal :min_size?, message.predicate
+    replacement = message.with(text: 'is too short')
+
+    assert_equal 'is too short', replacement.text
+    assert_equal message.path, replacement.path
+    assert_equal message.meta, replacement.meta
+    refute_equal message, message.with(predicate: :max_size)
+    refute_equal message, message.with(args: [4])
   end
 
   def test_imported_schema_can_be_reused_without_state_leaking_between_contracts

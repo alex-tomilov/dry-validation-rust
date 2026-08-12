@@ -97,7 +97,7 @@ module Dry
           return message if message.base?
 
           label = message.path.map { |part| part.is_a?(Integer) ? part : part.to_s.tr('_', ' ') }.join(' ')
-          message.with_text("#{label} #{message.text}")
+          message.with(text: "#{label} #{message.text}")
         end
       end
     end
