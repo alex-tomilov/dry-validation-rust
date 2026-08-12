@@ -5,12 +5,15 @@ engine with familiar dry-validation-style contract syntax and a precisely
 documented compatible subset. Rust handles the immutable declarative schema
 execution path; Ruby preserves dynamic rules and Ruby-specific semantics.
 
-> Status: feasibility prototype / `0.1.0.pre3`. It is deliberately not
-> presented as a production-ready drop-in replacement.
+> Status: `0.1.0.pre4` alpha pre-release. The side-by-side API has a defined
+> `0.1.x` compatibility promise and is covered by focused tests, differential
+> checks, package verification, and reproducible benchmark evidence. It is not
+> a full, production-ready drop-in replacement for upstream `dry-validation`.
 
-Read [the support matrix](docs/SUPPORT_MATRIX.md), [compatibility matrix](docs/COMPATIBILITY.md),
-[architecture](docs/ARCHITECTURE.md), and [feasibility study](docs/FEASIBILITY.md)
-before considering real use.
+Before adoption, review [the support matrix](docs/SUPPORT_MATRIX.md),
+[compatibility matrix](docs/COMPATIBILITY.md), and
+[verification evidence](docs/VERIFICATION.md) for the exact supported surface,
+platforms, and known boundaries.
 
 For project participation and reporting routes, see
 [CONTRIBUTING.md](CONTRIBUTING.md), [SUPPORT.md](SUPPORT.md),
@@ -221,7 +224,7 @@ native-extension lifecycle.
 
 ## Verification
 
-The prototype was compiled and tested in this archive with:
+Current release evidence was collected with:
 
 - CRuby 3.3.7;
 - Rust 1.97.0;
@@ -231,7 +234,8 @@ The prototype was compiled and tested in this archive with:
 
 The test suite covers the native plan, coercion modes, nested data, rules,
 rule skipping, array rules, macros, options, context, inheritance, external
-schemas, loading modes, pattern matching, metadata, and concurrent calls.
+schemas, loading modes, pattern matching, metadata, concurrent calls, malformed
+input resilience, package contents, and differential compatibility fixtures.
 
 Run the representative benchmark matrix with:
 
