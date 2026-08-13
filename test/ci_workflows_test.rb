@@ -44,11 +44,21 @@ class CiWorkflowsTest < Minitest::Test
     build_source = steps.map { |step| step['run'] }.compact.join("\n")
     assert_includes build_source, 'rb-sys-dock'
     assert_includes build_source, '--platform ${{ matrix.platform }}'
+    assert_includes build_source, '--build'
     assert_includes steps.map { |step| step['uses'] }.compact, 'sigstore/cosign-installer@v4.1.2'
     assert_includes build_source, 'cosign sign-blob'
     assert_includes build_source, '--yes'
     assert_includes build_source, '--bundle'
     assert_includes steps.map { |step| step['uses'] }.compact, 'actions/upload-artifact@v7'
+  end
+
+  def test_native_gem_workflow_installs_the_locked_bundle_in_the_build_container
+    workflow = workflows.fetch(File.join(WORKFLOW_DIR, 'native-gems.yml'))
+    build = workflow.fetch('jobs').fetch('build-native-gem')
+    source = build.fetch('steps').map { |step| step['run'] }.compact.join("\n")
+
+    assert_includes source, 'rb-sys-dock'
+    assert_includes source, '--build'
   end
 
   def test_release_workflow_verifies_tag_or_manual_release_tag_then_uses_trusted_publishing

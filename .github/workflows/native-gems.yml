@@ -37,8 +37,7 @@ jobs:
           # rb-sys-dock bind-mounts this directory but does not create it.
           mkdir -p "${CARGO_HOME:-${HOME}/.cargo}/registry"
 
-          GEM_VERSION=$(bundle exec ruby -Ilib -e 'require "dry/validation/rust/version"; print Dry::Validation::Rust::VERSION')
-          bundle exec rb-sys-dock --platform ${{ matrix.platform }} --ruby-versions 3.3 -- "bundle exec rake native:\$RUBY_TARGET pkg/dry-validation-rust-${GEM_VERSION}-\$RUBY_TARGET.gem"
+          bundle exec rb-sys-dock --platform ${{ matrix.platform }} --ruby-versions 3.3 --build
 
       - name: Upload native platform gem
         uses: actions/upload-artifact@v7
