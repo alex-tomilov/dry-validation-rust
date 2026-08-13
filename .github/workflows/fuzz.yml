@@ -38,6 +38,9 @@ jobs:
         uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
           toolchain: nightly
+          cache-workspaces: |
+            ext/dry_validation_rust -> target
+            ext/dry_validation_rust/fuzz -> target
 
       - name: Run plan-deserialization fuzz target
         working-directory: ext/dry_validation_rust/fuzz

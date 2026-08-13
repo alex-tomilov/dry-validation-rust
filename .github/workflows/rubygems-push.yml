@@ -63,6 +63,7 @@ jobs:
         with:
           toolchain: 1.85.0
           components: rustfmt, clippy
+          cache-workspaces: ext/dry_validation_rust -> target
 
       - name: Verify execution context
         shell: bash
