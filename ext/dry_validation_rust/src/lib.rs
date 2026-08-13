@@ -6,6 +6,7 @@ use magnus::{
 mod coercion;
 mod engine;
 mod error;
+mod extract_primitive;
 mod plan;
 mod predicates;
 mod ruby_bridge;
