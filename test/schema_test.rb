@@ -1,8 +1,11 @@
 # frozen_string_literal: true
 
 require_relative 'test_helper'
+require 'bigdecimal'
+require 'date'
 require 'dry/types'
 require 'tempfile'
+require 'time'
 
 class SchemaTest < Minitest::Test
   TRAVERSAL_DEPTH_LIMIT = 128
@@ -249,6 +252,36 @@ class SchemaTest < Minitest::Test
     assert_equal 42, contract.new.call('value' => '+42').to_h.fetch(:value)
     assert_equal 1_000, contract.new.call('value' => '1_000').to_h.fetch(:value)
     assert_equal 9_223_372_036_854_775_808, contract.new.call('value' => '9223372036854775808').to_h.fetch(:value)
+  end
+
+  def test_params_coerces_common_scalar_literals_with_native_parsers
+    contract = build_contract do
+      params do
+        required(:integer).value(:integer)
+        required(:float).value(:float)
+        required(:decimal).value(:decimal)
+        required(:date).value(:date)
+        required(:date_time).value(:date_time)
+        required(:time).value(:time)
+      end
+    end
+
+    result = contract.new.call(
+      'integer' => '1_024',
+      'float' => '1.25e2',
+      'decimal' => '12.50',
+      'date' => '2026-07-12',
+      'date_time' => '2026-07-12T10:00:00+03:00',
+      'time' => '2026-07-12T10:00:00+03:00'
+    )
+
+    assert result.success?
+    assert_equal 1024, result.to_h.fetch(:integer)
+    assert_equal 125.0, result.to_h.fetch(:float)
+    assert_equal BigDecimal('12.50'), result.to_h.fetch(:decimal)
+    assert_equal Date.iso8601('2026-07-12'), result.to_h.fetch(:date)
+    assert_equal DateTime.iso8601('2026-07-12T10:00:00+03:00'), result.to_h.fetch(:date_time)
+    assert_equal Time.parse('2026-07-12T10:00:00+03:00'), result.to_h.fetch(:time)
   end
 
   def test_schema_does_not_coerce_keys_or_values

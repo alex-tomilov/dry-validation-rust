@@ -1,10 +1,11 @@
+use crate::{plan::Mode, ruby_bridge::RuntimeClasses};
+use bigdecimal::BigDecimal;
+use chrono::{DateTime, Datelike, FixedOffset, NaiveDate, NaiveDateTime, TimeZone, Timelike};
 use magnus::{
     Float, Integer, RArray, RHash, RString, Ruby, Symbol, Value,
     prelude::*,
     value::{Qfalse, Qtrue},
 };
-
-use crate::{plan::Mode, ruby_bridge::RuntimeClasses};
 
 pub(crate) fn coerce(
     ruby: &Ruby,
@@ -27,18 +28,18 @@ pub(crate) fn coerce(
         return Ok(None);
     };
     let converted = match kind {
-        // Canonical signed 64-bit decimal literals avoid a Ruby callback on
-        // the common params path. Delegate every other spelling and Bignum to
-        // Ruby so its syntax and arbitrary-precision semantics are preserved.
+        // Signed 64-bit literals, including Ruby's common underscore and base
+        // forms, avoid a Ruby callback. Delegate Bignums and unusual syntax so
+        // Ruby retains its arbitrary-precision semantics.
         "integer" => fast_integer(ruby, &source).or_else(|| {
             ruby.module_kernel()
                 .funcall::<_, _, Value>("Integer", (source.as_str(), 10))
                 .ok()
         }),
         "float" if non_finite_literal(&source) => None,
-        // Canonical finite decimal literals avoid a Ruby callback on the
-        // common params path. Delegate every other spelling so Ruby retains
-        // its syntax and non-finite result semantics.
+        // Finite decimal literals (including scientific notation) avoid a
+        // Ruby callback. Delegate every other spelling so Ruby retains its
+        // syntax and non-finite result semantics.
         "float" => fast_float(&source)
             .map(|value| ruby.float_from_f64(value).as_value())
             .or_else(|| {
@@ -54,69 +55,218 @@ pub(crate) fn coerce(
             }
         }),
         "symbol" => Some(ruby.to_symbol(&source).as_value()),
-        "date" => classes
-            .date(ruby)
-            .expect("Date class is loaded for date fields")
-            .funcall::<_, _, Value>("iso8601", (source.as_str(),))
-            .ok(),
-        "date_time" => classes
-            .date_time(ruby)
-            .expect("DateTime class is loaded for date_time fields")
-            .funcall::<_, _, Value>("iso8601", (source.as_str(),))
-            .ok(),
-        "time" => classes
-            .time(ruby)
-            .expect("Time class is loaded for time fields")
-            .funcall::<_, _, Value>("parse", (source.as_str(),))
-            .ok(),
-        "decimal" => ruby
-            .module_kernel()
-            .funcall::<_, _, Value>("BigDecimal", (source.as_str(),))
-            .ok()
-            .filter(|decimal| {
-                decimal
-                    .funcall::<_, _, bool>("finite?", ())
-                    .unwrap_or(false)
-            }),
+        "date" => fast_date(ruby, classes, &source).or_else(|| {
+            classes
+                .date(ruby)
+                .expect("Date class is loaded for date fields")
+                .funcall::<_, _, Value>("iso8601", (source.as_str(),))
+                .ok()
+        }),
+        "date_time" => fast_date_time(ruby, classes, &source).or_else(|| {
+            classes
+                .date_time(ruby)
+                .expect("DateTime class is loaded for date_time fields")
+                .funcall::<_, _, Value>("iso8601", (source.as_str(),))
+                .ok()
+        }),
+        "time" => fast_time(ruby, classes, &source).or_else(|| {
+            classes
+                .time(ruby)
+                .expect("Time class is loaded for time fields")
+                .funcall::<_, _, Value>("parse", (source.as_str(),))
+                .ok()
+        }),
+        "decimal" => fast_decimal(ruby, &source).or_else(|| {
+            ruby.module_kernel()
+                .funcall::<_, _, Value>("BigDecimal", (source.as_str(),))
+                .ok()
+                .filter(|decimal| {
+                    decimal
+                        .funcall::<_, _, bool>("finite?", ())
+                        .unwrap_or(false)
+                })
+        }),
         _ => None,
     };
     Ok(converted)
 }
 
 fn fast_integer(ruby: &Ruby, source: &str) -> Option<Value> {
-    source
-        .parse::<i64>()
-        .ok()
-        .map(|value| ruby.integer_from_i64(value).as_value())
+    let (negative, digits) = split_sign(source)?;
+    let (radix, digits) = if let Some(digits) = digits.strip_prefix("0x") {
+        (16, digits)
+    } else if let Some(digits) = digits.strip_prefix("0b") {
+        (2, digits)
+    } else if let Some(digits) = digits.strip_prefix("0o") {
+        (8, digits)
+    } else {
+        (10, digits)
+    };
+    let digits = normalized_digits(digits, radix)?;
+    let value = if negative {
+        let magnitude = u64::from_str_radix(&digits, radix).ok()?;
+        if magnitude == i64::MAX as u64 + 1 {
+            i64::MIN
+        } else {
+            -i64::try_from(magnitude).ok()?
+        }
+    } else {
+        i64::from_str_radix(&digits, radix).ok()?
+    };
+    Some(ruby.integer_from_i64(value).as_value())
 }
 
 fn fast_float(source: &str) -> Option<f64> {
-    if source.is_empty() {
+    let normalized = normalize_decimal(source)?;
+    normalized
+        .parse::<f64>()
+        .ok()
+        .filter(|value| value.is_finite())
+}
+
+fn fast_date(ruby: &Ruby, classes: &RuntimeClasses, source: &str) -> Option<Value> {
+    let date = NaiveDate::parse_from_str(source, "%Y-%m-%d").ok()?;
+    classes
+        .date(ruby)?
+        .funcall::<_, _, Value>("new", (date.year(), date.month(), date.day()))
+        .ok()
+}
+
+fn fast_date_time(ruby: &Ruby, classes: &RuntimeClasses, source: &str) -> Option<Value> {
+    let date_time = parse_iso_date_time(source).filter(|value| value.nanosecond() == 0)?;
+    classes
+        .date_time(ruby)?
+        .funcall::<_, _, Value>(
+            "civil",
+            (
+                date_time.year(),
+                date_time.month(),
+                date_time.day(),
+                date_time.hour(),
+                date_time.minute(),
+                seconds(&date_time),
+                offset_string(date_time.offset()),
+            ),
+        )
+        .ok()
+}
+
+fn fast_time(ruby: &Ruby, classes: &RuntimeClasses, source: &str) -> Option<Value> {
+    let date_time = DateTime::parse_from_rfc3339(source)
+        .ok()
+        .filter(|value| value.nanosecond() == 0)?;
+    let time = classes.time(ruby)?;
+    if date_time.offset().local_minus_utc() == 0 {
+        time.funcall::<_, _, Value>(
+            "utc",
+            (
+                date_time.year(),
+                date_time.month(),
+                date_time.day(),
+                date_time.hour(),
+                date_time.minute(),
+                seconds(&date_time),
+            ),
+        )
+        .ok()
+    } else {
+        time.funcall::<_, _, Value>(
+            "new",
+            (
+                date_time.year(),
+                date_time.month(),
+                date_time.day(),
+                date_time.hour(),
+                date_time.minute(),
+                seconds(&date_time),
+                offset_string(date_time.offset()),
+            ),
+        )
+        .ok()
+    }
+}
+
+fn fast_decimal(ruby: &Ruby, source: &str) -> Option<Value> {
+    let normalized = normalize_decimal(source)?;
+    normalized.parse::<BigDecimal>().ok()?;
+    ruby.module_kernel()
+        .funcall::<_, _, Value>("BigDecimal", (source,))
+        .ok()
+}
+
+fn split_sign(source: &str) -> Option<(bool, &str)> {
+    match source.as_bytes().first() {
+        Some(b'-') => Some((true, &source[1..])),
+        Some(b'+') => Some((false, &source[1..])),
+        Some(_) => Some((false, source)),
+        None => None,
+    }
+}
+
+fn normalized_digits(source: &str, radix: u32) -> Option<String> {
+    (!source.is_empty()
+        && underscores_are_digit_separators(source, radix)
+        && source
+            .chars()
+            .all(|character| character.is_digit(radix) || character == '_'))
+    .then(|| source.replace('_', ""))
+    .filter(|digits| !digits.is_empty())
+}
+
+fn normalize_decimal(source: &str) -> Option<String> {
+    let (negative, source) = split_sign(source)?;
+    let source = source.strip_prefix('+').unwrap_or(source);
+    if !underscores_are_digit_separators(source, 10) {
         return None;
     }
-
-    let bytes = source.as_bytes();
-    let start = usize::from(bytes[0] == b'-');
-    let mut dot_seen = false;
-    let mut digit_seen = false;
-
-    for &byte in &bytes[start..] {
-        if byte == b'.' {
-            if dot_seen {
-                return None;
-            }
-            dot_seen = true;
-        } else if byte.is_ascii_digit() {
-            digit_seen = true;
+    let normalized = source.replace('_', "");
+    let valid = normalized
+        .bytes()
+        .all(|byte| byte.is_ascii_digit() || matches!(byte, b'.' | b'e' | b'E' | b'+' | b'-'));
+    (valid && normalized.bytes().any(|byte| byte.is_ascii_digit())).then(|| {
+        if negative {
+            format!("-{normalized}")
         } else {
-            return None;
+            normalized
         }
-    }
+    })
+}
 
-    digit_seen
-        .then(|| source.parse::<f64>().ok())
-        .flatten()
-        .filter(|value| value.is_finite())
+fn underscores_are_digit_separators(source: &str, radix: u32) -> bool {
+    let bytes = source.as_bytes();
+    !bytes.iter().enumerate().any(|(index, byte)| {
+        *byte == b'_'
+            && (index == 0
+                || index + 1 == bytes.len()
+                || !char::from(bytes[index - 1]).is_digit(radix)
+                || !char::from(bytes[index + 1]).is_digit(radix))
+    })
+}
+
+fn parse_iso_date_time(source: &str) -> Option<DateTime<FixedOffset>> {
+    DateTime::parse_from_rfc3339(source).ok().or_else(|| {
+        NaiveDateTime::parse_from_str(source, "%Y-%m-%dT%H:%M:%S%.f")
+            .ok()
+            .and_then(|value| {
+                FixedOffset::east_opt(0)?
+                    .from_local_datetime(&value)
+                    .single()
+            })
+    })
+}
+
+fn seconds(date_time: &DateTime<FixedOffset>) -> f64 {
+    f64::from(date_time.second()) + f64::from(date_time.nanosecond()) / 1_000_000_000.0
+}
+
+fn offset_string(offset: &FixedOffset) -> String {
+    let seconds = offset.local_minus_utc();
+    format!(
+        "{}{hours:02}:{minutes:02}",
+        if seconds < 0 { '-' } else { '+' },
+        hours = seconds.unsigned_abs() / 3600,
+        minutes = (seconds.unsigned_abs() % 3600) / 60
+    )
 }
 
 fn params_boolean(source: &str) -> Option<bool> {
@@ -267,8 +417,10 @@ pub(crate) mod tests {
         assert_eq!(fast_float("3.14"), "3.14".parse().ok());
         assert_eq!(fast_float("-0.5"), Some(-0.5));
         assert_eq!(fast_float("42"), Some(42.0));
+        assert_eq!(fast_float("+1_000.5"), Some(1_000.5));
+        assert_eq!(fast_float("1.2e3"), Some(1_200.0));
 
-        for source in ["", "-", ".", "1_000.5", "1e10", "Infinity", "1..0"] {
+        for source in ["", "-", ".", "1__000.5", "1e", "Infinity", "1..0"] {
             assert_eq!(
                 fast_float(source),
                 None,
@@ -300,12 +452,23 @@ pub(crate) mod tests {
             assert_eq!(Integer::from_value(value).unwrap().to_i64()?, expected);
         }
 
-        for source in ["", " 42", "1_000", "0x10", "9223372036854775808"] {
+        for source in ["", " 42", "1__000", "9223372036854775808"] {
             assert!(
                 fast_integer(ruby, source).is_none(),
                 "{source:?} should delegate to Ruby"
             );
         }
+
+        for (source, expected) in [("1_000", 1_000), ("0x10", 16), ("0b101", 5), ("0o17", 15)] {
+            let value =
+                fast_integer(ruby, source).expect("common integer syntax should use fast path");
+            assert_eq!(Integer::from_value(value).unwrap().to_i64()?, expected);
+        }
+
+        assert!(parse_iso_date_time("2026-07-12T10:00:00+03:00").is_some());
+        assert!(parse_iso_date_time("2026-02-30T10:00:00Z").is_none());
+        assert!("12.50".parse::<BigDecimal>().is_ok());
+        assert!("1e999".parse::<BigDecimal>().is_ok());
 
         assert!(ruby.eval::<Value>("Date.iso8601('2026-02-30')").is_err());
         assert!(
