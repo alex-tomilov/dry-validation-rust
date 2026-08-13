@@ -230,6 +230,7 @@ jobs:
           bundle exec rb-sys-dock \
             --platform ${{ matrix.platform }} \
             --ruby-versions 3.3 \
+            --mount-toolchains \
             --build
 
       - name: Install Cosign

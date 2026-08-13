@@ -37,7 +37,11 @@ jobs:
           # rb-sys-dock bind-mounts this directory but does not create it.
           mkdir -p "${CARGO_HOME:-${HOME}/.cargo}/registry"
 
-          bundle exec rb-sys-dock --platform ${{ matrix.platform }} --ruby-versions 3.3 --build
+          bundle exec rb-sys-dock \
+            --platform ${{ matrix.platform }} \
+            --ruby-versions 3.3 \
+            --mount-toolchains \
+            --build
 
       - name: Upload native platform gem
         uses: actions/upload-artifact@v7

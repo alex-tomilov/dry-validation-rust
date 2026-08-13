@@ -44,6 +44,7 @@ class CiWorkflowsTest < Minitest::Test
     build_source = steps.map { |step| step['run'] }.compact.join("\n")
     assert_includes build_source, 'rb-sys-dock'
     assert_includes build_source, '--platform ${{ matrix.platform }}'
+    assert_includes build_source, '--mount-toolchains'
     assert_includes build_source, '--build'
     assert_includes steps.map { |step| step['uses'] }.compact, 'sigstore/cosign-installer@v4.1.2'
     assert_includes build_source, 'cosign sign-blob'
@@ -58,6 +59,7 @@ class CiWorkflowsTest < Minitest::Test
     source = build.fetch('steps').map { |step| step['run'] }.compact.join("\n")
 
     assert_includes source, 'rb-sys-dock'
+    assert_includes source, '--mount-toolchains'
     assert_includes source, '--build'
   end
 
