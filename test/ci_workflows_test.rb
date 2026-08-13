@@ -41,9 +41,13 @@ class CiWorkflowsTest < Minitest::Test
                  build.fetch('strategy').fetch('matrix').fetch('platform')
 
     steps = build.fetch('steps')
-    assert_includes steps.map { |step| step['run'] }.compact.join("\n"), 'rb-sys-dock --platform'
+    build_source = steps.map { |step| step['run'] }.compact.join("\n")
+    assert_includes build_source, 'rb-sys-dock'
+    assert_includes build_source, '--platform ${{ matrix.platform }}'
     assert_includes steps.map { |step| step['uses'] }.compact, 'sigstore/cosign-installer@v4.1.2'
-    assert_includes steps.map { |step| step['run'] }.compact.join("\n"), 'cosign sign-blob --yes --bundle'
+    assert_includes build_source, 'cosign sign-blob'
+    assert_includes build_source, '--yes'
+    assert_includes build_source, '--bundle'
     assert_includes steps.map { |step| step['uses'] }.compact, 'actions/upload-artifact@v7'
   end
 
@@ -53,18 +57,19 @@ class CiWorkflowsTest < Minitest::Test
 
     verify_steps = jobs.fetch('verify-release').fetch('steps')
     verify_source = verify_steps.map { |step| step['run'] }.compact.join("\n")
-    assert_includes verify_source, 'test "${RELEASE_TAG}" = "v${VERSION}"'
-    assert_equal '${{ inputs.release_tag || github.ref_name }}',
-                 verify_steps.find { |step| step['name'] == 'Verify tag matches gem version' }
-                             .fetch('env').fetch('RELEASE_TAG')
+    assert_includes verify_source, '"${RELEASE_TAG}" != "${EXPECTED_TAG}"'
+    verify_context = verify_steps.find { |step| step['name'] == 'Verify execution context' }
+    assert_equal '${{ inputs.release_tag }}', verify_context.fetch('env').fetch('RELEASE_TAG')
+    assert_equal '${{ inputs.mode }}', verify_context.fetch('env').fetch('MODE')
     assert_includes verify_steps.map { |step| step['run'] }.compact, 'script/verify'
 
     dispatch = workflow.fetch(true).fetch('workflow_dispatch')
     assert_equal({
-                   'description' => 'Existing release tag whose version this commit publishes',
-                   'required' => true,
+                   'description' => 'Existing v* tag; required only for publish-existing-tag',
+                   'required' => false,
                    'type' => 'string'
                  }, dispatch.fetch('inputs').fetch('release_tag'))
+    assert_equal %w[preflight publish-existing-tag], dispatch.fetch('inputs').fetch('mode').fetch('options')
 
     publish = jobs.fetch('publish')
     assert_equal({ 'contents' => 'read', 'id-token' => 'write' }, publish.fetch('permissions'))
