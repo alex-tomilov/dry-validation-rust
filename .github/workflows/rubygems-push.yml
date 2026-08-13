@@ -223,6 +223,9 @@ jobs:
 
       - name: Build native platform gem
         run: |
+          # rb-sys-dock bind-mounts this directory but does not create it.
+          mkdir -p "${CARGO_HOME:-${HOME}/.cargo}/registry"
+
           GEM_VERSION="$(
             bundle exec ruby -Ilib \
               -e 'require "dry/validation/rust/version"; print Dry::Validation::Rust::VERSION'
