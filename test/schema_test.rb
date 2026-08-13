@@ -646,6 +646,15 @@ class SchemaTest < Minitest::Test
     assert_equal 'size predicate failed', size_exception.message
   end
 
+  def test_bigdecimal_comparisons_fall_back_to_ruby
+    contract = build_contract do
+      params { required(:amount).value(:any, gt?: 1) }
+    end
+
+    assert contract.new.call(amount: BigDecimal('1.5')).success?
+    assert_equal({ amount: ['must be greater than 1'] }, contract.new.call(amount: BigDecimal('0.5')).errors.to_h)
+  end
+
   def test_predicate_composition_blocks_collect_native_and_ruby_predicates
     contract = build_contract do
       params do
