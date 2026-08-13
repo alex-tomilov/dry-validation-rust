@@ -280,23 +280,23 @@ results alongside favorable ones.
 
 The six default rows were measured on 2026-08-13 with CRuby 3.3.7 on x86_64 Linux (kernel 7.0.0-29-generic, AMD Ryzen 7 5800H), comparing dry-validation-rust 0.1.0.pre4 with dry-validation 1.11.1. The strict-key row remains the 2026-08-10 pre3 measurement. Each `SCENARIO` ran in its own process three times with `N=1000`, `WARMUP=200`, and `LATENCY_SAMPLES=200`; the table shows medians and the throughput range across those runs. Values are evidence for this host and workload only, not a general performance guarantee.
 
-| `SCENARIO`                     | Rust validations/s (range) | Upstream validations/s (range) | Throughput ratio |           Rust p50/p95/p99 |         Upstream p50/p95/p99 |
-| ------------------------------ | -------------------------: | -----------------------------: | ---------------: | -------------------------: | ---------------------------: |
-| `small_form`                   |     69,037 (39,313–70,463) |         27,051 (23,752–27,831) |            2.55× |          13.3/23.0/98.8 µs |           29.5/45.3/185.2 µs |
-| `medium_form`                  |        7,547 (6,338–7,589) |            1,793 (1,427–1,850) |            4.21× |        43.8/415.1/756.3 µs |     111.5/2,451.5/3,905.1 µs |
-| `large_form`                   |          1,127 (850–1,131) |                  201 (198–211) |            5.60× |   971.2/1,454.1/2,417.9 µs | 6,360.5/12,051.5/13,098.6 µs |
-| `nested_object`                |     42,134 (29,286–46,826) |         14,106 (13,531–14,612) |            2.99× |         19.5/34.2/236.6 µs |           54.7/80.0/492.3 µs |
-| `array_of_objects`             |        1,601 (1,510–1,807) |                  656 (624–658) |            2.44× |   492.4/1,291.5/1,608.1 µs |   1,556.3/2,650.9/3,308.0 µs |
-| `all_invalid`                  |        3,110 (2,883–3,203) |                  498 (497–508) |            6.24× |     293.3/793.1/1,692.3 µs |   1,868.7/3,163.8/3,671.9 µs |
-| `large_form` (`validate_keys`) |            974 (970–1,022) |                  304 (303–304) |            3.21× | 1,621.4/2,118.8/2,345.3 µs |   5,432.8/6,300.7/7,223.7 µs |
+| `SCENARIO`                     | Rust validations/s (range) | Upstream validations/s (range) | Throughput ratio |           Rust p50/p95/p99 |       Upstream p50/p95/p99 |
+| ------------------------------ | -------------------------: | -----------------------------: | ---------------: | -------------------------: | -------------------------: |
+| `small_form`                   |     71,433 (67,480–76,023) |         35,157 (32,095–36,674) |            2.03× |          12.9/17.5/63.9 µs |          27.6/36.2/91.8 µs |
+| `medium_form`                  |      10,595 (9,783–11,012) |            2,605 (1,731–2,689) |            4.07× |        38.3/295.9/475.9 µs |    86.0/1,707.8/1,945.3 µs |
+| `large_form`                   |        1,549 (1,475–1,654) |                  307 (209–331) |            5.04× |   955.9/1,298.0/2,117.3 µs | 5,440.0/6,719.5/7,119.9 µs |
+| `nested_object`                |     48,723 (35,219–49,256) |         19,212 (12,892–19,990) |            2.54× |         19.5/29.5/216.5 µs |         51.5/77.1/397.1 µs |
+| `array_of_objects`             |        1,951 (1,811–2,028) |                  781 (743–802) |            2.50× |       455.9/707.2/824.6 µs | 1,207.2/1,594.1/1,979.3 µs |
+| `all_invalid`                  |        4,071 (3,560–4,088) |                  772 (730–837) |            5.28× |       218.5/420.6/611.6 µs | 1,209.3/1,582.9/1,918.4 µs |
+| `large_form` (`validate_keys`) |            974 (970–1,022) |                  304 (303–304) |            3.21× | 1,621.4/2,118.8/2,345.3 µs | 5,432.8/6,300.7/7,223.7 µs |
 
 | `SCENARIO`                     | Rust Ruby allocations/call | Upstream Ruby allocations/call | Rust peak RSS | Upstream peak RSS |
 | ------------------------------ | -------------------------: | -----------------------------: | ------------: | ----------------: |
-| `small_form`                   |                      81.01 |                          49.01 |      24.6 MiB |          29.6 MiB |
-| `medium_form`                  |                     451.00 |                       1,116.80 |      25.4 MiB |          30.0 MiB |
-| `large_form`                   |                   2,836.00 |                      10,286.00 |      25.7 MiB |          30.4 MiB |
-| `nested_object`                |                     145.00 |                         113.00 |      25.8 MiB |          30.4 MiB |
-| `array_of_objects`             |                   3,460.80 |                       1,713.60 |      25.8 MiB |          30.9 MiB |
+| `small_form`                   |                      81.01 |                          49.01 |      24.6 MiB |          29.5 MiB |
+| `medium_form`                  |                     451.00 |                       1,116.80 |      25.4 MiB |          29.9 MiB |
+| `large_form`                   |                   2,836.00 |                      10,286.00 |      25.6 MiB |          30.4 MiB |
+| `nested_object`                |                     145.00 |                         113.00 |      25.8 MiB |          30.5 MiB |
+| `array_of_objects`             |                   3,460.80 |                       1,713.60 |      25.8 MiB |          30.8 MiB |
 | `all_invalid`                  |                     976.00 |                       4,063.00 |      25.8 MiB |          30.9 MiB |
 | `large_form` (`validate_keys`) |                   2,835.01 |                      10,490.01 |      25.3 MiB |          30.4 MiB |
 

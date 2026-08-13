@@ -11,8 +11,10 @@ name = "native"
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
+chrono = { version = "0.4", default-features = false, features = ["alloc", "std"] }
 magnus = { version = "~0.8.2", default-features = false }
 rb-sys = { version = "~0.9.124", default-features = false, features = ["stable-api-compiled-fallback"] }
+rust_decimal = { version = "1", default-features = false, features = ["std"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["unbounded_depth"] }
 
