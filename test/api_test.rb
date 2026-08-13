@@ -54,9 +54,9 @@ class ApiTest < Minitest::Test
   end
 
   def test_native_engine_rejects_a_plan_with_513_json_containers
-    argument_nesting = 512 - 6 + 1
+    argument_nesting = 512 - 5 + 1
     plan = <<~JSON.delete("\n")
-      {"engine_version":1,"mode":"params","fields":[{"name":"value","required":true,"nullable":false,"filled":false,"type":"string","member":null,"children":[],"predicates":[{"name":"custom","argument":#{'[' * argument_nesting}null#{']' * argument_nesting}}]}]}
+      {"engine_version":1,"mode":"params","fields":[{"name":"value","required":true,"nullable":false,"filled":false,"type":"string","member":null,"predicates":[{"name":"custom","argument":#{'[' * argument_nesting}null#{']' * argument_nesting}}]}]}
     JSON
 
     error = assert_raises(ArgumentError) { Dry::Validation::Rust::Native::Engine.new(plan) }
@@ -65,9 +65,9 @@ class ApiTest < Minitest::Test
   end
 
   def test_native_engine_allows_a_plan_at_the_512_container_boundary
-    argument_nesting = 512 - 6
+    argument_nesting = 512 - 5
     plan = <<~JSON.delete("\n")
-      {"engine_version":1,"mode":"params","fields":[{"name":"value","required":true,"nullable":false,"filled":false,"type":"string","member":null,"children":[],"predicates":[{"name":"custom","argument":#{'[' * argument_nesting}null#{']' * argument_nesting}}]}]}
+      {"engine_version":1,"mode":"params","fields":[{"name":"value","required":true,"nullable":false,"filled":false,"type":"string","member":null,"predicates":[{"name":"custom","argument":#{'[' * argument_nesting}null#{']' * argument_nesting}}]}]}
     JSON
 
     error = assert_raises(ArgumentError) { Dry::Validation::Rust::Native::Engine.new(plan) }

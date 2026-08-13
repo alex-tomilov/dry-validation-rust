@@ -470,9 +470,9 @@ mod tests {
 
     #[test]
     fn plan_json_nesting_limit_rejects_the_513th_container_during_deserialization() {
-        let argument_nesting = MAX_PLAN_JSON_NESTING - 6 + 1;
+        let argument_nesting = MAX_PLAN_JSON_NESTING - 5 + 1;
         let over_limit = format!(
-            r#"{{"engine_version":1,"mode":"params","fields":[{{"name":"value","required":true,"nullable":false,"filled":false,"type":"string","member":null,"children":[],"predicates":[{{"name":"custom","argument":{}null{}}}]}}]}}"#,
+            r#"{{"engine_version":1,"mode":"params","fields":[{{"name":"value","required":true,"nullable":false,"filled":false,"type":"string","member":null,"predicates":[{{"name":"custom","argument":{}null{}}}]}}]}}"#,
             "[".repeat(argument_nesting),
             "]".repeat(argument_nesting)
         );
