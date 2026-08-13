@@ -64,24 +64,24 @@ Legend:
 
 ## Types and coercions
 
-| Type                           | Params | JSON/schema checks | Notes                                                                                                                                            |
-| ------------------------------ | ------ | ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `:any`                         | ✅     | ✅                 |                                                                                                                                                  |
-| `:nil`                         | N/A    | ✅                 |                                                                                                                                                  |
-| `:bool` / `:true` / `:false`   | ✅     | ✅                 | `true/false`, `t/f`, `1/0`, `on/off`, `yes/no`, and `y/n` strings                                                                                |
-| `:integer`                     | ✅     | ✅                 | Native signed-64-bit decimal, underscore, and `0x`/`0b`/`0o` paths; Ruby fallback preserves Bignums and unusual syntax                           |
-| `:float`                       | ✅     | ✅                 | Native finite decimal/scientific literals; Ruby fallback preserves overflow and other syntax; literal `Infinity` and `NaN` rejected              |
-| `:decimal`                     | ✅     | ✅                 | Native finite `rust_decimal` parse followed by BigDecimal construction; Ruby fallback preserves arbitrary precision; infinities and NaN rejected |
-| `:string`                      | ✅     | ✅                 | No non-string-to-string coercion                                                                                                                 |
-| `:symbol`                      | ✅     | ✅                 |                                                                                                                                                  |
-| `:array` / `:hash`             | ✅     | ✅                 |                                                                                                                                                  |
-| `:date`                        | ✅     | ✅                 | Native `YYYY-MM-DD`; Ruby ISO 8601 fallback for broader date syntax                                                                              |
-| `:date_time` / `:datetime`     | ✅     | ✅                 | Native whole-second RFC 3339 and timezone-free `YYYY-MM-DDTHH:MM:SS`; Ruby fallback otherwise                                                    |
-| `:time`                        | ✅     | ✅                 | Native RFC 3339; Ruby `Time.parse` fallback for time-only and broader syntax                                                                     |
-| dry-types objects/constructors | ✅     | ✅                 | Ruby-owned fields call `#try`; conversion failures use the generic `is invalid` message                                                          |
-| Sum types                      | ✅     | ✅                 | Ruby-owned direct `value(type)` fields only                                                                                                      |
-| Enums/maps/intersections       | ❌     | ❌                 |                                                                                                                                                  |
-| Params hash-to-array coercion  | ❌     | N/A                |                                                                                                                                                  |
+| Type                           | Params | JSON/schema checks | Notes                                                                                                                                          |
+| ------------------------------ | ------ | ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `:any`                         | ✅     | ✅                 |                                                                                                                                                |
+| `:nil`                         | N/A    | ✅                 |                                                                                                                                                |
+| `:bool` / `:true` / `:false`   | ✅     | ✅                 | `true/false`, `t/f`, `1/0`, `on/off`, `yes/no`, and `y/n` strings                                                                              |
+| `:integer`                     | ✅     | ✅                 | Native signed-64-bit decimal, underscore, and `0x`/`0b`/`0o` paths; Ruby fallback preserves Bignums and unusual syntax                         |
+| `:float`                       | ✅     | ✅                 | Native finite decimal/scientific literals; Ruby fallback preserves overflow and other syntax; literal `Infinity` and `NaN` rejected            |
+| `:decimal`                     | ✅     | ✅                 | Native finite `bigdecimal` parse followed by BigDecimal construction; Ruby fallback preserves arbitrary precision; infinities and NaN rejected |
+| `:string`                      | ✅     | ✅                 | No non-string-to-string coercion                                                                                                               |
+| `:symbol`                      | ✅     | ✅                 |                                                                                                                                                |
+| `:array` / `:hash`             | ✅     | ✅                 |                                                                                                                                                |
+| `:date`                        | ✅     | ✅                 | Native `YYYY-MM-DD`; Ruby ISO 8601 fallback for broader date syntax                                                                            |
+| `:date_time` / `:datetime`     | ✅     | ✅                 | Native whole-second RFC 3339 and timezone-free `YYYY-MM-DDTHH:MM:SS`; Ruby fallback otherwise                                                  |
+| `:time`                        | ✅     | ✅                 | Native RFC 3339; Ruby `Time.parse` fallback for time-only and broader syntax                                                                   |
+| dry-types objects/constructors | ✅     | ✅                 | Ruby-owned fields call `#try`; conversion failures use the generic `is invalid` message                                                        |
+| Sum types                      | ✅     | ✅                 | Ruby-owned direct `value(type)` fields only                                                                                                    |
+| Enums/maps/intersections       | ❌     | ❌                 |                                                                                                                                                |
+| Params hash-to-array coercion  | ❌     | N/A                |                                                                                                                                                |
 
 The supported scalar corpus is differentially checked against the pinned
 upstream version for numeric boundaries, boolean spellings, temporal parsing,

@@ -1,12 +1,11 @@
+use crate::{plan::Mode, ruby_bridge::RuntimeClasses};
+use bigdecimal::BigDecimal;
 use chrono::{DateTime, Datelike, FixedOffset, NaiveDate, NaiveDateTime, TimeZone, Timelike};
 use magnus::{
     Float, Integer, RArray, RHash, RString, Ruby, Symbol, Value,
     prelude::*,
     value::{Qfalse, Qtrue},
 };
-use rust_decimal::Decimal;
-
-use crate::{plan::Mode, ruby_bridge::RuntimeClasses};
 
 pub(crate) fn coerce(
     ruby: &Ruby,
@@ -189,9 +188,9 @@ fn fast_time(ruby: &Ruby, classes: &RuntimeClasses, source: &str) -> Option<Valu
 
 fn fast_decimal(ruby: &Ruby, source: &str) -> Option<Value> {
     let normalized = normalize_decimal(source)?;
-    let decimal = normalized.parse::<Decimal>().ok()?;
+    normalized.parse::<BigDecimal>().ok()?;
     ruby.module_kernel()
-        .funcall::<_, _, Value>("BigDecimal", (decimal.to_string(),))
+        .funcall::<_, _, Value>("BigDecimal", (source,))
         .ok()
 }
 
@@ -468,8 +467,8 @@ pub(crate) mod tests {
 
         assert!(parse_iso_date_time("2026-07-12T10:00:00+03:00").is_some());
         assert!(parse_iso_date_time("2026-02-30T10:00:00Z").is_none());
-        assert!("12.50".parse::<Decimal>().is_ok());
-        assert!("1e999".parse::<Decimal>().is_err());
+        assert!("12.50".parse::<BigDecimal>().is_ok());
+        assert!("1e999".parse::<BigDecimal>().is_ok());
 
         assert!(ruby.eval::<Value>("Date.iso8601('2026-02-30')").is_err());
         assert!(
