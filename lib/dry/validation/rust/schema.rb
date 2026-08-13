@@ -72,9 +72,9 @@ module Dry
 
           # Before hooks receive a shallow duplicate; mutating nested values also mutates input.
           prepared_input = ProcessorHooks.apply(before_hooks, input.dup)
-          output, native_errors = engine.call(prepared_input)
-          output = ProcessorHooks.apply(after_hooks, output)
-          messages = native_errors.map do |error|
+          result = engine.call(prepared_input)
+          output = ProcessorHooks.apply(after_hooks, result.output)
+          messages = result.errors.map do |error|
             path = error[:path]
             code = error[:code]
             text = error[:text]
