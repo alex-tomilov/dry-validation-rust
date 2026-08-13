@@ -1,7 +1,7 @@
 use magnus::{Error, Ruby};
 use serde::{
     Deserialize,
-    de::{Error as DeError, SeqAccess, Visitor},
+    de::{DeserializeSeed, EnumAccess, Error as DeError, MapAccess, SeqAccess, Visitor},
 };
 use std::{collections::HashSet, fmt};
 
@@ -180,11 +180,9 @@ pub(crate) fn parse_plan(ruby: &Ruby, json: &str) -> Result<SchemaPlan, Error> {
 }
 
 pub(crate) fn deserialize_plan(json: &str) -> Result<SchemaPlan, String> {
-    ensure_plan_json_nesting(json)
-        .map_err(|depth| format!("native schema plan nesting exceeds limit ({depth})"))?;
     let mut deserializer = serde_json::Deserializer::from_str(json);
     deserializer.disable_recursion_limit();
-    let mut plan = SchemaPlan::deserialize(&mut deserializer)
+    let mut plan = SchemaPlan::deserialize(DepthLimitedDeserializer::new(&mut deserializer, 0))
         .map_err(|error| format!("invalid native schema plan: {error}"))?;
     if plan.engine_version != 1 {
         return Err(format!(
@@ -196,37 +194,258 @@ pub(crate) fn deserialize_plan(json: &str) -> Result<SchemaPlan, String> {
     Ok(plan)
 }
 
-fn ensure_plan_json_nesting(json: &str) -> Result<(), usize> {
-    let mut depth = 0;
-    let mut in_string = false;
-    let mut escaped = false;
+struct DepthLimitedDeserializer<D> {
+    inner: D,
+    depth: usize,
+}
 
-    for byte in json.bytes() {
-        if in_string {
-            if escaped {
-                escaped = false;
-            } else if byte == b'\\' {
-                escaped = true;
-            } else if byte == b'"' {
-                in_string = false;
-            }
-            continue;
-        }
+impl<D> DepthLimitedDeserializer<D> {
+    fn new(inner: D, depth: usize) -> Self {
+        Self { inner, depth }
+    }
+}
 
-        match byte {
-            b'"' => in_string = true,
-            b'{' | b'[' => {
-                depth += 1;
-                if depth > MAX_PLAN_JSON_NESTING {
-                    return Err(MAX_PLAN_JSON_NESTING);
-                }
-            }
-            b'}' | b']' => depth = depth.saturating_sub(1),
-            _ => {}
-        }
+impl<'de, D> serde::Deserializer<'de> for DepthLimitedDeserializer<D>
+where
+    D: serde::Deserializer<'de>,
+{
+    type Error = D::Error;
+
+    serde::forward_to_deserialize_any! {
+        bool i8 i16 i32 i64 u8 u16 u32 u64 f32 f64 char str string bytes byte_buf unit
+        unit_struct newtype_struct seq tuple tuple_struct map struct identifier ignored_any
     }
 
-    Ok(())
+    fn deserialize_any<V>(self, visitor: V) -> Result<V::Value, Self::Error>
+    where
+        V: Visitor<'de>,
+    {
+        self.inner
+            .deserialize_any(DepthLimitedVisitor::new(visitor, self.depth))
+    }
+
+    fn deserialize_enum<V>(
+        self,
+        name: &'static str,
+        variants: &'static [&'static str],
+        visitor: V,
+    ) -> Result<V::Value, Self::Error>
+    where
+        V: Visitor<'de>,
+    {
+        self.inner.deserialize_enum(
+            name,
+            variants,
+            DepthLimitedVisitor::new(visitor, self.depth),
+        )
+    }
+
+    fn deserialize_option<V>(self, visitor: V) -> Result<V::Value, Self::Error>
+    where
+        V: Visitor<'de>,
+    {
+        self.inner
+            .deserialize_option(DepthLimitedVisitor::new(visitor, self.depth))
+    }
+}
+
+struct DepthLimitedVisitor<V> {
+    inner: V,
+    depth: usize,
+}
+
+impl<V> DepthLimitedVisitor<V> {
+    fn new(inner: V, depth: usize) -> Self {
+        Self { inner, depth }
+    }
+
+    fn nested_depth<E: DeError>(&self) -> Result<usize, E> {
+        let depth = self.depth + 1;
+        if depth > MAX_PLAN_JSON_NESTING {
+            Err(E::custom(format!(
+                "native schema plan nesting exceeds limit ({MAX_PLAN_JSON_NESTING})"
+            )))
+        } else {
+            Ok(depth)
+        }
+    }
+}
+
+impl<'de, V> Visitor<'de> for DepthLimitedVisitor<V>
+where
+    V: Visitor<'de>,
+{
+    type Value = V::Value;
+
+    fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+        self.inner.expecting(formatter)
+    }
+
+    fn visit_bool<E>(self, value: bool) -> Result<Self::Value, E>
+    where
+        E: DeError,
+    {
+        self.inner.visit_bool(value)
+    }
+
+    fn visit_i64<E>(self, value: i64) -> Result<Self::Value, E>
+    where
+        E: DeError,
+    {
+        self.inner.visit_i64(value)
+    }
+
+    fn visit_u64<E>(self, value: u64) -> Result<Self::Value, E>
+    where
+        E: DeError,
+    {
+        self.inner.visit_u64(value)
+    }
+
+    fn visit_f64<E>(self, value: f64) -> Result<Self::Value, E>
+    where
+        E: DeError,
+    {
+        self.inner.visit_f64(value)
+    }
+
+    fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
+    where
+        E: DeError,
+    {
+        self.inner.visit_str(value)
+    }
+
+    fn visit_borrowed_str<E>(self, value: &'de str) -> Result<Self::Value, E>
+    where
+        E: DeError,
+    {
+        self.inner.visit_borrowed_str(value)
+    }
+
+    fn visit_string<E>(self, value: String) -> Result<Self::Value, E>
+    where
+        E: DeError,
+    {
+        self.inner.visit_string(value)
+    }
+
+    fn visit_none<E>(self) -> Result<Self::Value, E>
+    where
+        E: DeError,
+    {
+        self.inner.visit_none()
+    }
+
+    fn visit_some<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        self.inner
+            .visit_some(DepthLimitedDeserializer::new(deserializer, self.depth))
+    }
+
+    fn visit_unit<E>(self) -> Result<Self::Value, E>
+    where
+        E: DeError,
+    {
+        self.inner.visit_unit()
+    }
+
+    fn visit_enum<A>(self, data: A) -> Result<Self::Value, A::Error>
+    where
+        A: EnumAccess<'de>,
+    {
+        self.inner.visit_enum(data)
+    }
+
+    fn visit_seq<A>(self, sequence: A) -> Result<Self::Value, A::Error>
+    where
+        A: SeqAccess<'de>,
+    {
+        let depth = self.nested_depth()?;
+        self.inner
+            .visit_seq(DepthLimitedSeqAccess { sequence, depth })
+    }
+
+    fn visit_map<A>(self, map: A) -> Result<Self::Value, A::Error>
+    where
+        A: MapAccess<'de>,
+    {
+        let depth = self.nested_depth()?;
+        self.inner.visit_map(DepthLimitedMapAccess { map, depth })
+    }
+}
+
+struct DepthLimitedSeed<S> {
+    seed: S,
+    depth: usize,
+}
+
+impl<'de, S> DeserializeSeed<'de> for DepthLimitedSeed<S>
+where
+    S: DeserializeSeed<'de>,
+{
+    type Value = S::Value;
+
+    fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        self.seed
+            .deserialize(DepthLimitedDeserializer::new(deserializer, self.depth))
+    }
+}
+
+struct DepthLimitedSeqAccess<A> {
+    sequence: A,
+    depth: usize,
+}
+
+impl<'de, A> SeqAccess<'de> for DepthLimitedSeqAccess<A>
+where
+    A: SeqAccess<'de>,
+{
+    type Error = A::Error;
+
+    fn next_element_seed<T>(&mut self, seed: T) -> Result<Option<T::Value>, Self::Error>
+    where
+        T: DeserializeSeed<'de>,
+    {
+        self.sequence.next_element_seed(DepthLimitedSeed {
+            seed,
+            depth: self.depth,
+        })
+    }
+}
+
+struct DepthLimitedMapAccess<A> {
+    map: A,
+    depth: usize,
+}
+
+impl<'de, A> MapAccess<'de> for DepthLimitedMapAccess<A>
+where
+    A: MapAccess<'de>,
+{
+    type Error = A::Error;
+
+    fn next_key_seed<K>(&mut self, seed: K) -> Result<Option<K::Value>, Self::Error>
+    where
+        K: DeserializeSeed<'de>,
+    {
+        self.map.next_key_seed(seed)
+    }
+
+    fn next_value_seed<V>(&mut self, seed: V) -> Result<V::Value, Self::Error>
+    where
+        V: DeserializeSeed<'de>,
+    {
+        self.map.next_value_seed(DepthLimitedSeed {
+            seed,
+            depth: self.depth,
+        })
+    }
 }
 
 fn collect_used_kinds(fields: &[FieldPlan]) -> HashSet<String> {
@@ -250,28 +469,19 @@ mod tests {
     use super::*;
 
     #[test]
-    fn plan_json_nesting_limit_allows_the_boundary_and_rejects_the_next_level() {
-        let within_limit = format!(
-            "{}null{}",
-            "[".repeat(MAX_PLAN_JSON_NESTING),
-            "]".repeat(MAX_PLAN_JSON_NESTING)
-        );
+    fn plan_json_nesting_limit_rejects_the_513th_container_during_deserialization() {
+        let argument_nesting = MAX_PLAN_JSON_NESTING - 6 + 1;
         let over_limit = format!(
-            "{}null{}",
-            "[".repeat(MAX_PLAN_JSON_NESTING + 1),
-            "]".repeat(MAX_PLAN_JSON_NESTING + 1)
+            r#"{{"engine_version":1,"mode":"params","fields":[{{"name":"value","required":true,"nullable":false,"filled":false,"type":"string","member":null,"children":[],"predicates":[{{"name":"custom","argument":{}null{}}}]}}]}}"#,
+            "[".repeat(argument_nesting),
+            "]".repeat(argument_nesting)
         );
 
-        assert_eq!(ensure_plan_json_nesting(&within_limit), Ok(()));
-        assert_eq!(
-            ensure_plan_json_nesting(&over_limit),
-            Err(MAX_PLAN_JSON_NESTING)
+        assert!(
+            deserialize_plan(&over_limit)
+                .unwrap_err()
+                .contains("nesting exceeds limit (512)")
         );
-    }
-
-    #[test]
-    fn plan_json_nesting_limit_ignores_delimiters_inside_strings() {
-        assert_eq!(ensure_plan_json_nesting(r#"{"value":"[{]}"}"#), Ok(()));
     }
 
     #[test]
