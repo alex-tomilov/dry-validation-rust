@@ -20,5 +20,10 @@ create_rust_makefile('dry_validation_rust/native') do |config|
   config.env = {
     'BINDGEN_EXTRA_CLANG_ARGS' => '-include stdbool.h'
   }
+  config.extra_rustup_targets = %w[
+    aarch64-unknown-linux-gnu
+    x86_64-apple-darwin
+    aarch64-apple-darwin
+  ]
   config.use_stable_api_compiled_fallback = true
 end

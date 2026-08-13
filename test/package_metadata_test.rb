@@ -59,6 +59,18 @@ class PackageMetadataTest < Minitest::Test
     end
   end
 
+  def test_extension_config_installs_p0_cross_compilation_targets
+    extension_config = File.read(File.join(PROJECT_ROOT, 'ext/dry_validation_rust/extconf.rb'))
+
+    %w[
+      aarch64-unknown-linux-gnu
+      x86_64-apple-darwin
+      aarch64-apple-darwin
+    ].each do |target|
+      assert_includes extension_config, target
+    end
+  end
+
   private
 
   def spec
