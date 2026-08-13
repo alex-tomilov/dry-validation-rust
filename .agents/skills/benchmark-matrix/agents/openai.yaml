@@ -1,0 +1,4 @@
+interface:
+  display_name: "Benchmark Matrix"
+  short_description: "Run and report the benchmark matrix"
+  default_prompt: "Use $benchmark-matrix to run the project benchmark matrix and report results."
