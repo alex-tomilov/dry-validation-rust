@@ -4,27 +4,50 @@ on:
   push:
     tags:
       - "v*"
+
   workflow_dispatch:
     inputs:
-      release_tag:
-        description: Existing release tag whose version this commit publishes
+      mode:
+        description: Manual execution mode
         required: true
+        default: preflight
+        type: choice
+        options:
+          - preflight
+          - publish-existing-tag
+
+      release_tag:
+        description: Existing v* tag; required only for publish-existing-tag
+        required: false
         type: string
 
 permissions:
   contents: read
 
 concurrency:
-  group: rubygems-push-${{ github.ref }}
+  group: rubygems-push-${{ github.ref }}-${{ inputs.mode || 'release' }}
   cancel-in-progress: false
 
 jobs:
   verify-release:
-    name: Verify release tag and full CI gate
+    name: Verify source and full CI gate
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+        with:
+          # Normal tag push:
+          #   build exactly the commit which triggered the workflow.
+          #
+          # Manual preflight:
+          #   build exactly the selected branch commit.
+          #
+          # Manual publish-existing-tag:
+          #   use the new workflow implementation, but build the
+          #   source belonging to the existing release tag.
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.mode == 'publish-existing-tag' && inputs.release_tag || github.sha }}
+          fetch-depth: 0
 
       - name: Install native build prerequisites
         run: sudo apt-get update && sudo apt-get install -y clang libclang-dev
@@ -41,12 +64,72 @@ jobs:
           toolchain: 1.85.0
           components: rustfmt, clippy
 
-      - name: Verify tag matches gem version
+      - name: Verify execution context
+        shell: bash
         env:
-          RELEASE_TAG: ${{ inputs.release_tag || github.ref_name }}
+          MODE: ${{ inputs.mode }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
         run: |
-          VERSION=$(bundle exec ruby -Ilib -e 'require "dry/validation/rust/version"; print Dry::Validation::Rust::VERSION')
-          test "${RELEASE_TAG}" = "v${VERSION}"
+          set -euo pipefail
+
+          VERSION="$(
+            bundle exec ruby -Ilib \
+              -e 'require "dry/validation/rust/version"; print Dry::Validation::Rust::VERSION'
+          )"
+
+          EXPECTED_TAG="v${VERSION}"
+
+          echo "Gem version: ${VERSION}"
+          echo "HEAD: $(git rev-parse HEAD)"
+          echo "Event: ${GITHUB_EVENT_NAME}"
+
+          if [[ "${GITHUB_EVENT_NAME}" == "push" ]]; then
+            echo "Tag release: ${GITHUB_REF_NAME}"
+
+            if [[ "${GITHUB_REF_NAME}" != "${EXPECTED_TAG}" ]]; then
+              echo "::error::Tag ${GITHUB_REF_NAME} does not match gem version ${EXPECTED_TAG}"
+              exit 1
+            fi
+
+            exit 0
+          fi
+
+          case "${MODE}" in
+            preflight)
+              echo "Manual preflight for ${GITHUB_REF_NAME}"
+              echo "No RubyGems publication will be performed."
+              ;;
+
+            publish-existing-tag)
+              if [[ -z "${RELEASE_TAG}" ]]; then
+                echo "::error::release_tag is required for publish-existing-tag"
+                exit 1
+              fi
+
+              if [[ "${RELEASE_TAG}" != "${EXPECTED_TAG}" ]]; then
+                echo "::error::Tag ${RELEASE_TAG} does not match gem version ${EXPECTED_TAG}"
+                exit 1
+              fi
+
+              TAG_SHA="$(git rev-list -n 1 "${RELEASE_TAG}")"
+              HEAD_SHA="$(git rev-parse HEAD)"
+
+              if [[ "${TAG_SHA}" != "${HEAD_SHA}" ]]; then
+                echo "::error::Checked-out source does not match ${RELEASE_TAG}"
+                echo "::error::tag=${TAG_SHA}"
+                echo "::error::head=${HEAD_SHA}"
+                exit 1
+              fi
+
+              echo "Existing release tag verified:"
+              echo "${RELEASE_TAG} -> ${TAG_SHA}"
+              ;;
+
+            *)
+              echo "::error::Unknown manual mode: ${MODE}"
+              exit 1
+              ;;
+          esac
 
       - name: Run RuboCop
         run: bundle exec rubocop
@@ -58,12 +141,16 @@ jobs:
     name: Build and sign source gem
     needs: verify-release
     runs-on: ubuntu-latest
+
     permissions:
       contents: read
       id-token: write
+
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.mode == 'publish-existing-tag' && inputs.release_tag || github.sha }}
 
       - name: Setup Ruby and Bundler cache
         uses: ruby/setup-ruby@v1
@@ -74,7 +161,14 @@ jobs:
       - name: Build source gem
         run: |
           mkdir -p pkg
-          gem build dry-validation-rust.gemspec --output "pkg/dry-validation-rust-$(bundle exec ruby -Ilib -e 'require "dry/validation/rust/version"; print Dry::Validation::Rust::VERSION').gem"
+
+          GEM_VERSION="$(
+            bundle exec ruby -Ilib \
+              -e 'require "dry/validation/rust/version"; print Dry::Validation::Rust::VERSION'
+          )"
+
+          gem build dry-validation-rust.gemspec \
+            --output "pkg/dry-validation-rust-${GEM_VERSION}.gem"
 
       - name: Install Cosign
         uses: sigstore/cosign-installer@v4.1.2
@@ -82,13 +176,16 @@ jobs:
       - name: Sign source gem with Sigstore
         run: |
           for artifact in pkg/*.gem; do
-            cosign sign-blob --yes --bundle "${artifact}.sigstore.json" "${artifact}"
+            cosign sign-blob \
+              --yes \
+              --bundle "${artifact}.sigstore.json" \
+              "${artifact}"
           done
 
       - name: Upload signed source gem
         uses: actions/upload-artifact@v7
         with:
-          name: dry-validation-rust-source-release
+          name: dry-validation-rust-source-${{ github.event_name == 'workflow_dispatch' && inputs.mode == 'preflight' && 'preflight' || 'release' }}
           path: |
             pkg/*.gem
             pkg/*.sigstore.json
@@ -98,9 +195,11 @@ jobs:
     name: Build and sign ${{ matrix.platform }} gem
     needs: verify-release
     runs-on: ubuntu-latest
+
     permissions:
       contents: read
       id-token: write
+
     strategy:
       fail-fast: false
       matrix:
@@ -109,9 +208,12 @@ jobs:
           - aarch64-linux
           - x86_64-darwin
           - arm64-darwin
+
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.mode == 'publish-existing-tag' && inputs.release_tag || github.sha }}
 
       - name: Setup Ruby and Bundler cache
         uses: ruby/setup-ruby@v1
@@ -121,8 +223,16 @@ jobs:
 
       - name: Build native platform gem
         run: |
-          GEM_VERSION=$(bundle exec ruby -Ilib -e 'require "dry/validation/rust/version"; print Dry::Validation::Rust::VERSION')
-          bundle exec rb-sys-dock --platform ${{ matrix.platform }} --ruby-versions 3.3 -- "bundle exec rake native:\$RUBY_TARGET pkg/dry-validation-rust-${GEM_VERSION}-\$RUBY_TARGET.gem"
+          GEM_VERSION="$(
+            bundle exec ruby -Ilib \
+              -e 'require "dry/validation/rust/version"; print Dry::Validation::Rust::VERSION'
+          )"
+
+          bundle exec rb-sys-dock \
+            --platform ${{ matrix.platform }} \
+            --ruby-versions 3.3 \
+            -- \
+            "bundle exec rake native:\$RUBY_TARGET pkg/dry-validation-rust-${GEM_VERSION}-\$RUBY_TARGET.gem"
 
       - name: Install Cosign
         uses: sigstore/cosign-installer@v4.1.2
@@ -130,28 +240,90 @@ jobs:
       - name: Sign native gem with Sigstore
         run: |
           for artifact in pkg/*.gem; do
-            cosign sign-blob --yes --bundle "${artifact}.sigstore.json" "${artifact}"
+            cosign sign-blob \
+              --yes \
+              --bundle "${artifact}.sigstore.json" \
+              "${artifact}"
           done
 
       - name: Upload signed native gem
         uses: actions/upload-artifact@v7
         with:
-          name: dry-validation-rust-${{ matrix.platform }}-release
+          name: dry-validation-rust-${{ matrix.platform }}-${{ github.event_name == 'workflow_dispatch' && inputs.mode == 'preflight' && 'preflight' || 'release' }}
           path: |
             pkg/*.gem
             pkg/*.sigstore.json
           if-no-files-found: error
 
-  publish:
-    name: Publish signed gems to RubyGems.org
+  verify-preflight-artifacts:
+    name: Verify generated preflight artifacts
+    if: github.event_name == 'workflow_dispatch' && inputs.mode == 'preflight'
     needs:
       - build-source-gem
       - build-native-gem
     runs-on: ubuntu-latest
+
+    steps:
+      - name: Setup Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.3"
+
+      - name: Download preflight artifacts
+        uses: actions/download-artifact@v8
+        with:
+          pattern: dry-validation-rust-*-preflight
+          path: pkg
+          merge-multiple: true
+
+      - name: Verify generated gem set
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          echo "Generated artifacts:"
+          find pkg -maxdepth 1 -type f -print | sort
+
+          GEM_COUNT="$(find pkg -maxdepth 1 -name '*.gem' | wc -l)"
+          SIGNATURE_COUNT="$(find pkg -maxdepth 1 -name '*.sigstore.json' | wc -l)"
+
+          if [[ "${GEM_COUNT}" -eq 0 ]]; then
+            echo "::error::No gem files were generated"
+            exit 1
+          fi
+
+          if [[ "${GEM_COUNT}" -ne "${SIGNATURE_COUNT}" ]]; then
+            echo "::error::Gem/signature count mismatch"
+            echo "gems=${GEM_COUNT}"
+            echo "signatures=${SIGNATURE_COUNT}"
+            exit 1
+          fi
+
+          for artifact in pkg/*.gem; do
+            echo
+            echo "Inspecting ${artifact}"
+            gem specification "${artifact}" name version platform
+          done
+
+  publish:
+    name: Publish signed gems to RubyGems.org
+
+    if: >
+      github.event_name == 'push' ||
+      (github.event_name == 'workflow_dispatch' &&
+       inputs.mode == 'publish-existing-tag')
+
+    needs:
+      - build-source-gem
+      - build-native-gem
+
+    runs-on: ubuntu-latest
     environment: release
+
     permissions:
       contents: read
       id-token: write
+
     steps:
       - name: Setup Ruby
         uses: ruby/setup-ruby@v1
@@ -165,11 +337,16 @@ jobs:
           path: pkg
           merge-multiple: true
 
+      - name: Show release artifacts
+        run: find pkg -maxdepth 1 -type f -print | sort
+
       - name: Configure RubyGems trusted-publishing credentials
         uses: rubygems/configure-rubygems-credentials@v2
 
       - name: Push built gems to RubyGems.org
         run: |
+          set -euo pipefail
+
           for artifact in pkg/*.gem; do
             gem push "${artifact}"
           done
