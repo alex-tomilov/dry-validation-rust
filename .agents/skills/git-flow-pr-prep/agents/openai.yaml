@@ -1,0 +1,4 @@
+interface:
+  display_name: "Git-flow PR Prep"
+  short_description: "Draft branch, commit, and PR metadata"
+  default_prompt: "Use $git-flow-pr-prep to review my branch and draft PR metadata."

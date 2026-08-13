@@ -189,9 +189,11 @@ class SchemaTest < Minitest::Test
   def test_native_engine_returns_structured_errors
     schema = Dry::Validation::Rust::Schema.Params { required(:age).value(:integer) }
 
-    _output, native_errors = schema.engine.call(age: 'invalid')
+    result = schema.engine.call(age: 'invalid')
 
-    assert_equal [{ path: [:age], code: :type, text: 'must be an integer' }], native_errors
+    assert_instance_of Dry::Validation::Rust::Native::SchemaResult, result
+    assert_equal({ age: 'invalid' }, result.output)
+    assert_equal [{ path: [:age], code: :type, text: 'must be an integer' }], result.errors
   end
 
   def test_native_engine_supplies_the_unexpected_key_error_text
@@ -201,9 +203,9 @@ class SchemaTest < Minitest::Test
       validate_keys: true
     )
 
-    _output, native_errors = schema.engine.call(unexpected: true)
+    result = schema.engine.call(unexpected: true)
 
-    assert_equal [{ path: [:unexpected], code: :unexpected_key, text: 'is not allowed' }], native_errors
+    assert_equal [{ path: [:unexpected], code: :unexpected_key, text: 'is not allowed' }], result.errors
   end
 
   def test_native_engine_keeps_date_class_lookup_from_initialization
@@ -211,10 +213,10 @@ class SchemaTest < Minitest::Test
     date_class = Object.const_get(:Date)
 
     Object.send(:remove_const, :Date)
-    output, native_errors = schema.engine.call(value: '2026-08-03')
+    result = schema.engine.call(value: '2026-08-03')
 
-    assert_equal({ value: date_class.new(2026, 8, 3) }, output)
-    assert_empty native_errors
+    assert_equal({ value: date_class.new(2026, 8, 3) }, result.output)
+    assert_empty result.errors
   ensure
     Object.const_set(:Date, date_class) unless Object.const_defined?(:Date, false)
   end

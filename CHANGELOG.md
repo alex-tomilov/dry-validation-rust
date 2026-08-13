@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Changed the native engine boundary to return a typed `SchemaResult` with
+  `#output` and `#errors` accessors.
 - Fixed native predicate evaluation to propagate exceptions raised by Ruby
   predicate methods instead of returning validation failures.
 
