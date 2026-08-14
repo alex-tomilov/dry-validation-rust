@@ -135,6 +135,11 @@ jobs:
       - name: Run RuboCop
         run: bundle exec rubocop
 
+      - name: Install cargo-audit
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-audit@0.22.1
+
       - name: Run full verification gate
         run: script/verify
 

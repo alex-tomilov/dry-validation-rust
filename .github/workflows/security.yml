@@ -50,9 +50,13 @@ jobs:
           gem install bundler-audit --no-document
           bundle-audit check --update
 
+      - name: Install cargo-audit
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-audit@0.22.1
+
       - name: Audit Rust dependencies
         run: |
-          cargo install cargo-audit --version 0.22.1 --locked
           cd ext/dry_validation_rust
           cargo audit --deny warnings
 
