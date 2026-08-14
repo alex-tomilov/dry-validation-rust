@@ -164,6 +164,11 @@ Rake::TestTask.new(test: :compile) do |task|
 end
 
 spec = Gem::Specification.load(GEMSPEC_PATH)
+
+if ENV.key?('RUBY_TARGET')
+  spec.extensions.clear
+end
+
 Gem::PackageTask.new(spec)
 
 Dir.chdir(EXTENSION_DIR) do
@@ -179,6 +184,26 @@ Dir.chdir(EXTENSION_DIR) do
       ext.cross_compile = true
       ext.cross_platform = CROSS_COMPILE_PLATFORMS
     end
+  end
+end
+
+if ENV.key?('RUBY_TARGET')
+  # rb-sys-dock injects 'gem' task execution, but rake-compiler's ExtensionTask 
+  # hooks the host 'native' compilation to the 'gem' task.
+  # This causes host compilation with a cross-compile target, breaking linking.
+  # We clear the host 'native' task from 'gem' to prevent this.
+  if Rake::Task.task_defined?('gem')
+    Rake::Task['gem'].prerequisites.delete('native')
+    Rake::Task['gem'].prerequisites.delete("pkg/#{spec.full_name}.gem")
+  end
+
+  # Remove host extension file dependencies so they are never triggered
+  # during a cross-compile.
+  Rake.application.tasks.each do |t|
+    t.prerequisites.delete('lib/dry/validation/rust/native.so')
+  end
+  if Rake::Task.task_defined?('lib/dry/validation/rust/native.so')
+    Rake::Task['lib/dry/validation/rust/native.so'].clear
   end
 end
 
