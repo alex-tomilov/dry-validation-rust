@@ -165,9 +165,7 @@ end
 
 spec = Gem::Specification.load(GEMSPEC_PATH)
 
-if ENV.key?('RUBY_TARGET')
-  spec.extensions.clear
-end
+spec.extensions.clear if ENV.key?('RUBY_TARGET')
 
 Gem::PackageTask.new(spec)
 
@@ -188,7 +186,7 @@ Dir.chdir(EXTENSION_DIR) do
 end
 
 if ENV.key?('RUBY_TARGET')
-  # rb-sys-dock injects 'gem' task execution, but rake-compiler's ExtensionTask 
+  # rb-sys-dock injects 'gem' task execution, but rake-compiler's ExtensionTask
   # hooks the host 'native' compilation to the 'gem' task.
   # This causes host compilation with a cross-compile target, breaking linking.
   # We clear the host 'native' task from 'gem' to prevent this.
@@ -202,9 +200,7 @@ if ENV.key?('RUBY_TARGET')
   Rake.application.tasks.each do |t|
     t.prerequisites.delete('lib/dry/validation/rust/native.so')
   end
-  if Rake::Task.task_defined?('lib/dry/validation/rust/native.so')
-    Rake::Task['lib/dry/validation/rust/native.so'].clear
-  end
+  Rake::Task['lib/dry/validation/rust/native.so'].clear if Rake::Task.task_defined?('lib/dry/validation/rust/native.so')
 end
 
 file 'Cargo.lock' => File.join(EXTENSION_DIR, 'Cargo.lock')
