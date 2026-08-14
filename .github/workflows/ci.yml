@@ -112,8 +112,8 @@ jobs:
       - name: Check Rust package manifest
         run: cargo package --list --manifest-path ext/dry_validation_rust/Cargo.toml
 
-  plan-compile-benchmark:
-    name: Plan compilation benchmark
+  native-benchmarks:
+    name: Native benchmarks
     runs-on: ubuntu-latest
     continue-on-error: true
     steps:
@@ -137,14 +137,17 @@ jobs:
           toolchain: 1.85.0
           cache-workspaces: ext/dry_validation_rust -> target
 
-      - name: Run Criterion plan-compilation benchmark
+      - name: Run Criterion benchmarks
         run: cargo bench --locked --manifest-path ext/dry_validation_rust/Cargo.toml --bench plan_compile
+
+      - name: Run Criterion coercion benchmark
+        run: cargo bench --locked --manifest-path ext/dry_validation_rust/Cargo.toml --bench coercion
 
       - name: Upload Criterion reports
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: plan-compile-benchmark
+          name: native-benchmarks
           path: ext/dry_validation_rust/target/criterion
           if-no-files-found: warn
           retention-days: 30

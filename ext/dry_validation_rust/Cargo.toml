@@ -26,6 +26,10 @@ magnus = { version = "~0.8.2", default-features = false, features = ["embed"] }
 name = "plan_compile"
 harness = false
 
+[[bench]]
+name = "coercion"
+harness = false
+
 [profile.release]
 codegen-units = 1
 lto = "thin"

@@ -21,6 +21,36 @@ pub mod fuzzing {
     }
 }
 
+/// Support for Criterion benchmarks of private native paths.
+///
+/// This is intentionally hidden from the extension's Ruby API. It lets the
+/// standalone benchmark crate prepare the embedded Ruby runtime once, then
+/// measure the same coercion entrypoint the engine uses.
+#[doc(hidden)]
+pub mod benchmark {
+    use magnus::{Error, Ruby, Value, prelude::*};
+
+    use crate::{coercion::coerce, plan::Mode, ruby_bridge::RuntimeClasses};
+
+    pub struct CoercionRuntime {
+        classes: RuntimeClasses,
+    }
+
+    impl CoercionRuntime {
+        pub fn new(ruby: &Ruby) -> Result<Self, Error> {
+            ruby.eval::<Value>("require 'date'; require 'bigdecimal'")?;
+            Ok(Self {
+                classes: RuntimeClasses::all(ruby)?,
+            })
+        }
+
+        pub fn coerce(&self, ruby: &Ruby, kind: &str, source: &str) -> Result<(), Error> {
+            let value = ruby.str_new(source).as_value();
+            coerce(ruby, &self.classes, Mode::Params, kind, value).map(|_| ())
+        }
+    }
+}
+
 use engine::Engine;
 
 #[derive(TypedData)]
