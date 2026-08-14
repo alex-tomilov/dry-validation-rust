@@ -338,7 +338,7 @@ jobs:
     environment: release
 
     permissions:
-      contents: read
+      contents: write
       id-token: write
 
     steps:
@@ -367,3 +367,19 @@ jobs:
           for artifact in pkg/*.gem; do
             gem push "${artifact}"
           done
+
+      - name: Attach artifacts to GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.release_tag || github.ref_name }}
+        run: |
+          set -euo pipefail
+          
+          # Create the release if it doesn't already exist
+          if ! gh release view "${TAG}" >/dev/null 2>&1; then
+            echo "Release ${TAG} does not exist. Creating it..."
+            gh release create "${TAG}" --title "${TAG}" --generate-notes
+          fi
+          
+          echo "Uploading artifacts to release ${TAG}..."
+          gh release upload "${TAG}" pkg/* --clobber

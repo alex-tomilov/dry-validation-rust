@@ -84,7 +84,7 @@ class CiWorkflowsTest < Minitest::Test
     assert_equal %w[preflight publish-existing-tag], dispatch.fetch('inputs').fetch('mode').fetch('options')
 
     publish = jobs.fetch('publish')
-    assert_equal({ 'contents' => 'read', 'id-token' => 'write' }, publish.fetch('permissions'))
+    assert_equal({ 'contents' => 'write', 'id-token' => 'write' }, publish.fetch('permissions'))
     assert_equal 'release', publish.fetch('environment')
     publish_source = publish.fetch('steps').map { |step| step['uses'].to_s + step['run'].to_s }.join("\n")
     assert_includes publish_source, 'rubygems/configure-rubygems-credentials@v2'
