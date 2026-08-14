@@ -17,11 +17,15 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        platform:
-          - x86_64-linux
-          - aarch64-linux
-          - x86_64-darwin
-          - arm64-darwin
+        include:
+          - platform: x86_64-linux
+            target: x86_64-unknown-linux-gnu
+          - platform: aarch64-linux
+            target: aarch64-unknown-linux-gnu
+          - platform: x86_64-darwin
+            target: x86_64-apple-darwin
+          - platform: arm64-darwin
+            target: aarch64-apple-darwin
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -31,6 +35,13 @@ jobs:
         with:
           ruby-version: "3.3"
           bundler-cache: true
+
+      - name: Setup Rust toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: 1.85.0
+          targets: ${{ matrix.target }}
+          cache-workspaces: ext/dry_validation_rust -> target
 
       - name: Build native platform gem
         run: |
