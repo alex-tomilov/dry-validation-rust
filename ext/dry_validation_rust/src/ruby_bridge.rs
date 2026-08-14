@@ -66,7 +66,6 @@ impl RuntimeClasses {
         }
     }
 
-    #[cfg(test)]
     pub(crate) fn all(ruby: &Ruby) -> Result<Self, Error> {
         let object = ruby.class_object();
         Ok(Self {

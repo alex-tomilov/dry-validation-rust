@@ -284,19 +284,59 @@ Measure native JSON plan deserialization independently of validation calls:
 cargo bench --locked --manifest-path ext/dry_validation_rust/Cargo.toml --bench plan_compile
 ```
 
-CI runs this non-blocking benchmark on Ubuntu and retains the Criterion report
-as the `plan-compile-benchmark` artifact for 30 days. On 2026-08-14, the
+CI runs this non-blocking benchmark on Ubuntu and retains the combined
+Criterion reports as the `native-benchmarks` artifact for 30 days. On
+2026-08-14, the
 following 100-sample Criterion results were measured locally on x86_64 Linux
 (kernel 7.0.0-29-generic, AMD Ryzen 7 5800H) with Rust 1.90.0. Each generated
 Params-mode plan has `validate_keys` enabled; every field is a required string
 with one `min_size(1)` predicate. These figures are local baseline evidence,
 not a cross-host performance guarantee.
 
-| Plan size | Criterion estimate (95% confidence interval) | Point estimate |
-| --------- | --------------------------------------------: | -------------: |
-| 5 fields  |                            1.8861–1.8954 µs | 1.8905 µs |
-| 50 fields |                           20.520–20.686 µs | 20.604 µs |
-| 200 fields |                          83.591–87.909 µs | 85.538 µs |
+| Plan size  | Criterion estimate (95% confidence interval) | Point estimate |
+| ---------- | -------------------------------------------: | -------------: |
+| 5 fields   |                             1.8861–1.8954 µs |      1.8905 µs |
+| 50 fields  |                             20.520–20.686 µs |      20.604 µs |
+| 200 fields |                             83.591–87.909 µs |      85.538 µs |
+
+### Coercion benchmark
+
+Measure the native Params-mode coercion path independently for common and
+Ruby-fallback literals:
+
+```bash
+cargo bench --locked --manifest-path ext/dry_validation_rust/Cargo.toml --bench coercion
+```
+
+CI runs the plan-compilation and coercion benchmarks non-blockingly on Ubuntu
+and retains their combined Criterion reports as the `native-benchmarks`
+artifact for 30 days.
+
+The following coercion results were measured locally on 2026-08-14 with CRuby
+3.4.4, Rust 1.90.0, and `dry-validation-rust` 0.1.0.pre4 on x86_64 Linux
+(kernel 7.0.0-29-generic, AMD Ryzen 7 5800H). Criterion used 100 samples with
+a 500 ms warm-up and 1 s measurement period per case. These are host-local
+baseline observations, not cross-host performance guarantees. `Infinity` exercises the intentional non-finite-float rejection path; the datetime-shaped date literal exercises the Ruby fallback path.
+
+| Group             | Input                  | Criterion estimate (95% confidence interval) | Point estimate |
+| ----------------- | ---------------------- | -------------------------------------------: | -------------: |
+| Integer           | `42`                   |                             119.60–126.54 ns |      122.99 ns |
+| Integer           | `-99`                  |                             116.84–120.98 ns |      118.79 ns |
+| Integer           | `1_000`                |                             129.17–135.89 ns |      132.29 ns |
+| Integer           | `0xFF`                 |                             119.38–124.78 ns |      121.89 ns |
+| Float             | `3.14`                 |                             131.74–133.14 ns |      132.40 ns |
+| Float             | `-2.5e10`              |                             180.62–181.84 ns |      181.17 ns |
+| Float (rejection) | `Infinity`             |                             83.982–84.862 ns |      84.402 ns |
+| Boolean           | `true`                 |                             80.455–83.671 ns |      81.937 ns |
+| Boolean           | `false`                |                             81.399–86.340 ns |      83.778 ns |
+| Boolean           | `1`                    |                             123.77–132.78 ns |      128.38 ns |
+| Boolean           | `0`                    |                             132.99–153.74 ns |      143.02 ns |
+| Boolean           | `yes`                  |                             99.111–102.16 ns |      100.53 ns |
+| Boolean           | `no`                   |                             99.193–100.15 ns |      99.620 ns |
+| Date              | `2024-01-01`           |                             573.70–596.35 ns |      584.53 ns |
+| Date (fallback)   | `2024-01-01T12:00:00Z` |                             2.7212–3.1991 µs |      2.9518 µs |
+| Decimal           | `123.456`              |                             746.42–781.89 ns |      761.67 ns |
+| Decimal           | `0.0000001`            |                             726.38–738.29 ns |      731.78 ns |
 
 ## Representative benchmark results
 
