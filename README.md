@@ -276,6 +276,28 @@ The matrix is a reproducible measurement harness, not a published performance
 claim: compare repeated runs on the same machine and report neutral or negative
 results alongside favorable ones.
 
+### Plan-compilation benchmark
+
+Measure native JSON plan deserialization independently of validation calls:
+
+```bash
+cargo bench --locked --manifest-path ext/dry_validation_rust/Cargo.toml --bench plan_compile
+```
+
+CI runs this non-blocking benchmark on Ubuntu and retains the Criterion report
+as the `plan-compile-benchmark` artifact for 30 days. On 2026-08-14, the
+following 100-sample Criterion results were measured locally on x86_64 Linux
+(kernel 7.0.0-29-generic, AMD Ryzen 7 5800H) with Rust 1.90.0. Each generated
+Params-mode plan has `validate_keys` enabled; every field is a required string
+with one `min_size(1)` predicate. These figures are local baseline evidence,
+not a cross-host performance guarantee.
+
+| Plan size | Criterion estimate (95% confidence interval) | Point estimate |
+| --------- | --------------------------------------------: | -------------: |
+| 5 fields  |                            1.8861–1.8954 µs | 1.8905 µs |
+| 50 fields |                           20.520–20.686 µs | 20.604 µs |
+| 200 fields |                          83.591–87.909 µs | 85.538 µs |
+
 ## Representative benchmark results
 
 The six default rows were measured on 2026-08-13 with CRuby 3.3.7 on x86_64 Linux (kernel 7.0.0-29-generic, AMD Ryzen 7 5800H), comparing dry-validation-rust 0.1.0.pre4 with dry-validation 1.11.1. The strict-key row remains the 2026-08-10 pre3 measurement. Each `SCENARIO` ran in its own process three times with `N=1000`, `WARMUP=200`, and `LATENCY_SAMPLES=200`; the table shows medians and the throughput range across those runs. Values are evidence for this host and workload only, not a general performance guarantee.
