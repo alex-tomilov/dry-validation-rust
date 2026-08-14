@@ -33,6 +33,7 @@ Gem::Specification.new do |spec|
     'ext/dry_validation_rust/Cargo.lock',
     'ext/dry_validation_rust/Cargo.toml',
     'ext/dry_validation_rust/extconf.rb',
+    Dir['ext/dry_validation_rust/benches/**/*.rs'],
     Dir['ext/dry_validation_rust/src/**/*.rs']
   ].flatten.sort
   spec.require_paths = ['lib']

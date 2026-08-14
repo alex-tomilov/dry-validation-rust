@@ -16,8 +16,8 @@ mod ruby_bridge;
 /// Keeping this module small ensures the fuzzer exercises the same plan parser
 /// that Ruby uses without requiring a Ruby VM for every generated input.
 pub mod fuzzing {
-    pub fn parse_plan(json: &str) {
-        let _ = crate::plan::deserialize_plan(json);
+    pub fn parse_plan(json: &str) -> Result<(), String> {
+        crate::plan::deserialize_plan(json).map(|_| ())
     }
 }
 
