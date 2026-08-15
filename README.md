@@ -338,6 +338,49 @@ baseline observations, not cross-host performance guarantees. `Infinity` exercis
 | Decimal           | `123.456`              |                             746.42–781.89 ns |      761.67 ns |
 | Decimal           | `0.0000001`            |                             726.38–738.29 ns |      731.78 ns |
 
+### Predicate benchmark
+
+Measure the native comparison, size, and parity predicate paths with Ruby
+values created once before timing:
+
+```bash
+cargo bench --locked --manifest-path ext/dry_validation_rust/Cargo.toml --bench predicates
+```
+
+CI runs the plan-compilation, coercion, and predicate benchmarks non-blockingly
+on Ubuntu and retains their combined Criterion reports as the
+`native-benchmarks` artifact for 30 days.
+
+The following results were measured locally on 2026-08-15 with CRuby 3.4.4,
+Rust 1.90.0, and `dry-validation-rust` 0.1.0.pre4 on x86_64 Linux (kernel
+7.0.0-29-generic, AMD Ryzen 7 5800H). Criterion used 100 samples with a
+500 ms warm-up and 1 s measurement period per case. Every input passes its
+predicate; values and predicate plans are prepared before the timed loop.
+These are host-local baseline observations, not cross-host performance
+guarantees.
+
+| Group      | Case              | Criterion estimate (95% confidence interval) | Point estimate |
+| ---------- | ----------------- | -------------------------------------------: | -------------: |
+| Comparison | `gt` integer      |                             8.5136–8.5606 ns |      8.5340 ns |
+| Comparison | `gteq` integer    |                             8.6687–8.9753 ns |      8.7905 ns |
+| Comparison | `lt` integer      |                             9.0641–9.5832 ns |      9.3130 ns |
+| Comparison | `lteq` integer    |                             8.5890–8.6289 ns |      8.6062 ns |
+| Comparison | `gt` float        |                             7.8649–7.9178 ns |      7.8890 ns |
+| Comparison | `gteq` float      |                             7.8643–7.8929 ns |      7.8779 ns |
+| Comparison | `lt` float        |                             7.8780–7.9643 ns |      7.9147 ns |
+| Comparison | `lteq` float      |                             7.8838–8.6503 ns |      8.2060 ns |
+| Size       | `size` string     |                             33.124–33.230 ns |      33.178 ns |
+| Size       | `min_size` string |                             35.507–35.567 ns |      35.536 ns |
+| Size       | `max_size` string |                             32.986–33.263 ns |      33.111 ns |
+| Size       | `size` array      |                             10.187–10.252 ns |      10.216 ns |
+| Size       | `min_size` array  |                             10.253–10.457 ns |      10.338 ns |
+| Size       | `max_size` array  |                             10.160–10.352 ns |      10.228 ns |
+| Size       | `size` hash       |                             10.763–10.849 ns |      10.799 ns |
+| Size       | `min_size` hash   |                             11.384–11.968 ns |      11.639 ns |
+| Size       | `max_size` hash   |                             11.270–11.804 ns |      11.496 ns |
+| Parity     | `odd?` integer    |                             7.8135–7.9664 ns |      7.8716 ns |
+| Parity     | `even?` integer   |                             8.1242–8.2117 ns |      8.1567 ns |
+
 ## Representative benchmark results
 
 The six default rows were measured on 2026-08-13 with CRuby 3.3.7 on x86_64 Linux (kernel 7.0.0-29-generic, AMD Ryzen 7 5800H), comparing dry-validation-rust 0.1.0.pre4 with dry-validation 1.11.1. The strict-key row remains the 2026-08-10 pre3 measurement. Each `SCENARIO` ran in its own process three times with `N=1000`, `WARMUP=200`, and `LATENCY_SAMPLES=200`; the table shows medians and the throughput range across those runs. Values are evidence for this host and workload only, not a general performance guarantee.

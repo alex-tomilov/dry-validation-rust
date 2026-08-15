@@ -143,6 +143,9 @@ jobs:
       - name: Run Criterion coercion benchmark
         run: cargo bench --locked --manifest-path ext/dry_validation_rust/Cargo.toml --bench coercion
 
+      - name: Run Criterion predicate benchmark
+        run: cargo bench --locked --manifest-path ext/dry_validation_rust/Cargo.toml --bench predicates
+
       - name: Upload Criterion reports
         if: always()
         uses: actions/upload-artifact@v7
