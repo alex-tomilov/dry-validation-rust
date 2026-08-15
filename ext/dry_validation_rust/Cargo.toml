@@ -34,6 +34,10 @@ harness = false
 name = "predicates"
 harness = false
 
+[[bench]]
+name = "full_schema"
+harness = false
+
 [profile.release]
 codegen-units = 1
 lto = "thin"

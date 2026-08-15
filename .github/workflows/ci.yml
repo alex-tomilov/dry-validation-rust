@@ -138,13 +138,7 @@ jobs:
           cache-workspaces: ext/dry_validation_rust -> target
 
       - name: Run Criterion benchmarks
-        run: cargo bench --locked --manifest-path ext/dry_validation_rust/Cargo.toml --bench plan_compile
-
-      - name: Run Criterion coercion benchmark
-        run: cargo bench --locked --manifest-path ext/dry_validation_rust/Cargo.toml --bench coercion
-
-      - name: Run Criterion predicate benchmark
-        run: cargo bench --locked --manifest-path ext/dry_validation_rust/Cargo.toml --bench predicates
+        run: cargo bench --locked --manifest-path ext/dry_validation_rust/Cargo.toml --bench plan_compile --bench coercion --bench predicates -- --profile-time 2 --sample-size 10
 
       - name: Upload Criterion reports
         if: always()
