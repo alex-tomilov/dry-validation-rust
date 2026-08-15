@@ -1,5 +1,5 @@
-use criterion::{black_box, Criterion};
-use magnus::{gc, Error, RHash, Ruby, Value};
+use criterion::{Criterion, black_box};
+use magnus::{Error, RHash, Ruby, Value, gc};
 use native::benchmark::FullSchemaRuntime;
 
 fn field(name: &str, kind: &str, filled: bool, predicate: Option<(&str, i64)>) -> String {
