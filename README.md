@@ -381,6 +381,33 @@ guarantees.
 | Parity     | `odd?` integer    |                             7.8135–7.9664 ns |      7.8716 ns |
 | Parity     | `even?` integer   |                             8.1242–8.2117 ns |      8.1567 ns |
 
+### Full-schema benchmark
+
+Measure the native engine end-to-end with plans and Ruby Hash inputs prepared
+before Criterion begins timing:
+
+```bash
+cargo bench --locked --manifest-path ext/dry_validation_rust/Cargo.toml --bench full_schema
+```
+
+The following results were measured locally on 2026-08-15 with CRuby 3.4.4,
+Rust 1.90.0, and `dry-validation-rust` 0.1.0.pre4 on x86_64 Linux (kernel
+7.0.0-29-generic, AMD Ryzen 7 5800H). Criterion used 100 samples with a
+3-second warm-up and a 5-second measurement period per scenario. Plans and
+inputs are built once; mixed-validity scenarios cycle their prebuilt inputs.
+These figures measure `Engine::call` only, and are host-local baseline
+evidence—not a comparison with the Ruby contract benchmark or a cross-host
+performance guarantee.
+
+| Scenario         | Criterion estimate (95% confidence interval) | Point estimate |
+| ---------------- | -------------------------------------------: | -------------: |
+| Small form       |                             3.9515–3.9641 µs |      3.9573 µs |
+| Medium form      |                             29.051–29.235 µs |      29.141 µs |
+| Large form       |                             190.63–191.64 µs |      191.12 µs |
+| 10-level nested  |                             8.8245–9.1422 µs |      8.9877 µs |
+| 100-object array |                             318.85–322.47 µs |      320.55 µs |
+| 20-field invalid |                             63.480–64.437 µs |      63.953 µs |
+
 ## Representative benchmark results
 
 The six default rows were measured on 2026-08-13 with CRuby 3.3.7 on x86_64 Linux (kernel 7.0.0-29-generic, AMD Ryzen 7 5800H), comparing dry-validation-rust 0.1.0.pre4 with dry-validation 1.11.1. The strict-key row remains the 2026-08-10 pre3 measurement. Each `SCENARIO` ran in its own process three times with `N=1000`, `WARMUP=200`, and `LATENCY_SAMPLES=200`; the table shows medians and the throughput range across those runs. Values are evidence for this host and workload only, not a general performance guarantee.

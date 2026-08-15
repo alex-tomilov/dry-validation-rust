@@ -28,7 +28,7 @@ pub mod fuzzing {
 /// measure the same coercion entrypoint the engine uses.
 #[doc(hidden)]
 pub mod benchmark {
-    use magnus::{Error, Ruby, Value, prelude::*};
+    use magnus::{Error, RHash, Ruby, Value, prelude::*};
 
     use crate::{
         coercion::coerce,
@@ -52,6 +52,29 @@ pub mod benchmark {
         pub fn coerce(&self, ruby: &Ruby, kind: &str, source: &str) -> Result<(), Error> {
             let value = ruby.str_new(source).as_value();
             coerce(ruby, &self.classes, Mode::Params, kind, value).map(|_| ())
+        }
+    }
+
+    /// Prepared native engine used by the end-to-end Criterion benchmark.
+    pub struct FullSchemaRuntime {
+        engine: super::Engine,
+    }
+
+    impl FullSchemaRuntime {
+        pub fn new(ruby: &Ruby, plan_json: String) -> Result<Self, Error> {
+            Ok(Self {
+                engine: super::Engine::new(ruby, plan_json)?,
+            })
+        }
+
+        pub fn call(&self, input: RHash) -> Result<(), Error> {
+            self.engine.call(input).map(|_| ())
+        }
+
+        pub fn error_count(&self, ruby: &Ruby, input: RHash) -> Result<usize, Error> {
+            self.engine
+                .call(input)
+                .map(|result| super::SchemaResult::errors(ruby, &result).len())
         }
     }
 
