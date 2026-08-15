@@ -30,7 +30,12 @@ pub mod fuzzing {
 pub mod benchmark {
     use magnus::{Error, Ruby, Value, prelude::*};
 
-    use crate::{coercion::coerce, plan::Mode, ruby_bridge::RuntimeClasses};
+    use crate::{
+        coercion::coerce,
+        plan::{FieldPlan, Mode, PredicateArg, PredicateOp, PredicatePlan},
+        predicates::apply_predicates,
+        ruby_bridge::RuntimeClasses,
+    };
 
     pub struct CoercionRuntime {
         classes: RuntimeClasses,
@@ -47,6 +52,109 @@ pub mod benchmark {
         pub fn coerce(&self, ruby: &Ruby, kind: &str, source: &str) -> Result<(), Error> {
             let value = ruby.str_new(source).as_value();
             coerce(ruby, &self.classes, Mode::Params, kind, value).map(|_| ())
+        }
+    }
+
+    /// Reusable predicate plans for Criterion benchmarks of native predicate paths.
+    pub struct PredicateRuntime {
+        fields: Vec<FieldPlan>,
+    }
+
+    #[derive(Clone, Copy)]
+    pub enum PredicateCase {
+        GtInteger,
+        GteqInteger,
+        LtInteger,
+        LteqInteger,
+        GtFloat,
+        GteqFloat,
+        LtFloat,
+        LteqFloat,
+        Size,
+        MinSize,
+        MaxSize,
+        Odd,
+        Even,
+    }
+
+    impl Default for PredicateRuntime {
+        fn default() -> Self {
+            Self {
+                fields: vec![
+                    predicate_field(PredicateOp::Gt, PredicateArg::Int(18)),
+                    predicate_field(PredicateOp::Gteq, PredicateArg::Int(18)),
+                    predicate_field(PredicateOp::Lt, PredicateArg::Int(20)),
+                    predicate_field(PredicateOp::Lteq, PredicateArg::Int(19)),
+                    predicate_field(PredicateOp::Gt, PredicateArg::Float(1.25)),
+                    predicate_field(PredicateOp::Gteq, PredicateArg::Float(1.5)),
+                    predicate_field(PredicateOp::Lt, PredicateArg::Float(1.75)),
+                    predicate_field(PredicateOp::Lteq, PredicateArg::Float(1.5)),
+                    predicate_field(PredicateOp::Size, PredicateArg::Int(3)),
+                    predicate_field(PredicateOp::MinSize, PredicateArg::Int(3)),
+                    predicate_field(PredicateOp::MaxSize, PredicateArg::Int(3)),
+                    predicate_field(PredicateOp::Odd, PredicateArg::Bool(true)),
+                    predicate_field(PredicateOp::Even, PredicateArg::Bool(true)),
+                ],
+            }
+        }
+    }
+
+    impl PredicateRuntime {
+        pub fn new() -> Self {
+            Self::default()
+        }
+
+        pub fn evaluate(
+            &self,
+            ruby: &Ruby,
+            predicate_case: PredicateCase,
+            value: Value,
+        ) -> Result<(), Error> {
+            let mut errors = Vec::new();
+            apply_predicates(
+                ruby,
+                &self.fields[predicate_case.index()],
+                value,
+                &[],
+                &mut errors,
+            )
+        }
+    }
+
+    impl PredicateCase {
+        const fn index(self) -> usize {
+            match self {
+                Self::GtInteger => 0,
+                Self::GteqInteger => 1,
+                Self::LtInteger => 2,
+                Self::LteqInteger => 3,
+                Self::GtFloat => 4,
+                Self::GteqFloat => 5,
+                Self::LtFloat => 6,
+                Self::LteqFloat => 7,
+                Self::Size => 8,
+                Self::MinSize => 9,
+                Self::MaxSize => 10,
+                Self::Odd => 11,
+                Self::Even => 12,
+            }
+        }
+    }
+
+    fn predicate_field(op: PredicateOp, argument: PredicateArg) -> FieldPlan {
+        FieldPlan {
+            name: None,
+            required: false,
+            nullable: false,
+            filled: false,
+            kind: "any".to_owned(),
+            member: None,
+            children: Vec::new(),
+            predicates: vec![PredicatePlan {
+                name: "benchmark".to_owned(),
+                op,
+                argument,
+            }],
         }
     }
 }

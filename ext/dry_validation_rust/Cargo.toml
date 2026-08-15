@@ -30,6 +30,10 @@ harness = false
 name = "coercion"
 harness = false
 
+[[bench]]
+name = "predicates"
+harness = false
+
 [profile.release]
 codegen-units = 1
 lto = "thin"
