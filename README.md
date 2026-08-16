@@ -57,7 +57,9 @@ The current `0.1.x` support target is source builds; see the
 
 ### From source
 
-Requires Rust 1.85 or newer, libclang, and a C toolchain.
+Requires Rust 1.75 or newer, libclang, and a C toolchain. The MSRV is Rust
+1.75 and is tested in CI. A source checkout pins Rust 1.75.0 automatically
+through `rust-toolchain.toml`.
 
 ```bash
 gem install dry-validation-rust --platform ruby
@@ -207,7 +209,7 @@ The complete exclusions and semantic differences are explicit in
 Requirements:
 
 - Ruby 3.3 or newer with development headers;
-- Rust 1.85 or newer and Cargo;
+- Rust 1.75 or newer and Cargo (the MSRV, tested in CI);
 - a C toolchain;
 - libclang where the selected `rb-sys` build uses bindgen.
 

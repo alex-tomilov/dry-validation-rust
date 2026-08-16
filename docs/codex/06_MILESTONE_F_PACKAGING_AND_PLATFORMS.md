@@ -17,7 +17,7 @@ Minimum viable matrix:
 | ----- | ----------------------------------------------- |
 | Ruby  | 3.3, 3.4, head                                  |
 | OS    | ubuntu-latest, macos-latest (arm64)             |
-| Rust  | stable, 1.85 (MSRV)                             |
+| Rust  | stable, 1.75 (MSRV)                             |
 | Build | source gem install, `rake compile`, `rake test` |
 
 Add `cargo test` and `cargo clippy -- -D warnings` as a separate Rust CI job.
@@ -47,7 +47,7 @@ spec.metadata = {
 
 ### F-4: Developer Experience
 
-- Add a `docker-compose.yml` or Devcontainer with Ruby 3.3 + Rust 1.85
+- Add a `docker-compose.yml` or Devcontainer with Ruby 3.3 + Rust 1.75
   pre-configured. One command to a working REPL.
 - Record a 2-minute terminal session (asciinema or GIF) showing:
   clone → compile → run example → see output. Embed in README.

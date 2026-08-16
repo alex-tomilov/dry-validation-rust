@@ -17,10 +17,14 @@ Use a Ruby, Rust toolchain, and platform listed in
 requires:
 
 - CRuby 3.3 or newer with development headers;
-- Rust 1.85 or newer and Cargo;
+- Rust 1.75 or newer and Cargo (the MSRV, tested in CI);
 - Bundler;
 - a C compiler and `make`;
 - Clang/libclang when the selected `rb-sys` build requires bindgen.
+
+The checkout pins Rust 1.75.0 in `rust-toolchain.toml`, so the documented
+commands use the MSRV by default. Do not introduce code or dependencies that
+require a newer Rust release unless the MSRV policy is intentionally updated.
 
 On macOS, install the Xcode Command Line Tools and LLVM. On Debian/Ubuntu,
 install a build toolchain plus `clang` and `libclang-dev`.
@@ -63,6 +67,8 @@ bundle exec rake package:audit
 ```
 
 Rust code must be formatted with `rustfmt` and pass Clippy with warnings denied.
+Code must compile on the Rust 1.75 MSRV; all CI workflows use and test that
+exact toolchain.
 Runtime and FFI code must not use `unwrap`, `expect`, broad `.ok()`, or
 `unwrap_or(default)` unless the reason is narrow, documented, and reviewed.
 No Rust panic may cross the Ruby FFI boundary.

@@ -1,5 +1,5 @@
-use criterion::{Criterion, black_box};
-use magnus::{Error, Ruby, Value, prelude::*};
+use criterion::{black_box, Criterion};
+use magnus::{prelude::*, Error, Ruby, Value};
 use native::benchmark::{PredicateCase, PredicateRuntime};
 
 fn bench_predicate(

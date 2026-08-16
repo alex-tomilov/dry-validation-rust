@@ -1,17 +1,17 @@
 use std::collections::HashSet;
 
 use magnus::{
-    DataTypeFunctions, Error, RArray, RHash, Ruby, TypedData, Value, gc::Marker, prelude::*,
-    r_hash::ForEach, typed_data::Obj,
+    gc::Marker, prelude::*, r_hash::ForEach, typed_data::Obj, DataTypeFunctions, Error, RArray,
+    RHash, Ruby, TypedData, Value,
 };
 
 use crate::{
-    SchemaResult,
     coercion::{coerce, empty_value, null_if_empty_nullable_param, type_matches},
-    error::{NativeError, PathPart, type_message},
-    plan::{FieldPlan, Mode, SchemaPlan, parse_plan},
+    error::{type_message, NativeError, PathPart},
+    plan::{parse_plan, FieldPlan, Mode, SchemaPlan},
     predicates::apply_predicates,
     ruby_bridge::RuntimeClasses,
+    SchemaResult,
 };
 
 const MAX_TRAVERSAL_DEPTH: u16 = 128;

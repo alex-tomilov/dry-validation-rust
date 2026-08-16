@@ -1,7 +1,7 @@
 use magnus::{Error, Ruby};
 use serde::{
-    Deserialize,
     de::{DeserializeSeed, EnumAccess, Error as DeError, MapAccess, SeqAccess, Visitor},
+    Deserialize,
 };
 use std::{collections::HashSet, fmt};
 
@@ -477,11 +477,9 @@ mod tests {
             "]".repeat(argument_nesting)
         );
 
-        assert!(
-            deserialize_plan(&over_limit)
-                .unwrap_err()
-                .contains("nesting exceeds limit (512)")
-        );
+        assert!(deserialize_plan(&over_limit)
+            .unwrap_err()
+            .contains("nesting exceeds limit (512)"));
     }
 
     #[test]

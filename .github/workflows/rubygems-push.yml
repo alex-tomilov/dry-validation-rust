@@ -61,7 +61,7 @@ jobs:
       - name: Setup Rust toolchain
         uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
-          toolchain: 1.85.0
+          toolchain: 1.75.0
           components: rustfmt, clippy
           cache-workspaces: ext/dry_validation_rust -> target
 
@@ -234,7 +234,7 @@ jobs:
       - name: Setup Rust toolchain
         uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
-          toolchain: 1.85.0
+          toolchain: 1.75.0
           cache-workspaces: ext/dry_validation_rust -> target
 
       - name: Install cross-compilation target
@@ -374,12 +374,12 @@ jobs:
           TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.release_tag || github.ref_name }}
         run: |
           set -euo pipefail
-          
+
           # Create the release if it doesn't already exist
           if ! gh release view "${TAG}" >/dev/null 2>&1; then
             echo "Release ${TAG} does not exist. Creating it..."
             gh release create "${TAG}" --title "${TAG}" --generate-notes
           fi
-          
+
           echo "Uploading artifacts to release ${TAG}..."
           gh release upload "${TAG}" pkg/* --clobber

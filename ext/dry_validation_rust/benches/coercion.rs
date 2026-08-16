@@ -1,4 +1,4 @@
-use criterion::{Criterion, black_box};
+use criterion::{black_box, Criterion};
 use magnus::{Error, Ruby};
 use native::benchmark::CoercionRuntime;
 

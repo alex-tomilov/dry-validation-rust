@@ -1,6 +1,6 @@
 use magnus::{
-    DataTypeFunctions, Error, RArray, RHash, RModule, Ruby, TypedData, function, gc::Marker,
-    method, prelude::*, value::Opaque,
+    function, gc::Marker, method, prelude::*, value::Opaque, DataTypeFunctions, Error, RArray,
+    RHash, RModule, Ruby, TypedData,
 };
 
 mod coercion;
@@ -28,7 +28,7 @@ pub mod fuzzing {
 /// measure the same coercion entrypoint the engine uses.
 #[doc(hidden)]
 pub mod benchmark {
-    use magnus::{Error, RHash, Ruby, Value, prelude::*};
+    use magnus::{prelude::*, Error, RHash, Ruby, Value};
 
     use crate::{
         coercion::coerce,

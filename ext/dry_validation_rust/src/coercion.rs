@@ -2,9 +2,9 @@ use crate::{plan::Mode, ruby_bridge::RuntimeClasses};
 use bigdecimal::BigDecimal;
 use chrono::{DateTime, Datelike, FixedOffset, NaiveDate, NaiveDateTime, TimeZone, Timelike};
 use magnus::{
-    Float, Integer, RArray, RHash, RString, Ruby, Symbol, Value,
     prelude::*,
     value::{Qfalse, Qtrue},
+    Float, Integer, RArray, RHash, RString, Ruby, Symbol, Value,
 };
 
 pub(crate) fn coerce(
@@ -471,28 +471,24 @@ pub(crate) mod tests {
         assert!("1e999".parse::<BigDecimal>().is_ok());
 
         assert!(ruby.eval::<Value>("Date.iso8601('2026-02-30')").is_err());
-        assert!(
-            coerce(
+        assert!(coerce(
+            ruby,
+            &classes,
+            Mode::Params,
+            "date",
+            ruby.str_new("2026-02-30").as_value(),
+        )?
+        .is_none());
+
+        for source in ["Infinity", "-Infinity", "NaN"] {
+            assert!(coerce(
                 ruby,
                 &classes,
                 Mode::Params,
-                "date",
-                ruby.str_new("2026-02-30").as_value(),
+                "decimal",
+                ruby.str_new(source).as_value(),
             )?
-            .is_none()
-        );
-
-        for source in ["Infinity", "-Infinity", "NaN"] {
-            assert!(
-                coerce(
-                    ruby,
-                    &classes,
-                    Mode::Params,
-                    "decimal",
-                    ruby.str_new(source).as_value(),
-                )?
-                .is_none()
-            );
+            .is_none());
         }
 
         let empty = ruby.str_new("").as_value();
