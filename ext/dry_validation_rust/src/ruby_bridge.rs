@@ -1,4 +1,4 @@
-use magnus::{Error, RClass, Ruby, gc::Marker, prelude::*, value::Opaque};
+use magnus::{gc::Marker, prelude::*, value::Opaque, Error, RClass, Ruby};
 
 use crate::plan::SchemaPlan;
 

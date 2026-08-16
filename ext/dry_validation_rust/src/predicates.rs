@@ -1,4 +1,4 @@
-use magnus::{Error, Ruby, Value, prelude::*};
+use magnus::{prelude::*, Error, Ruby, Value};
 
 use crate::{
     error::{NativeError, PathPart},

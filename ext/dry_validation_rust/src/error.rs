@@ -52,7 +52,7 @@ pub(crate) fn type_message(kind: &str) -> &'static str {
 mod tests {
     use std::borrow::Cow;
 
-    use super::{NativeError, PathPart, type_message};
+    use super::{type_message, NativeError, PathPart};
 
     #[test]
     fn native_error_owns_a_clone_of_key_and_index_path_parts() {

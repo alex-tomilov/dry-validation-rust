@@ -1,8 +1,8 @@
 [package]
 name = "dry_validation_rust_native"
 version = "0.1.0-pre.4"
-edition = "2024"
-rust-version = "1.85"
+edition = "2021"
+rust-version = "1.75"
 license = "MIT"
 publish = false
 
