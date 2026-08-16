@@ -113,9 +113,8 @@ jobs:
         run: cargo package --list --manifest-path ext/dry_validation_rust/Cargo.toml
 
   native-benchmarks:
-    name: Native benchmarks
+    name: Criterion regression gate
     runs-on: ubuntu-latest
-    continue-on-error: true
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -137,15 +136,37 @@ jobs:
           toolchain: 1.85.0
           cache-workspaces: ext/dry_validation_rust -> target
 
-      - name: Run Criterion benchmarks
+      - name: Load the main Criterion baseline for pull requests
+        id: criterion-baseline
+        if: github.event_name == 'pull_request'
+        run: |
+          git fetch origin main --depth=1
+          if git cat-file -e FETCH_HEAD:benchmark/baseline.json; then
+            git show FETCH_HEAD:benchmark/baseline.json > "$RUNNER_TEMP/criterion-baseline.json"
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          elif test -f benchmark/baseline.json; then
+            cp benchmark/baseline.json "$RUNNER_TEMP/criterion-baseline.json"
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "No Criterion baseline yet; run Record Criterion Baseline and commit benchmark/baseline.json to enable the gate." >&2
+            echo "available=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Benchmark candidate
+        env:
+          CARGO_TARGET_DIR: ${{ runner.temp }}/candidate-target
         run: cargo bench --locked --manifest-path ext/dry_validation_rust/Cargo.toml --bench plan_compile --bench coercion --bench predicates -- --profile-time 2 --sample-size 10
+
+      - name: Reject Criterion regressions above five percent
+        if: github.event_name == 'pull_request' && steps.criterion-baseline.outputs.available == 'true'
+        run: ruby script/compare-criterion-baselines "$RUNNER_TEMP/criterion-baseline.json" "$RUNNER_TEMP/candidate-target/criterion"
 
       - name: Upload Criterion reports
         if: always()
         uses: actions/upload-artifact@v7
         with:
           name: native-benchmarks
-          path: ext/dry_validation_rust/target/criterion
+          path: ${{ runner.temp }}/candidate-target/criterion
           if-no-files-found: warn
           retention-days: 30
 

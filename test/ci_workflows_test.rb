@@ -103,6 +103,18 @@ class CiWorkflowsTest < Minitest::Test
     assert_equal '1', job.fetch('steps').last.fetch('env').fetch('MEMORY_REGRESSION')
   end
 
+  def test_ci_rejects_criterion_regressions_against_main_on_pull_requests
+    workflow = workflows.fetch(File.join(WORKFLOW_DIR, 'ci.yml'))
+    job = workflow.fetch('jobs').fetch('native-benchmarks')
+    source = job.fetch('steps').map { |step| step['run'].to_s }.join("\n")
+
+    assert_equal 'Criterion regression gate', job.fetch('name')
+    refute job.key?('continue-on-error')
+    assert_includes source, 'git show FETCH_HEAD:benchmark/baseline.json'
+    assert_includes source, 'No Criterion baseline yet'
+    assert_includes source, 'script/compare-criterion-baselines "$RUNNER_TEMP/criterion-baseline.json" "$RUNNER_TEMP/candidate-target/criterion"'
+  end
+
   def test_manual_workflow_records_an_artifact_without_writing_to_the_repository
     workflow = workflows.fetch(File.join(WORKFLOW_DIR, 'record-allocation-baseline.yml'))
     job = workflow.fetch('jobs').fetch('record')
@@ -113,6 +125,16 @@ class CiWorkflowsTest < Minitest::Test
     assert_includes source, 'script/record-allocation-baseline "$RUNNER_TEMP/baseline_allocations.json"'
     assert_includes job.fetch('steps').last.fetch('uses'), 'actions/upload-artifact@v7'
     assert_equal '${{ runner.temp }}/baseline_allocations.json', job.fetch('steps').last.fetch('with').fetch('path')
+  end
+
+  def test_manual_workflow_records_a_criterion_baseline_artifact
+    workflow = workflows.fetch(File.join(WORKFLOW_DIR, 'record-criterion-baseline.yml'))
+    job = workflow.fetch('jobs').fetch('record')
+    source = job.fetch('steps').map { |step| step['run'].to_s }.join("\n")
+
+    assert_equal({ 'workflow_dispatch' => nil }, workflow.fetch(true))
+    assert_includes source, 'script/record-criterion-baseline'
+    assert_equal '${{ runner.temp }}/baseline.json', job.fetch('steps').last.fetch('with').fetch('path')
   end
 
   def test_actions_use_reviewable_version_pins
