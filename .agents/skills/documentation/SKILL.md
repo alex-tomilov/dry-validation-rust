@@ -30,6 +30,23 @@ Use this skill when documentation is the primary deliverable or when a behavior 
 - Issue/PR: temporary plan, discussion, or implementation context.
 - Code comment: local non-obvious reasoning.
 
+## Ruby API reference (YARD)
+
+When adding or changing a public Ruby class, module, method, argument,
+return value, raised error, or supported usage, update its adjacent YARD
+documentation in the source file. Add documentation for a new public API; keep
+the existing documentation accurate for a changed API.
+
+For user-facing methods, document the purpose, parameters, return value, and
+meaningful raised errors. Include an `@example` when it materially helps a user
+call the API correctly. Do not add YARD comments for private implementation
+details or churn documentation during an internal-only change.
+
+After a Ruby public-API documentation change, run `bundle exec yard
+--fail-on-warning`. Treat warnings as unfinished documentation. If YARD is not
+available through the bundle, report that environment or dependency gap rather
+than claiming the generated API reference was verified.
+
 ## Rules
 
 - Update before creating.

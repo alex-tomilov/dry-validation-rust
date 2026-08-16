@@ -35,7 +35,9 @@ If some input is absent, infer the narrowest useful scope from the issue and exi
 6. Run focused checks, then the repository's canonical verification.
    If Ruby files, tooling, or CI configuration changed, also run
    `bundle exec rubocop` and resolve or explicitly report any offenses.
-7. Update only documentation whose truth changed.
+7. Update only documentation whose truth changed. When the slice adds or
+   changes a public Ruby API, add or update its inline YARD documentation and
+   run `bundle exec yard --fail-on-warning`.
 8. Report follow-up ideas without implementing them.
 
 ## Definition of done
