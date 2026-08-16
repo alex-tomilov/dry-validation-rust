@@ -6,10 +6,10 @@ in [COMPATIBILITY.md](COMPATIBILITY.md).
 
 ## Versioned targets
 
-| Gem line | Ruby    | Rust MSRV | Platforms                                                                  | Upstream reference                           | Status |
-| -------- | ------- | --------- | -------------------------------------------------------------------------- | -------------------------------------------- | ------ |
-| 0.1.x    | 3.3-3.5 | 1.75      | Source build, tested matrix recorded in [VERIFICATION.md](VERIFICATION.md) | `dry-validation` 1.11.1, `dry-schema` 1.16.0 | alpha  |
-| 0.2.x    | TBD     | TBD       | Native gems under evaluation                                               | pinned before beta                           | beta   |
+| Gem line | Ruby    | Rust MSRV | Platforms                                          | Upstream reference                           | Status |
+| -------- | ------- | --------- | -------------------------------------------------- | -------------------------------------------- | ------ |
+| 0.1.x    | 3.3-3.5 | 1.75      | Source build; all CI workflows use the pinned MSRV | `dry-validation` 1.11.1, `dry-schema` 1.16.0 | alpha  |
+| 0.2.x    | TBD     | TBD       | Native gems under evaluation                       | pinned before beta                           | beta   |
 
 ## Support policy
 
