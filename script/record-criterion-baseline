@@ -1,0 +1,23 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+require 'fileutils'
+require 'json'
+
+abort "Usage: #{File.basename($PROGRAM_NAME)} CRITERION_DIRECTORY OUTPUT_PATH" unless ARGV.length == 2
+
+criterion_directory, output_path = ARGV.map { |path| File.expand_path(path) }
+benchmarks = Dir.glob(File.join(criterion_directory, '**', 'new', 'estimates.json')).to_h do |path|
+  benchmark = path.delete_prefix("#{criterion_directory}/").delete_suffix('/new/estimates.json')
+  mean = JSON.parse(File.read(path)).dig('mean', 'point_estimate')
+  abort "Invalid Criterion mean estimate for #{benchmark}" unless mean.is_a?(Numeric) && mean.positive?
+
+  [benchmark, mean]
+end
+
+abort "No Criterion estimates found in #{criterion_directory}" if benchmarks.empty?
+
+FileUtils.mkdir_p(File.dirname(output_path))
+payload = JSON.pretty_generate('format_version' => 1, 'benchmarks' => benchmarks)
+File.write(output_path, "#{payload}\n")
+puts "Wrote #{benchmarks.length} Criterion benchmark estimates to #{output_path}"

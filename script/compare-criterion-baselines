@@ -1,0 +1,48 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+require 'json'
+
+MAXIMUM_REGRESSION = 1.05
+
+abort "Usage: #{File.basename($PROGRAM_NAME)} BASELINE_JSON CANDIDATE_DIRECTORY" unless ARGV.length == 2
+
+def mean_estimates(directory)
+  estimates = Dir.glob(File.join(directory, '**', 'new', 'estimates.json')).to_h do |path|
+    benchmark = path.delete_prefix("#{directory}/").delete_suffix('/new/estimates.json')
+    estimate = JSON.parse(File.read(path)).dig('mean', 'point_estimate')
+    abort "Invalid Criterion mean estimate for #{benchmark}" unless estimate.is_a?(Numeric) && estimate.positive?
+
+    [benchmark, estimate]
+  end
+
+  abort "No Criterion estimates found in #{directory}" if estimates.empty?
+
+  estimates
+end
+
+baseline_path, candidate_directory = ARGV.map { |path| File.expand_path(path) }
+baseline = JSON.parse(File.read(baseline_path)).fetch('benchmarks')
+abort "No Criterion estimates found in #{baseline_path}" if baseline.empty?
+baseline.each do |benchmark, mean|
+  abort "Invalid Criterion mean estimate for #{benchmark}" unless mean.is_a?(Numeric) && mean.positive?
+end
+candidate = mean_estimates(candidate_directory)
+missing = baseline.keys - candidate.keys
+added = candidate.keys - baseline.keys
+unless missing.empty? && added.empty?
+  abort "Benchmark sets differ; missing: #{missing.join(', ')}; added: #{added.join(', ')}"
+end
+
+regressions = baseline.filter_map do |benchmark, baseline_mean|
+  candidate_mean = candidate.fetch(benchmark)
+  next if candidate_mean <= baseline_mean * MAXIMUM_REGRESSION
+
+  percent = ((candidate_mean / baseline_mean) - 1) * 100
+  format('%<benchmark>s: %<percent>.2f%% slower (%<candidate>.2f ns vs %<baseline>.2f ns)',
+         benchmark:, percent:, candidate: candidate_mean, baseline: baseline_mean)
+end
+
+abort "Criterion regressions exceed 5%:\n#{regressions.join("\n")}" unless regressions.empty?
+
+puts "All #{candidate.length} Criterion benchmarks are within the 5% regression limit."
