@@ -57,6 +57,9 @@ jobs:
       - name: RuboCop
         run: bundle exec rubocop
 
+      - name: Verify generated predicate sources
+        run: bundle exec rake generate:predicates:check
+
       - name: Compile native extension
         run: bundle exec rake compile
 

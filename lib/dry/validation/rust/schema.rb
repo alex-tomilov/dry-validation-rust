@@ -4,6 +4,7 @@ require 'json'
 require 'date'
 require 'time'
 require 'bigdecimal'
+require_relative 'generated_predicates'
 
 module Dry
   module Validation
@@ -24,16 +25,6 @@ module Dry
           any nil bool true false integer float decimal string symbol array hash
           date date_time datetime time
         ].freeze
-        # Predicate symbols evaluated by the Rust engine.
-        #
-        # @return [Array<Symbol>]
-        NATIVE_PREDICATES = %i[gt gteq lt lteq min_size max_size size odd even].freeze
-
-        # Predicate symbols evaluated by Ruby after native validation.
-        #
-        # @return [Array<Symbol>]
-        RUBY_PREDICATES = %i[format included_in excluded_from eql not_eql].freeze
-
         Predicate = Data.define(:name, :argument) do
           def initialize(name:, argument: true)
             super(name: name.to_s.delete_suffix('?').to_sym, argument: argument)

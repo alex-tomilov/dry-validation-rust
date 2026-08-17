@@ -1,0 +1,67 @@
+# The authoritative ownership and native-plan mapping for supported predicates.
+predicates:
+  - name: gt
+    owner: rust
+    ruby_method: ">"
+    rust_op: Gt
+    supported_types: [integer, float, decimal]
+  - name: gteq
+    owner: rust
+    ruby_method: ">="
+    rust_op: Gteq
+    supported_types: [integer, float, decimal]
+  - name: lt
+    owner: rust
+    ruby_method: "<"
+    rust_op: Lt
+    supported_types: [integer, float, decimal]
+  - name: lteq
+    owner: rust
+    ruby_method: "<="
+    rust_op: Lteq
+    supported_types: [integer, float, decimal]
+  - name: min_size
+    owner: rust
+    ruby_method: ">="
+    rust_op: MinSize
+    supported_types: [string, array, hash]
+  - name: max_size
+    owner: rust
+    ruby_method: "<="
+    rust_op: MaxSize
+    supported_types: [string, array, hash]
+  - name: size
+    owner: rust
+    ruby_method: "=="
+    rust_op: Size
+    supported_types: [string, array, hash]
+  - name: odd
+    owner: rust
+    ruby_method: odd?
+    rust_op: Odd
+    supported_types: [integer]
+  - name: even
+    owner: rust
+    ruby_method: even?
+    rust_op: Even
+    supported_types: [integer]
+  - name: format
+    owner: ruby
+    ruby_method: match?
+    supported_types: [string]
+  - name: included_in
+    owner: ruby
+    ruby_method: include?
+    supported_types: [any]
+  - name: excluded_from
+    owner: ruby
+    ruby_method: exclude?
+    supported_types: [any]
+  - name: eql
+    owner: ruby
+    ruby_method: eql?
+    supported_types: [any]
+  - name: not_eql
+    owner: ruby
+    ruby_method: "!="
+    supported_types: [any]
