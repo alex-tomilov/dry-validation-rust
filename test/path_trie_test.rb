@@ -1,0 +1,47 @@
+# frozen_string_literal: true
+
+require_relative 'test_helper'
+
+class PathTrieTest < Minitest::Test
+  def test_empty_trie_has_no_prefixes
+    refute Dry::Validation::Rust::PathTrie.new.prefix?([:profile])
+    refute Dry::Validation::Rust::PathTrie.new.prefix?([])
+  end
+
+  def test_exact_path_matches
+    trie = Dry::Validation::Rust::PathTrie.new
+    trie.add([:profile, :email])
+    trie.add([:profile, :name])
+
+    assert trie.prefix?([:profile, :email])
+  end
+
+  def test_path_with_an_error_prefix_matches
+    trie = Dry::Validation::Rust::PathTrie.new
+    trie.add([:profile])
+
+    assert trie.prefix?([:profile, :email])
+  end
+
+  def test_path_that_is_a_prefix_of_a_stored_error_matches
+    trie = Dry::Validation::Rust::PathTrie.new
+    trie.add([:profile, :email])
+
+    assert trie.prefix?([:profile])
+  end
+
+  def test_non_matching_path_does_not_match
+    trie = Dry::Validation::Rust::PathTrie.new
+    trie.add([:profile, :email])
+
+    refute trie.prefix?([:profile, :name])
+  end
+
+  def test_array_indexes_are_path_parts
+    trie = Dry::Validation::Rust::PathTrie.new
+    trie.add([:users, 1, :email])
+
+    assert trie.prefix?([:users, 1, :email, :domain])
+    refute trie.prefix?([:users, 0, :email])
+  end
+end
