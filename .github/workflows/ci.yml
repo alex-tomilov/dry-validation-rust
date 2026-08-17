@@ -57,6 +57,9 @@ jobs:
       - name: RuboCop
         run: bundle exec rubocop
 
+      - name: Check YARD documentation
+        run: bundle exec yard --fail-on-warning
+
       - name: Compile native extension
         run: bundle exec rake compile
 
