@@ -287,15 +287,18 @@ module Dry
           result.finalize!
         end
 
-        # Validates input; alias for {#call}.
+        # Validates input with bracket syntax; equivalent to {#call}.
         #
         # @example Calling with bracket syntax
         #   contract[email: "ada@example.test"]
         #
-        # Accepts the same parameters as {#call}.
+        # @param input [Hash] input accepted by the declared schema
+        # @param context [Hash] context available to rule evaluators for this call
         # @return [Result] finalized schema and rule validation result
         # @raise [SchemaMissingError] if this contract has no schema
-        alias [] call
+        def [](input, context = {})
+          call(input, context)
+        end
 
         # Returns whether a macro can be resolved by this contract.
         #

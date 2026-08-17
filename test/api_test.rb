@@ -82,6 +82,7 @@ class ApiTest < Minitest::Test
     end
     result = contract.call(name: 'Jane')
 
+    assert contract[name: 'Jane'].success?
     matched = case result
               in { name: }
                 name
