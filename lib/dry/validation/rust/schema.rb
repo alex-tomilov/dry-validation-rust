@@ -124,7 +124,8 @@ module Dry
           raise ArgumentError, "Input must be a Hash. #{input.class} was given." unless input.is_a?(Hash)
 
           # Before hooks receive an isolated copy and may safely mutate nested values.
-          prepared_input = ProcessorHooks.apply(before_hooks, ProcessorHooks.deep_dup(input))
+          prepared_input = before_hooks.empty? ? input.dup : ProcessorHooks.deep_dup(input)
+          prepared_input = ProcessorHooks.apply(before_hooks, prepared_input)
           result = engine.call(prepared_input)
           output = ProcessorHooks.apply(after_hooks, result.output)
           messages = result.errors.map do |error|
