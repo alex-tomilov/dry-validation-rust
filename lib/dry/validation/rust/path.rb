@@ -4,6 +4,7 @@ module Dry
   module Validation
     module Rust
       # Normalizes the path forms accepted by dry-validation's public rule API.
+      # @api private
       module Path
         module_function
 

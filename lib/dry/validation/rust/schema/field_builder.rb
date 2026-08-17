@@ -4,6 +4,7 @@ module Dry
   module Validation
     module Rust
       class Schema
+        # @api private
         class FieldBuilder
           attr_reader :definition, :mode
 

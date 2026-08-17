@@ -4,6 +4,7 @@ module Dry
   module Validation
     module Rust
       class Schema
+        # @api private
         class ProcessorHooks
           STAGES = %i[value_coercer].freeze
 
