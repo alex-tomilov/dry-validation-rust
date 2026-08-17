@@ -68,7 +68,7 @@ class SchemaTest < Minitest::Test
     assert_equal({ age: 43 }, contract.new.call('age' => ' 42 ').to_h)
   end
 
-  def test_before_processor_hooks_receive_a_shallow_duplicate_of_input
+  def test_before_processor_hooks_receive_an_isolated_copy_of_input
     contract = build_contract do
       params do
         before(:value_coercer) { |input| input.fetch('account')['name'] = 'Jane' }
@@ -81,7 +81,23 @@ class SchemaTest < Minitest::Test
 
     assert result.success?
     assert_equal({ account: { name: 'Jane' } }, result.to_h)
-    assert_equal({ 'account' => { 'name' => 'Jane' } }, input)
+    assert_equal({ 'account' => { 'name' => 'John' } }, input)
+  end
+
+  def test_before_processor_hooks_can_mutate_nested_arrays_without_mutating_input
+    contract = build_contract do
+      params do
+        before(:value_coercer) { |input| input.fetch('accounts').first.fetch('name').replace('Jane') }
+        required(:accounts).array(:hash) { required(:name).value(:string) }
+      end
+    end
+    input = { 'accounts' => [{ 'name' => 'John' }] }
+
+    result = contract.new.call(input)
+
+    assert result.success?
+    assert_equal({ accounts: [{ name: 'Jane' }] }, result.to_h)
+    assert_equal({ 'accounts' => [{ 'name' => 'John' }] }, input)
   end
 
   def test_processor_hooks_reject_unknown_stages_and_missing_blocks
