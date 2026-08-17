@@ -3,6 +3,7 @@
 module Dry
   module Validation
     module Rust
+      # @api private
       module BlockKeywordParameters
         EMPTY = [].freeze
 

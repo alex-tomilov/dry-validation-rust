@@ -4,6 +4,7 @@ module Dry
   module Validation
     module Rust
       class Schema
+        # @api private
         class DSL
           attr_reader :mode, :fields, :before_hooks, :after_hooks
 
