@@ -31,6 +31,8 @@ Use this skill only for an actual release candidate or explicit release-preparat
 - known limitations and rollback path.
 - `bundle exec rubocop` passes when the release candidate includes Ruby source,
   tests, tooling, or CI configuration changes.
+- `bundle exec yard --fail-on-warning` passes when the release candidate
+  changes a public Ruby API or its YARD documentation.
 
 ## Rules
 

@@ -3,6 +3,18 @@
 module Dry
   module Validation
     module Rust
+      # A validation contract that combines a compiled schema with ordered rules.
+      #
+      # @example Defining a contract
+      #   class UserContract < Dry::Validation::Rust::Contract
+      #     params do
+      #       required(:email).filled(:string)
+      #     end
+      #
+      #     rule(:email) do
+      #       key.failure("is invalid") unless value.include?("@")
+      #     end
+      #   end
       class Contract
         Undefined = Object.new.freeze
         OptionDefinition = Data.define(:name, :default, :optional) do
@@ -13,6 +25,9 @@ module Dry
 
         class << self
           # Copies schema configuration and macros when a contract is inherited.
+          #
+          # @param child [Class] subclass inheriting this contract
+          # @return [void]
           def inherited(child)
             super
             child.instance_variable_set(:@config, config.dup)
@@ -20,26 +35,61 @@ module Dry
           end
 
           # Returns this contract class's configuration.
+          #
+          # @return [Config] mutable schema configuration for this class
           def config
             @config ||= Config.new
           end
 
           # Defines or returns a Params-mode schema for this contract.
+          #
+          # @example Defining a params schema
+          #   params { required(:age).value(:integer) }
+          #
+          # @param external_schemas [Array<Schema>] schemas to import
+          # @yield schema definition DSL
+          # @return [Schema] the compiled schema
+          # @raise [DuplicateSchemaError] if this class already has a schema
           def params(*external_schemas, &)
             define_schema(:params, external_schemas, &)
           end
 
           # Defines or returns a JSON-mode schema for this contract.
+          #
+          # @example Defining a JSON schema
+          #   json { required(:name).filled(:string) }
+          #
+          # @param external_schemas [Array<Schema>] schemas to import
+          # @yield schema definition DSL
+          # @return [Schema] the compiled schema
+          # @raise [DuplicateSchemaError] if this class already has a schema
           def json(*external_schemas, &)
             define_schema(:json, external_schemas, &)
           end
 
           # Defines or returns a schema-mode schema for this contract.
+          #
+          # @example Defining a schema-mode schema
+          #   schema { required(:name).filled(:string) }
+          #
+          # @param external_schemas [Array<Schema>] schemas to import
+          # @yield schema definition DSL
+          # @return [Schema] the compiled schema
+          # @raise [DuplicateSchemaError] if this class already has a schema
           def schema(*external_schemas, &)
             define_schema(:schema, external_schemas, &)
           end
 
           # Registers a validation rule for one or more schema paths.
+          #
+          # @example Validating a nested field
+          #   rule("profile.email") { key.failure("is invalid") unless value.include?("@") }
+          #
+          # @param specs [Array<Symbol, String, Array, Hash>] schema path specifications
+          # @yield rule evaluated after successful schema validation
+          # @return [Rule] the registered rule
+          # @raise [SchemaMissingError] if no schema has been declared
+          # @raise [InvalidKeysError] if a path is not declared by the schema
           def rule(*specs, &block)
             paths = specs.flat_map { |spec| Path.expand(spec) }
             ensure_valid_paths(paths) unless paths.empty?
@@ -49,17 +99,30 @@ module Dry
           end
 
           # Returns inherited and locally declared rules in execution order.
+          #
+          # @return [Array<Rule>] rules evaluated by instances of this contract
           def rules
             inherited_rules = superclass.respond_to?(:rules) ? superclass.rules : []
             [*inherited_rules, *own_rules]
           end
 
           # Returns rules declared directly on this contract class.
+          #
+          # @return [Array<Rule>] rules declared without inheritance
           def own_rules
             @own_rules ||= []
           end
 
           # Declares an injected contract option and its default behavior.
+          #
+          # @example Requiring an injected dependency
+          #   option :repository
+          #   rule(:email) { key.failure("is taken") if repository.taken?(value) }
+          #
+          # @param name [Symbol, String] option reader name
+          # @param default [Object, Proc] value, or callable default, used when omitted
+          # @param optional [Boolean] whether an omitted option is set to +nil+
+          # @return [Class] this contract class
           def option(name, default: Undefined, optional: false, **_options)
             (@option_definitions ||= {})[name.to_sym] = OptionDefinition.new(
               name: name.to_sym,
@@ -72,34 +135,58 @@ module Dry
           end
 
           # Returns option definitions inherited by this contract class.
+          #
+          # @return [Hash{Symbol => OptionDefinition}] inherited and local definitions
           def option_definitions
             inherited = superclass.respond_to?(:option_definitions) ? superclass.option_definitions : {}
             inherited.merge(@option_definitions ||= {})
           end
 
           # Registers a macro available to rules on this contract class.
+          #
+          # @example Registering a macro
+          #   register_macro(:check_name) { key.failure("is invalid") unless value.match?(/\A[A-Z]/) }
+          #
+          # @param name [Symbol, String] macro name
+          # Positional arguments are forwarded to the macro registry.
+          # @yield macro implementation
+          # @return [Class] this contract class
           def register_macro(name, *, &)
             macro_registry.register(name, *, &)
             self
           end
 
           # Returns this contract class's macro registry.
+          #
+          # @return [MacroRegistry] registry used to resolve rule macros
           def macro_registry
             @macro_registry ||= MacroRegistry.new(Rust.global_macros)
           end
 
           # Enables supported predicates to be resolved as rule macros.
+          #
+          # @return [Class] this contract class
           def import_predicates_as_macros
             @predicates_as_macros = true
             self
           end
 
           # Builds an anonymous contract instance, optionally configured by a block.
+          #
+          # @example Building a one-off contract
+          #   contract = Contract.build { params { required(:name).filled(:string) } }
+          #   contract.call(name: "Ada").success? # => true
+          #
+          # @param options [Hash{Symbol => Object}] options passed to the new instance
+          # @yield anonymous contract class definition
+          # @return [Contract] a configured anonymous contract instance
           def build(options = {}, &)
             Class.new(self, &).new(**options)
           end
 
           # Returns the compiled schema declared by this class or an ancestor.
+          #
+          # @return [Schema, nil] the compiled schema, if one has been declared
           def schema_definition
             return @schema_definition if instance_variable_defined?(:@schema_definition)
 
@@ -149,16 +236,32 @@ module Dry
           end
         end
 
-        # @return [Hash] context merged into every call to this contract.
+        # Returns context merged into every call to this contract.
+        #
+        # @return [Hash] context merged into every call to this contract
         attr_reader :default_context
 
         # Creates a contract with optional default context and declared options.
+        #
+        # @param default_context [Hash] context merged with call-specific context
+        # @param options [Hash{Symbol => Object}] values for declared options
+        # @return [Contract] a configured contract instance
+        # @raise [ArgumentError] if an option is missing or unknown
         def initialize(default_context: {}, **options)
           @default_context = default_context
           initialize_options(options)
         end
 
         # Validates input and returns a finalized result, including rule failures.
+        #
+        # @example Validating input
+        #   result = contract.call(email: "ada@example.test")
+        #   result.success? # => true
+        #
+        # @param input [Hash] input accepted by the declared schema
+        # @param context [Hash] context available to rule evaluators for this call
+        # @return [Result] finalized schema and rule validation result
+        # @raise [SchemaMissingError] if this contract has no schema
         def call(input, context = {})
           schema = self.class.schema_definition
           raise SchemaMissingError, "#{self.class} must define a schema" unless schema
@@ -184,20 +287,39 @@ module Dry
           result.finalize!
         end
 
-        # Alias for #call.
-        alias [] call
+        # Validates input with bracket syntax; equivalent to {#call}.
+        #
+        # @example Calling with bracket syntax
+        #   contract[email: "ada@example.test"]
+        #
+        # @param input [Hash] input accepted by the declared schema
+        # @param context [Hash] context available to rule evaluators for this call
+        # @return [Result] finalized schema and rule validation result
+        # @raise [SchemaMissingError] if this contract has no schema
+        def [](input, context = {})
+          call(input, context)
+        end
 
         # Returns whether a macro can be resolved by this contract.
+        #
+        # @param name [Symbol, String] macro name
+        # @return [Boolean] whether the macro is registered
         def macro_registered?(name)
           self.class.macro_registry.key?(name)
         end
 
         # Resolves a registered macro by name.
+        #
+        # @param name [Symbol, String] macro name
+        # @return [Macro] registered macro implementation
+        # @raise [KeyError] if no macro is registered with +name+
         def resolve_macro(name)
           self.class.macro_registry.fetch(name)
         end
 
         # Returns a diagnostic representation of the compiled contract.
+        #
+        # @return [String] contract class, schema, and rules
         def inspect
           "#<#{self.class} schema=#{self.class.schema_definition.inspect} rules=#{self.class.rules.inspect}>"
         end

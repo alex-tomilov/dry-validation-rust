@@ -47,6 +47,7 @@ Gem::Specification.new do |spec|
   spec.add_development_dependency 'rake', '~> 13.1'
   spec.add_development_dependency 'rake-compiler', '~> 1.3'
   spec.add_development_dependency 'rake-compiler-dock', '~> 1.12'
+  spec.add_development_dependency 'yard', '~> 0.9'
 
   spec.metadata['rubygems_mfa_required'] = 'true'
   spec.metadata['source_code_uri'] = 'https://github.com/alex-tomilov/dry-validation-rust'
