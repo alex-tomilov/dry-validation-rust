@@ -12,18 +12,24 @@ module Dry
       # @example Add a failure for the rule value
       #   rule(:age) { key.failure("must be at least 18") if value < 18 }
       class Evaluator
+        # @api private
+        #
         # Returns the contract executing the rule.
         #
         # @return [Contract]
         # @example Read a contract option from a rule
         #   rule(:name) { key.failure("is reserved") if contract.reserved?(value) }
         attr_reader :contract
+        # @api private
+        #
         # Returns the result receiving rule failures.
         #
         # @return [Contract::Result]
         # @example Inspect a schema error before adding a rule failure
         #   rule(:email) { key.failure("is unavailable") unless result.schema_error?(:email) }
         attr_reader :result
+        # @api private
+        #
         # Returns the paths declared for the rule.
         #
         # @return [Array<Array<Symbol, Integer>>]
@@ -36,6 +42,8 @@ module Dry
         # @example Compare two validated values
         #   rule(:password_confirmation) { key.failure("does not match") if value != values[:password] }
         attr_reader :values
+        # @api private
+        #
         # Returns the mutable context for the current contract call.
         #
         # @return [Hash]
@@ -48,6 +56,8 @@ module Dry
         # @example Add an error for the second collection member
         #   rule(:tags).each { key.failure("is reserved") if index == 1 && value == "admin" }
         attr_reader :index
+        # @api private
+        #
         # Returns failures collected while executing the rule.
         #
         # @return [Array<Message>]
@@ -55,6 +65,8 @@ module Dry
         #   evaluator.failures # => [#<Dry::Validation::Rust::Message ...>]
         attr_reader :failures
 
+        # @api private
+        #
         # Creates a rule evaluation context. This is primarily used by Contract.
         #
         # @param contract [Contract] contract executing the rule
@@ -79,6 +91,8 @@ module Dry
           @base_failures = Failures.new
         end
 
+        # @api private
+        #
         # Executes a rule block and macro calls, then collects their failures.
         #
         # @param block [Proc, nil] rule block to execute
@@ -116,6 +130,8 @@ module Dry
           @base_failures
         end
 
+        # @api private
+        #
         # Returns the default rule path as a key or nested path.
         #
         # @return [Symbol, Array<Symbol, Integer>]
@@ -155,6 +171,8 @@ module Dry
           result.schema_error?(path)
         end
 
+        # @api private
+        #
         # Alias for #schema_error?.
         #
         # @example Use the short schema-error predicate
@@ -184,6 +202,8 @@ module Dry
           !base.empty? || result.base_rule_error?
         end
 
+        # @api private
+        #
         # Returns the mutable context supplied to the contract call.
         #
         # @return [Hash]
@@ -193,6 +213,8 @@ module Dry
           context
         end
 
+        # @api private
+        #
         # Reports contract methods delegated through this evaluator.
         #
         # @param name [Symbol] method name to check
@@ -206,18 +228,25 @@ module Dry
 
         private
 
+        private :initialize, :contract, :result, :paths, :context, :failures, :execute,
+                :key_name, :error?, :_context, :respond_to_missing?
+
+        # @api private
         attr_reader :default_path
 
+        # @api private
         def value_path
           paths.first || []
         end
 
+        # @api private
         def execute_block(block, keyword_params, macro: nil)
           keyword_values = { context: context, index: index, macro: macro }
           kwargs = keyword_values.slice(*keyword_params)
           kwargs.empty? ? instance_exec(&block) : instance_exec(**kwargs, &block)
         end
 
+        # @api private
         def execute_macro(call)
           name, *args = call
           if contract.macro_registered?(name)
@@ -228,6 +257,7 @@ module Dry
           end
         end
 
+        # @api private
         def execute_predicate_macro(name, args)
           normalized = name.to_s.delete_suffix('?').to_sym
           expected = args.length == 1 ? args.first : args
@@ -247,11 +277,13 @@ module Dry
           key.failure("must satisfy #{name}") unless valid
         end
 
+        # @api private
         def collect_failures
           failures.concat(base.messages)
           @key_failures.each_value { |set| failures.concat(set.messages) }
         end
 
+        # @api private
         def method_missing(name, ...)
           return contract.__send__(name, ...) if contract.respond_to?(name, true)
 

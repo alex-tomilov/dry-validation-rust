@@ -380,8 +380,8 @@ module Dry
             context: context,
             index: index
           )
-          evaluator.execute(rule.block, rule.macro_calls,
-                            keyword_params: rule.keyword_params).failures.each do |failure|
+          evaluator.send(:execute, rule.block, rule.macro_calls,
+                         keyword_params: rule.keyword_params).send(:failures).each do |failure|
             result.add_error(failure)
           end
         end
