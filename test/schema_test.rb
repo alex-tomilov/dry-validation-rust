@@ -18,8 +18,21 @@ class SchemaTest < Minitest::Test
     assert_equal Data, result.class.superclass
     assert result.frozen?
     assert_equal result, Dry::Validation::Rust::Schema::Result.new(output, messages)
+    assert_equal result, Dry::Validation::Rust::Schema::Result.new(output: output, messages: messages)
     assert_equal output, result.to_h
     assert result.success?
+  end
+
+  def test_result_caches_frozen_schema_error_path_prefixes
+    messages = [
+      Dry::Validation::Rust::Message.new(text: 'is invalid', path: %i[address city], source: :schema),
+      Dry::Validation::Rust::Message.new(text: 'is missing', path: [:name], source: :schema)
+    ]
+
+    prefixes = Dry::Validation::Rust::Schema::Result.new({}, messages).error_prefixes
+
+    assert_equal Set[[], [:address], %i[address city], [:name]], prefixes
+    assert prefixes.frozen?
   end
 
   def test_predicate_is_an_immutable_value_object_with_normalized_name_and_default_argument
