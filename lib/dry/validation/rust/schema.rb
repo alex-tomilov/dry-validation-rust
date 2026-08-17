@@ -199,39 +199,50 @@ module Dry
         end
 
         def apply_ruby_predicates_at(definitions, data, prefix, messages, error_paths)
-          return unless data.is_a?(Hash)
+          stack = [[:definitions, definitions, data, prefix]]
 
-          definitions.each do |field|
-            next unless data.key?(field.name)
+          until stack.empty?
+            kind, *arguments = stack.pop
+            case kind
+            when :definitions
+              current_definitions, current_data, current_prefix = arguments
+              next unless current_data.is_a?(Hash)
 
-            path = [*prefix, field.name]
-            value = data[field.name]
-            unless error_paths.include?(path)
-              field.predicates.each do |predicate|
-                next if NATIVE_PREDICATES.include?(predicate.name)
+              current_definitions.reverse_each do |field|
+                stack << [:field, field, current_data, current_prefix]
+              end
+            when :field
+              field, current_data, current_prefix = arguments
+              next unless current_data.key?(field.name)
 
-                valid = predicate_valid?(predicate, value)
-                unless valid
-                  messages << predicate_message(predicate, path)
-                  error_paths << path
+              path = [*current_prefix, field.name]
+              value = current_data[field.name]
+              apply_ruby_predicates_to(field, value, path, messages, error_paths)
+
+              if value.is_a?(Hash)
+                stack << [:definitions, field.children, value, path]
+              elsif value.is_a?(Array) && field.member
+                value.each_index.reverse_each do |index|
+                  stack << [:member, field.member, value[index], [*path, index]]
                 end
               end
+            when :member
+              member, value, path = arguments
+              apply_ruby_predicates_to(member, value, path, messages, error_paths)
+              stack << [:definitions, member.children, value, path]
             end
+          end
+        end
 
-            apply_ruby_predicates_at(field.children, value, path, messages, error_paths) if value.is_a?(Hash)
-            next unless value.is_a?(Array) && field.member
+        def apply_ruby_predicates_to(field, value, path, messages, error_paths)
+          return if error_paths.include?(path)
 
-            value.each_with_index do |member_value, index|
-              member_path = [*path, index]
-              field.member.predicates.each do |predicate|
-                next if NATIVE_PREDICATES.include?(predicate.name) || error_paths.include?(member_path)
+          field.predicates.each do |predicate|
+            next if NATIVE_PREDICATES.include?(predicate.name)
 
-                unless predicate_valid?(predicate, member_value)
-                  messages << predicate_message(predicate, member_path)
-                  error_paths << member_path
-                end
-              end
-              apply_ruby_predicates_at(field.member.children, member_value, member_path, messages, error_paths)
+            unless predicate_valid?(predicate, value)
+              messages << predicate_message(predicate, path)
+              error_paths << path
             end
           end
         end
