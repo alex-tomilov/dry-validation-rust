@@ -23,6 +23,7 @@ module Dry
       end
 
       # Resolves schema error text from the configured localized-message source.
+      # @api private
       class MessageBackend
         def initialize(config)
           @backend = config.backend.to_sym

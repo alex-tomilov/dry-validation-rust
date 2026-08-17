@@ -34,6 +34,7 @@ module Dry
         # @return [Array<Symbol>]
         RUBY_PREDICATES = %i[format included_in excluded_from eql not_eql].freeze
 
+        # @api private
         Predicate = Data.define(:name, :argument) do
           def initialize(name:, argument: true)
             super(name: name.to_s.delete_suffix('?').to_sym, argument: argument)
@@ -53,9 +54,11 @@ module Dry
         # @return [Symbol] the schema input mode.
         attr_reader :mode
 
+        # @api private
         # @return [Array<FieldDefinition>] the compiled top-level field definitions.
         attr_reader :fields
 
+        # @api private
         # @return [Native::Engine] the native engine that executes this schema.
         attr_reader :engine
 
@@ -87,6 +90,8 @@ module Dry
         def self.JSON(*external_schemas, &) = define(:json, *external_schemas, &)
 
         # Compiles field definitions into a native schema plan.
+        #
+        # @api private
         #
         # @param mode [Symbol] the input mode.
         # @param fields [Array<FieldDefinition>] field definitions to compile.
@@ -123,8 +128,9 @@ module Dry
         def call(input)
           raise ArgumentError, "Input must be a Hash. #{input.class} was given." unless input.is_a?(Hash)
 
-          # Before hooks receive a shallow duplicate; mutating nested values also mutates input.
-          prepared_input = ProcessorHooks.apply(before_hooks, input.dup)
+          # Before hooks receive an isolated copy and may safely mutate nested values.
+          prepared_input = before_hooks.empty? ? input.dup : ProcessorHooks.deep_dup(input)
+          prepared_input = ProcessorHooks.apply(before_hooks, prepared_input)
           result = engine.call(prepared_input)
           output = ProcessorHooks.apply(after_hooks, result.output)
           messages = result.errors.map do |error|
@@ -152,6 +158,8 @@ module Dry
 
         # Returns all declared field paths, including nested array paths.
         #
+        # @api private
+        #
         # @return [Array<Array<Symbol, Integer>>] declared field paths. Array members
         #   use +:__index__+ as an index placeholder.
         def key_paths
@@ -169,6 +177,7 @@ module Dry
 
         attr_reader :before_hooks, :after_hooks
 
+        # @api private
         def native_message(path, code, text, predicate, args)
           Message.new(
             text: native_error_message(code, text, predicate, args, path),
@@ -176,6 +185,7 @@ module Dry
           )
         end
 
+        # @api private
         def native_error_message(code, native_text, predicate, args, path)
           field = field_at_path(path)
           @message_backend.message(
@@ -184,6 +194,7 @@ module Dry
           )
         end
 
+        # @api private
         def paths_for(definitions, prefix = [])
           definitions.flat_map do |field|
             current = [*prefix, field.name]
@@ -193,11 +204,13 @@ module Dry
           end
         end
 
+        # @api private
         def apply_ruby_predicates(definitions, data, prefix, messages)
           error_paths = messages.to_set(&:path)
           apply_ruby_predicates_at(definitions, data, prefix, messages, error_paths)
         end
 
+        # @api private
         def apply_ruby_predicates_at(definitions, data, prefix, messages, error_paths)
           return unless data.is_a?(Hash)
 
@@ -236,6 +249,7 @@ module Dry
           end
         end
 
+        # @api private
         def predicate_valid?(predicate, value)
           case predicate.name
           when :format then value.respond_to?(:match?) && predicate.argument.match?(value)
@@ -249,6 +263,7 @@ module Dry
           end
         end
 
+        # @api private
         def predicate_message(predicate, path)
           text = case predicate.name
                  when :format then 'is in invalid format'
