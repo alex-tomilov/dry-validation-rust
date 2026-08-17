@@ -8,12 +8,30 @@ require 'bigdecimal'
 module Dry
   module Validation
     module Rust
+      # A compiled schema that validates and coerces input hashes.
+      #
+      # @example Define and call a schema
+      #   schema = Dry::Validation::Rust::Schema.Params do
+      #     required(:age).value(:integer)
+      #   end
+      #   result = schema.call("age" => "25")
+      #   result.to_h # => { age: 25 }
       class Schema
+        # Type symbols supported by schema fields.
+        #
+        # @return [Array<Symbol>]
         TYPES = %i[
           any nil bool true false integer float decimal string symbol array hash
           date date_time datetime time
         ].freeze
+        # Predicate symbols evaluated by the Rust engine.
+        #
+        # @return [Array<Symbol>]
         NATIVE_PREDICATES = %i[gt gteq lt lteq min_size max_size size odd even].freeze
+
+        # Predicate symbols evaluated by Ruby after native validation.
+        #
+        # @return [Array<Symbol>]
         RUBY_PREDICATES = %i[format included_in excluded_from eql not_eql].freeze
 
         Predicate = Data.define(:name, :argument) do
@@ -32,9 +50,21 @@ module Dry
       require_relative 'schema/dsl'
 
       class Schema
-        attr_reader :mode, :fields, :engine
+        # @return [Symbol] the schema input mode.
+        attr_reader :mode
 
-        # Builds a schema from a DSL block and optional Rust schemas to import.
+        # @return [Array<FieldDefinition>] the compiled top-level field definitions.
+        attr_reader :fields
+
+        # @return [Native::Engine] the native engine that executes this schema.
+        attr_reader :engine
+
+        # Builds a schema from a DSL block and optional schemas to import.
+        #
+        # @param mode [Symbol] the input mode, such as `:schema`, `:params`, or `:json`.
+        # @param external_schemas [Array<Schema>] compiled schemas whose fields are imported.
+        # @yield the schema DSL block.
+        # @return [Schema] the compiled schema.
         def self.define(mode = :schema, *external_schemas, &block)
           dsl = DSL.new(mode: mode)
           external_schemas.each { |schema| dsl.import(schema) }
@@ -42,10 +72,29 @@ module Dry
           dsl.compile
         end
 
+        # Builds a schema that coerces web request parameter input.
+        #
+        # @param external_schemas [Array<Schema>] compiled schemas whose fields are imported.
+        # @yield the schema DSL block.
+        # @return [Schema] the compiled params-mode schema.
         def self.Params(*external_schemas, &) = define(:params, *external_schemas, &)
+
+        # Builds a schema that coerces JSON-compatible input.
+        #
+        # @param external_schemas [Array<Schema>] compiled schemas whose fields are imported.
+        # @yield the schema DSL block.
+        # @return [Schema] the compiled JSON-mode schema.
         def self.JSON(*external_schemas, &) = define(:json, *external_schemas, &)
 
         # Compiles field definitions into a native schema plan.
+        #
+        # @param mode [Symbol] the input mode.
+        # @param fields [Array<FieldDefinition>] field definitions to compile.
+        # @param before_hooks [Array<#call>] processors run before native validation.
+        # @param after_hooks [Array<#call>] processors run after native validation.
+        # @param validate_keys [Boolean] whether unknown keys are validation errors.
+        # @param messages [MessageConfig] validation message configuration.
+        # @raise [NativeExtensionError] if the native schema plan cannot be compiled.
         def initialize(mode:, fields:, before_hooks: [], after_hooks: [], validate_keys: false,
                        messages: MessageConfig.new)
           @mode = mode.to_sym
@@ -66,7 +115,11 @@ module Dry
           end
         end
 
-        # Validates a Hash and returns its output and schema messages.
+        # Validates and coerces a Hash.
+        #
+        # @param input [Hash] input to validate.
+        # @return [Result] the output and validation messages.
+        # @raise [ArgumentError] if +input+ is not a Hash.
         def call(input)
           raise ArgumentError, "Input must be a Hash. #{input.class} was given." unless input.is_a?(Hash)
 
@@ -86,15 +139,28 @@ module Dry
           Result.new(output, messages.freeze)
         end
 
-        # Alias for #call.
-        alias [] call
+        # Validates and coerces a Hash.
+        #
+        # Alias for {#call}.
+        #
+        # @param input [Hash] input to validate.
+        # @return [Result] the output and validation messages.
+        # @raise [ArgumentError] if +input+ is not a Hash.
+        def [](input)
+          call(input)
+        end
 
         # Returns all declared field paths, including nested array paths.
+        #
+        # @return [Array<Array<Symbol, Integer>>] declared field paths. Array members
+        #   use +:__index__+ as an index placeholder.
         def key_paths
           paths_for(fields)
         end
 
         # Returns a diagnostic representation of this compiled schema.
+        #
+        # @return [String] the schema mode, field names, and native-engine marker.
         def inspect
           "#<#{self.class} mode=#{mode.inspect} fields=#{fields.map(&:name).inspect} native=true>"
         end
