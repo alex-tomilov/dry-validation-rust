@@ -25,7 +25,7 @@ class ApiTest < Minitest::Test
     },
     Dry::Validation::Rust::Evaluator => {
       class: [],
-      instance: %i[_context base base_rule_error? context contract error? execute failures index key key? key_name paths result rule_error? schema_error? value values]
+      instance: %i[base base_rule_error? index key key? rule_error? schema_error? value values]
     },
     Dry::Validation::Rust::Contract::Values => {
       class: [],
