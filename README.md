@@ -256,7 +256,10 @@ with five fields each (90% valid); and a 20-field all-invalid case. Each result
 includes validations/second, sampled p50/p95/p99 latency, Ruby allocations per
 call, and peak process RSS under the sustained run. Use `FORMAT=json` for
 machine-readable output, and tune `WARMUP`, `N`, and `LATENCY_SAMPLES` when
-collecting evidence.
+collecting evidence. Text output uses `benchmark-ips` with a 2-second warmup
+and 5-second measurement by default; tune those with `IPS_WARMUP` and
+`IPS_TIME`. Its MemoryProfiler allocation section profiles 1,000 validations
+per engine by default; tune that independently with `MEMORY_PROFILE_N`.
 
 Refresh the allocation-regression baseline only after intentionally reviewing an
 allocation change:
