@@ -3,14 +3,16 @@
 module Dry
   module Validation
     module Rust
+      # Configures the message backend used by compiled schemas.
       class MessageConfig
         BACKENDS = { yaml: YamlBackend, i18n: I18nBackend }.freeze
 
+        # @return [:yaml, :i18n, Class] the selected built-in identifier or custom backend class.
         attr_reader :backend
         attr_accessor :default_locale, :top_namespace, :load_paths
 
         def initialize
-          self.backend = :yaml
+          @backend = :yaml
           @default_locale = :en
           @top_namespace = :dry_validation
           @load_paths = []
@@ -21,15 +23,18 @@ module Dry
         # @param backend [:yaml, :i18n, Class] backend identifier or adapter class.
         # @raise [ArgumentError] if the backend is unsupported.
         def backend=(backend)
-          @backend = BACKENDS.fetch(backend) { validate_backend_class(backend) }
-        rescue KeyError
-          raise ArgumentError, backend_error(backend)
+          @backend = BACKENDS.key?(backend) ? backend : validate_backend_class(backend)
         end
 
         def dup
           copy = super
           copy.load_paths = load_paths.dup
           copy
+        end
+
+        # @api private
+        def backend_class
+          BACKENDS.fetch(backend, backend)
         end
 
         private

@@ -21,6 +21,7 @@ Gem::Specification.new do |spec|
     'CHANGELOG.md',
     'LICENSE',
     'NOTICE.md',
+    'predicates.yml',
     'README.md',
     'dry-validation-rust.gemspec',
     'rust-toolchain.toml',

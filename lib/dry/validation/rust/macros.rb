@@ -5,12 +5,14 @@ require_relative 'block_keyword_parameters'
 module Dry
   module Validation
     module Rust
+      # @api private
       Macro = Struct.new(:name, :args, :block, :keyword_params, keyword_init: true) do
         def with(call_args)
           self.class.new(name: name, args: args + call_args, block: block, keyword_params: keyword_params)
         end
       end
 
+      # @api private
       class MacroRegistry
         def initialize(parent = nil)
           @parent = parent
