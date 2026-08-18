@@ -640,6 +640,20 @@ class SchemaTest < Minitest::Test
     assert_equal 'must be greater than or equal to 18', result.errors.to_h[:age].first
   end
 
+  def test_ruby_predicates_apply_to_nested_array_members
+    contract = build_contract do
+      params do
+        required(:people).array(:hash) do
+          required(:email).value(:string, format?: /\A[^@]+@[^@]+\z/)
+        end
+      end
+    end
+
+    result = contract.new.call(people: [{ email: 'invalid' }, { email: 'jane@example.test' }])
+
+    assert_equal({ people: { 0 => { email: ['is in invalid format'] } } }, result.errors.to_h)
+  end
+
   def test_native_predicate_exceptions_propagate_from_schema_call
     odd_error = Class.new do
       def odd?
