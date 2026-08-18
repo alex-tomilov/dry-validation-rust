@@ -98,7 +98,7 @@ module Dry
           @fields_by_name = fields.to_h { |field| [field.name, field] }.freeze
           @has_ruby_predicates = ruby_predicates?(fields)
           @before_hooks, @after_hooks = [before_hooks, after_hooks].map { _1.dup.freeze }
-          @message_backend = MessageBackend.new(messages)
+          @message_backend = messages.backend_class.new(messages)
           begin
             plan = {
               engine_version: ENGINE_VERSION,
@@ -287,7 +287,7 @@ module Dry
                  else 'is invalid'
                  end
           text = @message_backend.message(
-            code: predicate.name, predicate: predicate.name, args: [predicate.argument], fallback: text
+            code: predicate.name, predicate: predicate.name, args: [predicate.argument], type: nil, fallback: text
           )
           Message.new(
             text: text, path: path, code: predicate.name, source: :schema,

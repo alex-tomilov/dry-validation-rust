@@ -23,7 +23,9 @@ module Dry
                 data[field.name] = result.input
                 unless result.success?
                   messages << Message.new(
-                    text: message_backend.message(code: :type, type: field.type, fallback: 'is invalid'),
+                    text: message_backend.message(
+                      code: :type, predicate: nil, args: [], type: field.type, fallback: 'is invalid'
+                    ),
                     path: path, code: :type, source: :schema
                   )
                   error_paths << path

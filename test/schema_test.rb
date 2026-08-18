@@ -196,7 +196,35 @@ class SchemaTest < Minitest::Test
       end
     end
 
-    assert_equal '+database+ is not a valid messages identifier', error.message
+    assert_equal(
+      'messages.backend must be :yaml, :i18n, or a MessageBackend subclass; got :database',
+      error.message
+    )
+  end
+
+  def test_message_backend_preserves_builtin_identifiers
+    messages = Dry::Validation::Rust::MessageConfig.new
+
+    assert_equal :yaml, messages.backend
+
+    messages.backend = :i18n
+
+    assert_equal :i18n, messages.backend
+  end
+
+  def test_custom_message_backend_class_resolves_schema_messages
+    custom_backend = Class.new(Dry::Validation::Rust::MessageBackend) do
+      def message(code:, **)
+        "CUSTOM: #{code}"
+      end
+    end
+    contract = build_contract do
+      config.messages.backend = custom_backend
+      params { required(:age).value(:integer) }
+    end
+
+    assert_equal custom_backend, contract.config.messages.backend
+    assert_equal({ age: ['CUSTOM: type'] }, contract.new.call(age: 'invalid').errors.to_h)
   end
 
   def test_schema_at_the_nesting_limit_preserves_the_entire_output

@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Added pluggable schema message backends through custom `MessageBackend`
+  subclasses.
 - Changed the native engine boundary to return a typed `SchemaResult` with
   `#output` and `#errors` accessors.
 - Fixed native predicate evaluation to propagate exceptions raised by Ruby
