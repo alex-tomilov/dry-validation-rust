@@ -342,6 +342,12 @@ jobs:
       id-token: write
 
     steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.mode == 'publish-existing-tag' && inputs.release_tag || github.sha }}
+          fetch-depth: 0
+
       - name: Setup Ruby
         uses: ruby/setup-ruby@v1
         with:
@@ -365,7 +371,16 @@ jobs:
           set -euo pipefail
 
           for artifact in pkg/*.gem; do
-            gem push "${artifact}"
+            if ! output=$(gem push "${artifact}" 2>&1); then
+              if echo "${output}" | grep -qi "Repushing"; then
+                echo "::warning::Gem already exists on RubyGems.org: ${artifact}"
+              else
+                echo "${output}"
+                exit 1
+              fi
+            else
+              echo "${output}"
+            fi
           done
 
       - name: Attach artifacts to GitHub Release
@@ -377,9 +392,9 @@ jobs:
 
           # Create the release if it doesn't already exist
           if ! gh release view "${TAG}" >/dev/null 2>&1; then
-            echo "Release ${TAG} does not exist. Creating it..."
-            gh release create "${TAG}" --title "${TAG}" --generate-notes
+            echo "Release for tag ${TAG} does not exist. Creating it with title ${TAG#v}..."
+            gh release create "${TAG}" --title "${TAG#v}" --generate-notes
           fi
 
-          echo "Uploading artifacts to release ${TAG}..."
+          echo "Uploading artifacts to release for tag ${TAG}..."
           gh release upload "${TAG}" pkg/* --clobber
