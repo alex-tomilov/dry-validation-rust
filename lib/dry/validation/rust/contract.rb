@@ -272,13 +272,13 @@ module Dry
           schema_result = schema.call(input)
           shared_context = default_context.merge(context)
           result = Result.new(schema_result, shared_context)
-          schema_error_path_prefixes = schema_result.error_prefixes
+          schema_error_paths = schema_result.error_prefixes
 
           self.class.rules.each do |rule|
             if rule.each?
               execute_each(rule, result, shared_context)
             else
-              next if rule.paths.any? { |path| dependency_error?(schema_error_path_prefixes, path) }
+              next if rule.paths.any? { |path| dependency_error?(schema_error_paths, path) }
 
               execute_rule(rule, result, shared_context)
             end
@@ -354,8 +354,8 @@ module Dry
         end
 
         # @api private
-        def dependency_error?(schema_error_path_prefixes, path)
-          path.length.downto(1).any? { |length| schema_error_path_prefixes.include?(path.take(length)) }
+        def dependency_error?(schema_error_paths, path)
+          schema_error_paths.prefix?(path)
         end
 
         # @api private

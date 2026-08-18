@@ -9,7 +9,7 @@ module Dry
             alias_method :build, :new
             private :build
 
-            # Creates a structural validation result and caches the schema-error path prefixes.
+            # Creates a structural validation result and caches its schema-error path index.
             #
             # @param output [Hash] coerced schema output
             # @param messages [Array<Message>] schema validation failures
@@ -23,18 +23,16 @@ module Dry
 
               output = kwargs.fetch(:output) if kwargs.key?(:output)
               messages = kwargs.fetch(:messages) if kwargs.key?(:messages)
-              prefixes = messages.each_with_object(Set.new) do |message, set|
-                path = message.path
-                (0..path.length).each { |length| set << path.take(length) }
-              end.freeze
+              prefixes = PathTrie.new
+              messages.each { |message| prefixes.add(message.path) }
 
-              build(output, messages, prefixes)
+              build(output, messages, prefixes.freeze)
             end
           end
 
-          # Returns the immutable set of every prefix of a schema-error path.
+          # Returns the immutable schema-error path index.
           #
-          # @return [Set<Array>] cached schema-error path prefixes
+          # @return [PathTrie] cached schema-error path index
 
           alias_method :to_h, :output
 
