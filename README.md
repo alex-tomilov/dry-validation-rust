@@ -5,7 +5,7 @@ engine with familiar dry-validation-style contract syntax and a precisely
 documented compatible subset. Rust handles the immutable declarative schema
 execution path; Ruby preserves dynamic rules and Ruby-specific semantics.
 
-> Status: `0.1.0.pre4` alpha pre-release. The side-by-side API has a defined
+> Status: `0.1.0.pre5` alpha pre-release. The side-by-side API has a defined
 > `0.1.x` compatibility promise and is covered by focused tests, differential
 > checks, package verification, and reproducible benchmark evidence. It is not
 > a full, production-ready drop-in replacement for upstream `dry-validation`.
