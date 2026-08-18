@@ -87,7 +87,7 @@ class CiWorkflowsTest < Minitest::Test
     assert_equal({ 'contents' => 'write', 'id-token' => 'write' }, publish.fetch('permissions'))
     assert_equal 'release', publish.fetch('environment')
     publish_source = publish.fetch('steps').map { |step| step['uses'].to_s + step['run'].to_s }.join("\n")
-    assert_includes publish_source, 'rubygems/configure-rubygems-credentials@v2'
+    assert_includes publish_source, 'rubygems/configure-rubygems-credentials@v2.1.0'
     assert_includes publish_source, 'gem push "${artifact}"'
     refute_includes File.read(File.join(WORKFLOW_DIR, 'rubygems-push.yml')), 'GEM_HOST_API_KEY'
   end
