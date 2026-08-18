@@ -22,6 +22,21 @@ class RulesTest < Minitest::Test
     assert_equal({ age: ['must be an adult'] }, contract.new.call(age: '17').errors.to_h)
   end
 
+  def test_rule_blocks_can_use_the_documented_evaluator_api
+    contract = build_contract do
+      params do
+        required(:age).value(:integer)
+        optional(:nickname).filled(:string)
+      end
+      rule(:age) do
+        key.failure('must be an adult') unless value == values[:age] && key?(:age) && index.nil?
+        base.failure('unexpected prior failure') if schema_error?(:age) || rule_error? || base_rule_error?
+      end
+    end
+
+    assert_equal({}, contract.new.call(age: '17').errors.to_h)
+  end
+
   def test_rule_is_skipped_when_its_dependency_has_a_schema_error
     calls = []
     contract = build_contract do

@@ -17,28 +17,54 @@ Optimize for this order:
 
 Do not optimize for the number of documents, tests, abstractions, or process artifacts produced.
 
-## Progress Tracking (Mandatory)
+## Project state and progress
 
-After completing **any** task, step, or sub-step from a milestone file, you
-**must** update `docs/PROGRESS.md` before committing. Specifically:
+Do not maintain a per-task or per-commit progress log.
 
-1. **Milestone status table** — update the status column
-   (⚪ → 🔵 → ✅) and the notes column (add PR numbers, dates).
-2. **Code-quality task table** — flip ⚪ Pending to ✅ Done for any
-   C-Q1–C-Q4 (or future) tasks you completed.
-3. **"What Is Next" section** — revise to reflect the new current state.
-4. **Key metrics table** — update counts if they changed (test count,
-   fixture count, file count, etc.).
-5. **Known debt and risks** — remove items you resolved; add new ones
-   you discovered.
+Code, tests, differential fixtures, benchmarks, pull requests, and Git history
+are the primary evidence that implementation work happened.
 
-Rules:
+Use these authoritative locations instead:
 
-- One commit = one progress update. Do not batch progress updates.
-- Use the same emoji markers already in the file (⚪ 🔵 ✅).
-- If you are unsure whether a step is truly complete, mark it 🔵 with
-  a note rather than ✅.
-- Never mark a milestone ✅ unless **all** its acceptance criteria pass.
+- `docs/ROADMAP.md` — intended milestone outcomes, dependency order, and exit goals;
+- `compat/status.yml` — small machine-readable current milestone/task state;
+- `docs/COMPATIBILITY.md` — detailed supported and unsupported behavior;
+- `docs/SUPPORT_MATRIX.md` — version, runtime, and platform support;
+- benchmark sources/baselines and README benchmark sections — performance evidence;
+- ADRs — durable cross-cutting decisions;
+- issues/PRs/Git history — work history and temporary implementation context.
+
+Update `compat/status.yml` only when a tracked durable state actually changes,
+for example:
+
+- a milestone moves between `not_started`, `active`, `blocked`, and `complete`;
+- a named milestone task changes state;
+- an external blocker is added or resolved;
+- the declared release phase changes.
+
+Do not update project-state files merely because:
+
+- an ordinary bug fix or refactoring was completed;
+- tests, fixtures, source files, or documentation counts changed;
+- a commit was created;
+- an investigation produced temporary notes;
+- a benchmark experiment failed without changing a published claim;
+- a follow-up idea was discovered.
+
+When a compatibility, support, benchmark, or architecture truth changes, update
+its authoritative location rather than duplicating the same fact in
+`compat/status.yml`.
+
+For milestone-driven work:
+
+1. satisfy the milestone file's acceptance criteria;
+2. run the required verification;
+3. update `compat/status.yml` only if a tracked milestone/task state changed;
+4. update user/developer documentation only where its durable truth changed;
+5. keep completion details and follow-ups in the task/PR context;
+6. do not create a separate completion-report document.
+
+Documentation describes current durable truth; it is not an activity log.
 
 ## Default working mode
 
@@ -135,7 +161,12 @@ Do not create a document for:
 - information already expressed clearly elsewhere;
 - speculative future architecture.
 
-Use comments for local reasoning, tests for executable behavior, issues for planned work, pull requests for change context, ADRs for durable cross-cutting decisions, and user documentation for supported usage.
+Use comments for local reasoning, tests for executable behavior, `compat/status.yml`
+for small machine-readable current milestone/task state, `docs/ROADMAP.md` for
+intended outcomes, issues for planned work, pull requests for change context,
+ADRs for durable cross-cutting decisions, and user documentation for supported
+usage. Link between authoritative locations instead of copying the same state
+into several documents.
 
 ## Abstractions
 

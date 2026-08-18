@@ -44,4 +44,23 @@ class PathTrieTest < Minitest::Test
     assert trie.prefix?([:users, 1, :email, :domain])
     refute trie.prefix?([:users, 0, :email])
   end
+
+  def test_freeze_prevents_paths_from_being_added
+    trie = Dry::Validation::Rust::PathTrie.new
+    trie.add([:profile, :email])
+    trie.freeze
+
+    assert_predicate trie, :frozen?
+    assert_raises(FrozenError) { trie.add([:profile, :name]) }
+  end
+
+  def test_equal_tries_compare_by_paths
+    left = Dry::Validation::Rust::PathTrie.new
+    right = Dry::Validation::Rust::PathTrie.new
+    left.add([:profile, :email])
+    right.add([:profile, :email])
+
+    assert_equal left, right
+    refute_equal left, Object.new
+  end
 end

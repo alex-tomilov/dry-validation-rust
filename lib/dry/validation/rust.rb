@@ -21,6 +21,7 @@ module Dry
   module Validation
     module Rust
       class << self
+        # @api private
         def global_macros
           @global_macros ||= MacroRegistry.new
         end

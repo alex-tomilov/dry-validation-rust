@@ -1,9 +1,14 @@
 # Project management
 
-The public outcome roadmap is [ROADMAP.md](ROADMAP.md). The authoritative
-milestone specifications are the numbered files in `docs/codex/`, and
+The public outcome roadmap is [ROADMAP.md](ROADMAP.md). Current
+machine-readable milestone/task state lives in
+[`compat/status.yml`](../compat/status.yml). The authoritative milestone
+specifications are the numbered files in `docs/codex/`, and
 `.github/project-management.yml` is the declarative source for optional GitHub
 issue/project synchronization.
+
+Git history, issues, and pull requests are the work history. Do not maintain a
+second prose activity log.
 
 ## Working rules
 
@@ -16,6 +21,10 @@ issue/project synchronization.
 - Performance claims need reproducible before/after evidence.
 - Documentation, file presence, coverage percentage, and metadata counts are not
   substitutes for behavior or artifact evidence.
+- Update `compat/status.yml` only when a tracked durable milestone/task state or
+  external blocker changes; do not update it once per commit.
+- Keep temporary discoveries and completion details in issues/PRs rather than
+  promoting them automatically into permanent project-state documentation.
 - Limit active implementation work to one item by default.
 
 ## Milestones

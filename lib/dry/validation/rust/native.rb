@@ -3,6 +3,7 @@
 module Dry
   module Validation
     module Rust
+      # @api private
       module Native; end
     end
   end

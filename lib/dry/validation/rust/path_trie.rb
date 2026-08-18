@@ -4,15 +4,17 @@ module Dry
   module Validation
     module Rust
       class PathTrie
+        TERMINAL = Object.new.freeze
+        private_constant :TERMINAL
+
         def initialize
           @root = {}
-          @terminal = Object.new
         end
 
         def add(path)
           node = @root
           path.each { |part| node = node[part] ||= {} }
-          node[@terminal] = true
+          node[TERMINAL] = true
         end
 
         def prefix?(path)
@@ -20,12 +22,34 @@ module Dry
 
           node = @root
           path.each do |part|
-            return true if node.key?(@terminal)
+            return true if node.key?(TERMINAL)
 
             node = node[part]
             return false unless node
           end
           true
+        end
+
+        def freeze
+          freeze_node(@root)
+          super
+        end
+
+        def ==(other)
+          other.is_a?(self.class) && @root == other.instance_variable_get(:@root)
+        end
+
+        alias eql? ==
+
+        def hash
+          @root.hash
+        end
+
+        private
+
+        def freeze_node(node)
+          node.each_value { |child| freeze_node(child) if child.is_a?(Hash) }
+          node.freeze
         end
       end
     end

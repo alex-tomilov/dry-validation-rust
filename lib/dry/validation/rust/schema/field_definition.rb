@@ -4,6 +4,7 @@ module Dry
   module Validation
     module Rust
       class Schema
+        # @api private
         class FieldDefinition
           attr_accessor :name, :required, :nullable, :filled, :type, :member, :ruby_type
           attr_reader :children, :predicates
