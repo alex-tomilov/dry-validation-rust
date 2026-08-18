@@ -17,6 +17,14 @@ class PackageMetadataTest < Minitest::Test
     refute spec.metadata.key?('funding_uri')
   end
 
+  def test_development_dependencies_include_benchmark_tools
+    dependencies = spec.dependencies.to_h { |dependency| [dependency.name, dependency.requirement.to_s] }
+
+    assert_equal '>= 0.3, < 1.0', dependencies.fetch('benchmark')
+    assert_equal '~> 2.14', dependencies.fetch('benchmark-ips')
+    assert_equal '~> 1.1', dependencies.fetch('memory_profiler')
+  end
+
   def test_source_gem_manifest_keeps_runtime_and_notice_files
     required = %w[
       CHANGELOG.md

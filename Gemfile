@@ -2,6 +2,7 @@
 
 source 'https://rubygems.org'
 gemspec
+gem 'benchmark', '>= 0.3', '< 1.0'
 gem 'benchmark-ips', '~> 2.14'
 gem 'dry-validation', '1.11.1'
 gem 'memory_profiler', '~> 1.1'
