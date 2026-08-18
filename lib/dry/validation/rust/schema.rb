@@ -96,6 +96,7 @@ module Dry
           @mode = mode.to_sym
           @fields = fields.freeze
           @fields_by_name = fields.to_h { |field| [field.name, field] }.freeze
+          @has_ruby_predicates = ruby_predicates?(fields)
           @before_hooks, @after_hooks = [before_hooks, after_hooks].map { _1.dup.freeze }
           @message_backend = MessageBackend.new(messages)
           begin
@@ -132,7 +133,7 @@ module Dry
             native_message(path, code, text, predicate, args)
           end
           RubyTypeProcessor.apply(fields, output, messages, @message_backend)
-          apply_ruby_predicates(fields, output, [], messages)
+          apply_ruby_predicates(fields, output, [], messages) if @has_ruby_predicates
           Result.new(output, messages.freeze)
         end
 
@@ -192,6 +193,15 @@ module Dry
             nested = paths_for(field.children, current)
             member_nested = field.member ? paths_for(field.member.children, [*current, :__index__]) : []
             [current, *nested, *member_nested]
+          end
+        end
+
+        # @api private
+        def ruby_predicates?(definitions)
+          definitions.any? do |field|
+            field.predicates.any? { |predicate| !NATIVE_PREDICATES.include?(predicate.name) } ||
+              ruby_predicates?(field.children) ||
+              (field.member && ruby_predicates?([field.member]))
           end
         end
 

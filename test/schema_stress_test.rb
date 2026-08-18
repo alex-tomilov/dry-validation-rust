@@ -21,11 +21,15 @@ class SchemaStressTest < Minitest::Test
   private
 
   def ruby_predicate_result(definitions, data, member: false)
-    schema = Dry::Validation::Rust::Schema.Params { required(:root).value(:any) }
+    schema = Dry::Validation::Rust::Schema.Params do
+      required(:root).value(:any)
+      optional(:ruby_predicate_marker).value(:string, format?: /\Aunused\z/)
+    end
     root = schema.fields.first
 
     # The native plan has a separate 128-level guard; install the Ruby-only
-    # predicate definitions after shallow native-plan compilation.
+    # predicate definitions after shallow native-plan compilation. The unused
+    # marker enables Ruby predicate traversal for this internal stress fixture.
     member ? root.member = definitions : root.children = [definitions]
 
     schema.call(root: data)
