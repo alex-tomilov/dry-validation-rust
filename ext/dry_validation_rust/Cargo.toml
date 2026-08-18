@@ -1,6 +1,6 @@
 [package]
 name = "dry_validation_rust_native"
-version = "0.1.0-pre.4"
+version = "0.1.0-pre.5"
 edition = "2021"
 rust-version = "1.75"
 license = "MIT"
