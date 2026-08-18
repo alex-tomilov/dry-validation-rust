@@ -1,4 +1,4 @@
-use magnus::{Error, RClass, Ruby, gc::Marker, prelude::*, value::Opaque};
+use magnus::{gc::Marker, prelude::*, value::Opaque, Error, RClass, Ruby};
 
 use crate::plan::SchemaPlan;
 
@@ -66,7 +66,6 @@ impl RuntimeClasses {
         }
     }
 
-    #[cfg(test)]
     pub(crate) fn all(ruby: &Ruby) -> Result<Self, Error> {
         let object = ruby.class_object();
         Ok(Self {

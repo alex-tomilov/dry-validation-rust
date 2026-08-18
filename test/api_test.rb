@@ -25,7 +25,7 @@ class ApiTest < Minitest::Test
     },
     Dry::Validation::Rust::Evaluator => {
       class: [],
-      instance: %i[_context base base_rule_error? context contract error? execute failures index key key? key_name paths result rule_error? schema_error? value values]
+      instance: %i[base base_rule_error? index key key? rule_error? schema_error? value values]
     },
     Dry::Validation::Rust::Contract::Values => {
       class: [],
@@ -53,12 +53,36 @@ class ApiTest < Minitest::Test
     assert_operator engine.plan_bytes, :>, 100
   end
 
+  def test_native_engine_rejects_a_plan_with_513_json_containers
+    argument_nesting = 512 - 5 + 1
+    plan = <<~JSON.delete("\n")
+      {"engine_version":1,"mode":"params","fields":[{"name":"value","required":true,"nullable":false,"filled":false,"type":"string","member":null,"predicates":[{"name":"custom","argument":#{'[' * argument_nesting}null#{']' * argument_nesting}}]}]}
+    JSON
+
+    error = assert_raises(ArgumentError) { Dry::Validation::Rust::Native::Engine.new(plan) }
+
+    assert_includes error.message, 'nesting exceeds limit (512)'
+  end
+
+  def test_native_engine_allows_a_plan_at_the_512_container_boundary
+    argument_nesting = 512 - 5
+    plan = <<~JSON.delete("\n")
+      {"engine_version":1,"mode":"params","fields":[{"name":"value","required":true,"nullable":false,"filled":false,"type":"string","member":null,"predicates":[{"name":"custom","argument":#{'[' * argument_nesting}null#{']' * argument_nesting}}]}]}
+    JSON
+
+    error = assert_raises(ArgumentError) { Dry::Validation::Rust::Native::Engine.new(plan) }
+
+    assert_includes error.message, 'predicate argument must not be null'
+    refute_includes error.message, 'nesting exceeds limit'
+  end
+
   def test_contract_factory_and_pattern_matching
     contract = Dry::Validation::Rust.Contract do
       params { required(:name).filled(:string) }
     end
     result = contract.call(name: 'Jane')
 
+    assert contract[name: 'Jane'].success?
     matched = case result
               in { name: }
                 name

@@ -6,10 +6,10 @@ in [COMPATIBILITY.md](COMPATIBILITY.md).
 
 ## Versioned targets
 
-| Gem line | Ruby    | Rust MSRV | Platforms                                                                  | Upstream reference                           | Status |
-| -------- | ------- | --------- | -------------------------------------------------------------------------- | -------------------------------------------- | ------ |
-| 0.1.x    | 3.3-3.5 | 1.85      | Source build, tested matrix recorded in [VERIFICATION.md](VERIFICATION.md) | `dry-validation` 1.11.1, `dry-schema` 1.16.0 | alpha  |
-| 0.2.x    | TBD     | TBD       | Native gems under evaluation                                               | pinned before beta                           | beta   |
+| Gem line | Ruby    | Rust MSRV | Platforms                                          | Upstream reference                           | Status |
+| -------- | ------- | --------- | -------------------------------------------------- | -------------------------------------------- | ------ |
+| 0.1.x    | 3.3-3.5 | 1.75      | Source build; all CI workflows use the pinned MSRV | `dry-validation` 1.11.1, `dry-schema` 1.16.0 | alpha  |
+| 0.2.x    | TBD     | TBD       | Native gems under evaluation                       | pinned before beta                           | beta   |
 
 ## Support policy
 
@@ -35,15 +35,15 @@ line (for example, `0.1.x` to `0.2.0`). From 1.0 onward, it requires the next
 major line. This preserves the `0.1.x` side-by-side API promise while keeping
 the eventual stable-release policy conventional.
 
-| Change type | Minimum version bump |
-| --- | --- |
-| Backwards-compatible bug fix, documentation correction, or internal native implementation change | Patch (`0.x.y`) |
-| New backwards-compatible Ruby predicate or schema feature | Minor (`0.x.0`) |
-| Addition of a supported precompiled platform gem | Minor (`0.x.0`) |
-| Increase to the documented Rust MSRV | Minor (`0.x.0`) |
-| Removal of a supported platform, Ruby version, or precompiled platform gem | Next minor before 1.0; major from 1.0 onward |
-| Incompatible change or removal in the documented public side-by-side Ruby API | Next minor before 1.0; major from 1.0 onward |
-| Native ABI-incompatible change, including an incompatible Magnus or CRuby ABI support change | Next minor before 1.0; major from 1.0 onward |
+| Change type                                                                                      | Minimum version bump                         |
+| ------------------------------------------------------------------------------------------------ | -------------------------------------------- |
+| Backwards-compatible bug fix, documentation correction, or internal native implementation change | Patch (`0.x.y`)                              |
+| New backwards-compatible Ruby predicate or schema feature                                        | Minor (`0.x.0`)                              |
+| Addition of a supported precompiled platform gem                                                 | Minor (`0.x.0`)                              |
+| Increase to the documented Rust MSRV                                                             | Minor (`0.x.0`)                              |
+| Removal of a supported platform, Ruby version, or precompiled platform gem                       | Next minor before 1.0; major from 1.0 onward |
+| Incompatible change or removal in the documented public side-by-side Ruby API                    | Next minor before 1.0; major from 1.0 onward |
+| Native ABI-incompatible change, including an incompatible Magnus or CRuby ABI support change     | Next minor before 1.0; major from 1.0 onward |
 
 The compatibility shim is experimental and excluded from the public API
 compatibility guarantee. Changes to its documented support status still follow

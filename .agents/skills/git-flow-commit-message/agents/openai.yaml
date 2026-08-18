@@ -1,0 +1,4 @@
+interface:
+  display_name: "Git-flow Commit Message"
+  short_description: "Draft a git-flow conventional commit message"
+  default_prompt: "Use $git-flow-commit-message to draft a commit message for the current changes."

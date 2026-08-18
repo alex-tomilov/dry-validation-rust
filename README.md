@@ -5,7 +5,7 @@ engine with familiar dry-validation-style contract syntax and a precisely
 documented compatible subset. Rust handles the immutable declarative schema
 execution path; Ruby preserves dynamic rules and Ruby-specific semantics.
 
-> Status: `0.1.0.pre4` alpha pre-release. The side-by-side API has a defined
+> Status: `0.1.0.pre5` alpha pre-release. The side-by-side API has a defined
 > `0.1.x` compatibility promise and is covered by focused tests, differential
 > checks, package verification, and reproducible benchmark evidence. It is not
 > a full, production-ready drop-in replacement for upstream `dry-validation`.
@@ -57,7 +57,9 @@ The current `0.1.x` support target is source builds; see the
 
 ### From source
 
-Requires Rust 1.85 or newer, libclang, and a C toolchain.
+Requires Rust 1.75 or newer, libclang, and a C toolchain. The MSRV is Rust
+1.75 and is tested in CI. A source checkout pins Rust 1.75.0 automatically
+through `rust-toolchain.toml`.
 
 ```bash
 gem install dry-validation-rust --platform ruby
@@ -207,7 +209,7 @@ The complete exclusions and semantic differences are explicit in
 Requirements:
 
 - Ruby 3.3 or newer with development headers;
-- Rust 1.85 or newer and Cargo;
+- Rust 1.75 or newer and Cargo (the MSRV, tested in CI);
 - a C toolchain;
 - libclang where the selected `rb-sys` build uses bindgen.
 
@@ -276,31 +278,163 @@ The matrix is a reproducible measurement harness, not a published performance
 claim: compare repeated runs on the same machine and report neutral or negative
 results alongside favorable ones.
 
+### Plan-compilation benchmark
+
+Measure native JSON plan deserialization independently of validation calls:
+
+```bash
+cargo bench --locked --manifest-path ext/dry_validation_rust/Cargo.toml --bench plan_compile
+```
+
+CI runs this non-blocking benchmark on Ubuntu and retains the combined
+Criterion reports as the `native-benchmarks` artifact for 30 days. On
+2026-08-14, the
+following 100-sample Criterion results were measured locally on x86_64 Linux
+(kernel 7.0.0-29-generic, AMD Ryzen 7 5800H) with Rust 1.90.0. Each generated
+Params-mode plan has `validate_keys` enabled; every field is a required string
+with one `min_size(1)` predicate. These figures are local baseline evidence,
+not a cross-host performance guarantee.
+
+| Plan size  | Criterion estimate (95% confidence interval) | Point estimate |
+| ---------- | -------------------------------------------: | -------------: |
+| 5 fields   |                             1.8861–1.8954 µs |      1.8905 µs |
+| 50 fields  |                             20.520–20.686 µs |      20.604 µs |
+| 200 fields |                             83.591–87.909 µs |      85.538 µs |
+
+### Coercion benchmark
+
+Measure the native Params-mode coercion path independently for common and
+Ruby-fallback literals:
+
+```bash
+cargo bench --locked --manifest-path ext/dry_validation_rust/Cargo.toml --bench coercion
+```
+
+CI runs the plan-compilation and coercion benchmarks non-blockingly on Ubuntu
+and retains their combined Criterion reports as the `native-benchmarks`
+artifact for 30 days.
+
+The following coercion results were measured locally on 2026-08-14 with CRuby
+3.4.4, Rust 1.90.0, and `dry-validation-rust` 0.1.0.pre4 on x86_64 Linux
+(kernel 7.0.0-29-generic, AMD Ryzen 7 5800H). Criterion used 100 samples with
+a 500 ms warm-up and 1 s measurement period per case. These are host-local
+baseline observations, not cross-host performance guarantees. `Infinity` exercises the intentional non-finite-float rejection path; the datetime-shaped date literal exercises the Ruby fallback path.
+
+| Group             | Input                  | Criterion estimate (95% confidence interval) | Point estimate |
+| ----------------- | ---------------------- | -------------------------------------------: | -------------: |
+| Integer           | `42`                   |                             119.60–126.54 ns |      122.99 ns |
+| Integer           | `-99`                  |                             116.84–120.98 ns |      118.79 ns |
+| Integer           | `1_000`                |                             129.17–135.89 ns |      132.29 ns |
+| Integer           | `0xFF`                 |                             119.38–124.78 ns |      121.89 ns |
+| Float             | `3.14`                 |                             131.74–133.14 ns |      132.40 ns |
+| Float             | `-2.5e10`              |                             180.62–181.84 ns |      181.17 ns |
+| Float (rejection) | `Infinity`             |                             83.982–84.862 ns |      84.402 ns |
+| Boolean           | `true`                 |                             80.455–83.671 ns |      81.937 ns |
+| Boolean           | `false`                |                             81.399–86.340 ns |      83.778 ns |
+| Boolean           | `1`                    |                             123.77–132.78 ns |      128.38 ns |
+| Boolean           | `0`                    |                             132.99–153.74 ns |      143.02 ns |
+| Boolean           | `yes`                  |                             99.111–102.16 ns |      100.53 ns |
+| Boolean           | `no`                   |                             99.193–100.15 ns |      99.620 ns |
+| Date              | `2024-01-01`           |                             573.70–596.35 ns |      584.53 ns |
+| Date (fallback)   | `2024-01-01T12:00:00Z` |                             2.7212–3.1991 µs |      2.9518 µs |
+| Decimal           | `123.456`              |                             746.42–781.89 ns |      761.67 ns |
+| Decimal           | `0.0000001`            |                             726.38–738.29 ns |      731.78 ns |
+
+### Predicate benchmark
+
+Measure the native comparison, size, and parity predicate paths with Ruby
+values created once before timing:
+
+```bash
+cargo bench --locked --manifest-path ext/dry_validation_rust/Cargo.toml --bench predicates
+```
+
+CI runs the plan-compilation, coercion, and predicate benchmarks non-blockingly
+on Ubuntu and retains their combined Criterion reports as the
+`native-benchmarks` artifact for 30 days.
+
+The following results were measured locally on 2026-08-15 with CRuby 3.4.4,
+Rust 1.90.0, and `dry-validation-rust` 0.1.0.pre4 on x86_64 Linux (kernel
+7.0.0-29-generic, AMD Ryzen 7 5800H). Criterion used 100 samples with a
+500 ms warm-up and 1 s measurement period per case. Every input passes its
+predicate; values and predicate plans are prepared before the timed loop.
+These are host-local baseline observations, not cross-host performance
+guarantees.
+
+| Group      | Case              | Criterion estimate (95% confidence interval) | Point estimate |
+| ---------- | ----------------- | -------------------------------------------: | -------------: |
+| Comparison | `gt` integer      |                             8.5136–8.5606 ns |      8.5340 ns |
+| Comparison | `gteq` integer    |                             8.6687–8.9753 ns |      8.7905 ns |
+| Comparison | `lt` integer      |                             9.0641–9.5832 ns |      9.3130 ns |
+| Comparison | `lteq` integer    |                             8.5890–8.6289 ns |      8.6062 ns |
+| Comparison | `gt` float        |                             7.8649–7.9178 ns |      7.8890 ns |
+| Comparison | `gteq` float      |                             7.8643–7.8929 ns |      7.8779 ns |
+| Comparison | `lt` float        |                             7.8780–7.9643 ns |      7.9147 ns |
+| Comparison | `lteq` float      |                             7.8838–8.6503 ns |      8.2060 ns |
+| Size       | `size` string     |                             33.124–33.230 ns |      33.178 ns |
+| Size       | `min_size` string |                             35.507–35.567 ns |      35.536 ns |
+| Size       | `max_size` string |                             32.986–33.263 ns |      33.111 ns |
+| Size       | `size` array      |                             10.187–10.252 ns |      10.216 ns |
+| Size       | `min_size` array  |                             10.253–10.457 ns |      10.338 ns |
+| Size       | `max_size` array  |                             10.160–10.352 ns |      10.228 ns |
+| Size       | `size` hash       |                             10.763–10.849 ns |      10.799 ns |
+| Size       | `min_size` hash   |                             11.384–11.968 ns |      11.639 ns |
+| Size       | `max_size` hash   |                             11.270–11.804 ns |      11.496 ns |
+| Parity     | `odd?` integer    |                             7.8135–7.9664 ns |      7.8716 ns |
+| Parity     | `even?` integer   |                             8.1242–8.2117 ns |      8.1567 ns |
+
+### Full-schema benchmark
+
+Measure the native engine end-to-end with plans and Ruby Hash inputs prepared
+before Criterion begins timing:
+
+```bash
+cargo bench --locked --manifest-path ext/dry_validation_rust/Cargo.toml --bench full_schema
+```
+
+The following results were measured locally on 2026-08-15 with CRuby 3.4.4,
+Rust 1.90.0, and `dry-validation-rust` 0.1.0.pre4 on x86_64 Linux (kernel
+7.0.0-29-generic, AMD Ryzen 7 5800H). Criterion used 100 samples with a
+3-second warm-up and a 5-second measurement period per scenario. Plans and
+inputs are built once; mixed-validity scenarios cycle their prebuilt inputs.
+These figures measure `Engine::call` only, and are host-local baseline
+evidence—not a comparison with the Ruby contract benchmark or a cross-host
+performance guarantee.
+
+| Scenario         | Criterion estimate (95% confidence interval) | Point estimate |
+| ---------------- | -------------------------------------------: | -------------: |
+| Small form       |                             3.9515–3.9641 µs |      3.9573 µs |
+| Medium form      |                             29.051–29.235 µs |      29.141 µs |
+| Large form       |                             190.63–191.64 µs |      191.12 µs |
+| 10-level nested  |                             8.8245–9.1422 µs |      8.9877 µs |
+| 100-object array |                             318.85–322.47 µs |      320.55 µs |
+| 20-field invalid |                             63.480–64.437 µs |      63.953 µs |
+
 ## Representative benchmark results
 
-The six default rows were measured on 2026-08-08 with CRuby 3.3.7 on x86_64 Linux (Ubuntu 7.0.0-29-generic), comparing dry-validation-rust 0.1.0.pre2 with dry-validation 1.11.1. The strict-key row was measured on the same host on 2026-08-10, comparing the current 0.1.0.pre3 Rust path with dry-validation 1.11.1. Each `SCENARIO` ran in its own process three times with `N=1000`, `WARMUP=200`, and `LATENCY_SAMPLES=200`; the table shows medians and the throughput range across those runs. Values are evidence for this host and workload only, not a general performance guarantee.
+The six default rows were measured on 2026-08-13 with CRuby 3.3.7 on x86_64 Linux (kernel 7.0.0-29-generic, AMD Ryzen 7 5800H), comparing dry-validation-rust 0.1.0.pre4 with dry-validation 1.11.1. The strict-key row remains the 2026-08-10 pre3 measurement. Each `SCENARIO` ran in its own process three times with `N=1000`, `WARMUP=200`, and `LATENCY_SAMPLES=200`; the table shows medians and the throughput range across those runs. Values are evidence for this host and workload only, not a general performance guarantee.
 
 | `SCENARIO`                     | Rust validations/s (range) | Upstream validations/s (range) | Throughput ratio |           Rust p50/p95/p99 |       Upstream p50/p95/p99 |
 | ------------------------------ | -------------------------: | -----------------------------: | ---------------: | -------------------------: | -------------------------: |
-| `small_form`                   |     76,680 (76,481–77,275) |         36,879 (36,269–37,652) |            2.08× |         13.6/17.2/152.5 µs |          24.9/35.8/73.1 µs |
-| `medium_form`                  |       9,936 (9,873–10,001) |            2,880 (2,861–2,915) |            3.45× |        41.8/322.0/451.9 µs |    77.9/1,581.6/1,669.9 µs |
-| `large_form`                   |        1,062 (1,057–1,078) |                  323 (317–328) |            3.29× | 1,573.1/1,834.5/1,909.2 µs | 5,331.9/6,948.5/7,477.1 µs |
-| `nested_object`                |     49,064 (48,960–50,160) |         19,589 (17,365–20,476) |            2.50× |         19.6/35.2/219.9 µs |         49.2/69.7/182.4 µs |
-| `array_of_objects`             |        1,897 (1,890–1,923) |                  806 (802–815) |            2.35× |       495.2/728.0/844.5 µs | 1,196.9/1,588.6/2,028.1 µs |
-| `all_invalid`                  |        3,860 (3,693–3,898) |                  814 (790–819) |            4.74× |       243.5/420.0/561.5 µs | 1,134.5/1,420.7/1,541.7 µs |
+| `small_form`                   |     71,433 (67,480–76,023) |         35,157 (32,095–36,674) |            2.03× |          12.9/17.5/63.9 µs |          27.6/36.2/91.8 µs |
+| `medium_form`                  |      10,595 (9,783–11,012) |            2,605 (1,731–2,689) |            4.07× |        38.3/295.9/475.9 µs |    86.0/1,707.8/1,945.3 µs |
+| `large_form`                   |        1,549 (1,475–1,654) |                  307 (209–331) |            5.04× |   955.9/1,298.0/2,117.3 µs | 5,440.0/6,719.5/7,119.9 µs |
+| `nested_object`                |     48,723 (35,219–49,256) |         19,212 (12,892–19,990) |            2.54× |         19.5/29.5/216.5 µs |         51.5/77.1/397.1 µs |
+| `array_of_objects`             |        1,951 (1,811–2,028) |                  781 (743–802) |            2.50× |       455.9/707.2/824.6 µs | 1,207.2/1,594.1/1,979.3 µs |
+| `all_invalid`                  |        4,071 (3,560–4,088) |                  772 (730–837) |            5.28× |       218.5/420.6/611.6 µs | 1,209.3/1,582.9/1,918.4 µs |
 | `large_form` (`validate_keys`) |            974 (970–1,022) |                  304 (303–304) |            3.21× | 1,621.4/2,118.8/2,345.3 µs | 5,432.8/6,300.7/7,223.7 µs |
 
 | `SCENARIO`                     | Rust Ruby allocations/call | Upstream Ruby allocations/call | Rust peak RSS | Upstream peak RSS |
 | ------------------------------ | -------------------------: | -----------------------------: | ------------: | ----------------: |
-| `small_form`                   |                      85.01 |                          49.01 |      25.1 MiB |          30.3 MiB |
-| `medium_form`                  |                     470.01 |                       1,116.81 |      25.7 MiB |          30.7 MiB |
-| `large_form`                   |                   2,885.01 |                      10,286.01 |      25.9 MiB |          31.0 MiB |
-| `nested_object`                |                     145.01 |                         113.01 |      25.2 MiB |          30.6 MiB |
-| `array_of_objects`             |                   3,659.61 |                       1,713.61 |      25.6 MiB |          30.5 MiB |
-| `all_invalid`                  |                     975.01 |                       4,063.01 |      25.7 MiB |          30.8 MiB |
+| `small_form`                   |                      81.01 |                          49.01 |      24.6 MiB |          29.5 MiB |
+| `medium_form`                  |                     451.00 |                       1,116.80 |      25.4 MiB |          29.9 MiB |
+| `large_form`                   |                   2,836.00 |                      10,286.00 |      25.6 MiB |          30.4 MiB |
+| `nested_object`                |                     145.00 |                         113.00 |      25.8 MiB |          30.5 MiB |
+| `array_of_objects`             |                   3,460.80 |                       1,713.60 |      25.8 MiB |          30.8 MiB |
+| `all_invalid`                  |                     976.00 |                       4,063.00 |      25.8 MiB |          30.9 MiB |
 | `large_form` (`validate_keys`) |                   2,835.01 |                      10,490.01 |      25.3 MiB |          30.4 MiB |
 
-The Rust path had higher Ruby allocation counts for the small, nested, and array scenarios; this benchmark does not establish a native-allocation total. Peak RSS is process high-water memory, not per-call memory. Reproduce an individual row with, for example:
+The Rust path had higher Ruby allocation counts for the small, nested, and array scenarios; this benchmark does not establish a native-allocation total. It measures validation calls after plan construction, so it does not isolate plan-deserialization changes. Peak RSS is process high-water memory, not per-call memory. Reproduce an individual row with, for example:
 
 ```bash
 N=1000 WARMUP=200 LATENCY_SAMPLES=200 ENGINE=all SCENARIO=large_form ruby -Ilib benchmark/schema_throughput.rb

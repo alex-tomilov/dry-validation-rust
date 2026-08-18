@@ -1,16 +1,17 @@
 use std::collections::HashSet;
 
 use magnus::{
-    DataTypeFunctions, Error, RArray, RHash, Ruby, TypedData, Value, gc::Marker, prelude::*,
-    r_hash::ForEach,
+    gc::Marker, prelude::*, r_hash::ForEach, typed_data::Obj, DataTypeFunctions, Error, RArray,
+    RHash, Ruby, TypedData, Value,
 };
 
 use crate::{
     coercion::{coerce, empty_value, null_if_empty_nullable_param, type_matches},
-    error::{NativeError, PathPart, type_message},
-    plan::{FieldPlan, Mode, SchemaPlan, parse_plan},
+    error::{type_message, NativeError, PathPart},
+    plan::{parse_plan, FieldPlan, Mode, SchemaPlan},
     predicates::apply_predicates,
     ruby_bridge::RuntimeClasses,
+    SchemaResult,
 };
 
 const MAX_TRAVERSAL_DEPTH: u16 = 128;
@@ -63,7 +64,7 @@ impl Engine {
         })
     }
 
-    pub(crate) fn call(&self, input: RHash) -> Result<RArray, Error> {
+    pub(crate) fn call(&self, input: RHash) -> Result<Obj<SchemaResult>, Error> {
         let ruby = Ruby::get_with(input);
         let mut errors = Vec::new();
         let output = {
@@ -87,14 +88,14 @@ impl Engine {
                 }
             }
             ruby_error.aset(ruby.to_symbol("path"), path)?;
-            ruby_error.aset(ruby.to_symbol("code"), ruby.to_symbol(error.code))?;
-            ruby_error.aset(ruby.to_symbol("text"), ruby.str_new(&error.text))?;
+            ruby_error.aset(ruby.to_symbol("code"), ruby.to_symbol(error.code.as_ref()))?;
+            ruby_error.aset(ruby.to_symbol("text"), ruby.str_new(error.text.as_ref()))?;
             ruby_errors.push(ruby_error)?;
         }
-        let result = ruby.ary_new_capa(2);
-        result.push(output)?;
-        result.push(ruby_errors)?;
-        Ok(result)
+        Ok(ruby.obj_wrap(SchemaResult {
+            output: output.into(),
+            errors: ruby_errors.into(),
+        }))
     }
 
     pub(crate) fn field_count(&self) -> usize {

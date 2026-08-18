@@ -21,6 +21,7 @@ Gem::Specification.new do |spec|
     'CHANGELOG.md',
     'LICENSE',
     'NOTICE.md',
+    'predicates.yml',
     'README.md',
     'dry-validation-rust.gemspec',
     'rust-toolchain.toml',
@@ -33,6 +34,7 @@ Gem::Specification.new do |spec|
     'ext/dry_validation_rust/Cargo.lock',
     'ext/dry_validation_rust/Cargo.toml',
     'ext/dry_validation_rust/extconf.rb',
+    Dir['ext/dry_validation_rust/benches/**/*.rs'],
     Dir['ext/dry_validation_rust/src/**/*.rs']
   ].flatten.sort
   spec.require_paths = ['lib']
@@ -46,6 +48,7 @@ Gem::Specification.new do |spec|
   spec.add_development_dependency 'rake', '~> 13.1'
   spec.add_development_dependency 'rake-compiler', '~> 1.3'
   spec.add_development_dependency 'rake-compiler-dock', '~> 1.12'
+  spec.add_development_dependency 'yard', '~> 0.9'
 
   spec.metadata['rubygems_mfa_required'] = 'true'
   spec.metadata['source_code_uri'] = 'https://github.com/alex-tomilov/dry-validation-rust'

@@ -1,3 +1,5 @@
+use std::borrow::Cow;
+
 #[derive(Debug, Clone)]
 pub(crate) enum PathPart {
     Key(String),
@@ -7,12 +9,16 @@ pub(crate) enum PathPart {
 #[derive(Debug)]
 pub(crate) struct NativeError {
     pub(crate) path: Vec<PathPart>,
-    pub(crate) code: String,
-    pub(crate) text: String,
+    pub(crate) code: Cow<'static, str>,
+    pub(crate) text: Cow<'static, str>,
 }
 
 impl NativeError {
-    pub(crate) fn new(path: &[PathPart], code: impl Into<String>, text: impl Into<String>) -> Self {
+    pub(crate) fn new(
+        path: &[PathPart],
+        code: impl Into<Cow<'static, str>>,
+        text: impl Into<Cow<'static, str>>,
+    ) -> Self {
         Self {
             path: path.to_vec(),
             code: code.into(),
@@ -22,29 +28,31 @@ impl NativeError {
 }
 
 #[inline]
-pub(crate) fn type_message(kind: &str) -> String {
+pub(crate) fn type_message(kind: &str) -> &'static str {
     match kind {
-        "nil" => "must be nil".to_owned(),
-        "bool" => "must be boolean".to_owned(),
-        "true" => "must be true".to_owned(),
-        "false" => "must be false".to_owned(),
-        "integer" => "must be an integer".to_owned(),
-        "float" => "must be a float".to_owned(),
-        "decimal" => "must be a decimal".to_owned(),
-        "string" => "must be a string".to_owned(),
-        "symbol" => "must be a symbol".to_owned(),
-        "array" => "must be an array".to_owned(),
-        "hash" => "must be a hash".to_owned(),
-        "date" => "must be a date".to_owned(),
-        "date_time" => "must be a date time".to_owned(),
-        "time" => "must be a time".to_owned(),
-        _ => "has invalid type".to_owned(),
+        "nil" => "must be nil",
+        "bool" => "must be boolean",
+        "true" => "must be true",
+        "false" => "must be false",
+        "integer" => "must be an integer",
+        "float" => "must be a float",
+        "decimal" => "must be a decimal",
+        "string" => "must be a string",
+        "symbol" => "must be a symbol",
+        "array" => "must be an array",
+        "hash" => "must be a hash",
+        "date" => "must be a date",
+        "date_time" => "must be a date time",
+        "time" => "must be a time",
+        _ => "has invalid type",
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{NativeError, PathPart, type_message};
+    use std::borrow::Cow;
+
+    use super::{type_message, NativeError, PathPart};
 
     #[test]
     fn native_error_owns_a_clone_of_key_and_index_path_parts() {
@@ -62,5 +70,13 @@ mod tests {
         assert_eq!(type_message("integer"), "must be an integer");
         assert_eq!(type_message("date_time"), "must be a date time");
         assert_eq!(type_message("something_new"), "has invalid type");
+    }
+
+    #[test]
+    fn type_errors_borrow_static_code_and_text() {
+        let error = NativeError::new(&[], "type", type_message("integer"));
+
+        assert!(matches!(error.code, Cow::Borrowed("type")));
+        assert!(matches!(error.text, Cow::Borrowed("must be an integer")));
     }
 }

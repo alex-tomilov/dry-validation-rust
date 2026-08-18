@@ -4,11 +4,13 @@ require_relative 'rust/version'
 require_relative 'rust/errors'
 require_relative 'rust/native'
 require_relative 'rust/path'
+require_relative 'rust/path_trie'
 require_relative 'rust/message'
 require_relative 'rust/message_set'
 require_relative 'rust/contract/values'
 require_relative 'rust/macros'
 require_relative 'rust/failures'
+require_relative 'rust/message_backend'
 require_relative 'rust/config'
 require_relative 'rust/schema'
 require_relative 'rust/rule'
@@ -20,6 +22,7 @@ module Dry
   module Validation
     module Rust
       class << self
+        # @api private
         def global_macros
           @global_macros ||= MacroRegistry.new
         end

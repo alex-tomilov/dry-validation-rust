@@ -1,8 +1,8 @@
 [package]
 name = "dry_validation_rust_native"
-version = "0.1.0-pre.4"
-edition = "2024"
-rust-version = "1.85"
+version = "0.1.0-pre.5"
+edition = "2021"
+rust-version = "1.75"
 license = "MIT"
 publish = false
 
@@ -11,13 +11,32 @@ name = "native"
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
+bigdecimal = "0.4"
+chrono = { version = "0.4", default-features = false, features = ["alloc", "std"] }
 magnus = { version = "~0.8.2", default-features = false }
 rb-sys = { version = "~0.9.124", default-features = false, features = ["stable-api-compiled-fallback"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["unbounded_depth"] }
 
 [dev-dependencies]
+criterion = "0.5.1"
 magnus = { version = "~0.8.2", default-features = false, features = ["embed"] }
+
+[[bench]]
+name = "plan_compile"
+harness = false
+
+[[bench]]
+name = "coercion"
+harness = false
+
+[[bench]]
+name = "predicates"
+harness = false
+
+[[bench]]
+name = "full_schema"
+harness = false
 
 [profile.release]
 codegen-units = 1

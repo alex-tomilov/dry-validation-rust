@@ -64,13 +64,22 @@ macros, each with complex blocks, dry-schema composition) raise
 
     cd ext/dry_validation_rust && cargo test
 
-28 tests covering:
+21 tests covering:
 
 - Plan deserialization and version checking (`plan.rs`).
 - Coercion edge cases: `"Infinity"`, `"NaN"`, `"1_000"`, empty strings,
   overflow, unicode (`coercion.rs`).
 - Predicate evaluation: boundary values, type mismatches (`predicates.rs`).
 - Message interpolation: token substitution, missing tokens (`messages.rs`).
+
+### MSRV
+
+The repository pins Rust 1.75.0 in `rust-toolchain.toml`; all CI workflows use
+that exact toolchain. Verify the locked crate and its test suite explicitly
+with:
+
+    cargo +1.75.0 check --locked --manifest-path ext/dry_validation_rust/Cargo.toml
+    cargo +1.75.0 test --locked --manifest-path ext/dry_validation_rust/Cargo.toml
 
 ### Clippy
 
@@ -99,20 +108,21 @@ will produce `docs/BENCHMARKS.md`.
 
 ## CI Workflows
 
-| Workflow            | Trigger          | Purpose                                    |
-| ------------------- | ---------------- | ------------------------------------------ |
-| `ci.yml`            | push, PR         | Tests + lint + compile                     |
-| `compatibility.yml` | push, PR, weekly | Differential suite against pinned upstream |
+| Workflow            | Trigger          | Purpose                                           |
+| ------------------- | ---------------- | ------------------------------------------------- |
+| `ci.yml`            | push, PR         | Tests + lint + compile                            |
+| `compatibility.yml` | push, PR, weekly | Differential suite against pinned upstream        |
 | `fuzz.yml`          | weekly, manual   | Five-minute `cargo fuzz` plan-deserialization run |
-| `package.yml`       | push, PR         | Gemspec/Cargo metadata audit               |
-| `security.yml`      | push, PR, weekly | `cargo audit` + `bundle audit`             |
+| `package.yml`       | push, PR         | Gemspec/Cargo metadata audit                      |
+| `security.yml`      | push, PR, weekly | `cargo audit` + `bundle audit`                    |
 
 ## Reproducing a Specific Claim
 
-| Claim                            | Command                                                    |
-| -------------------------------- | ---------------------------------------------------------- |
-| "80+ differential cases pass"    | `bundle exec ruby test/differential_compatibility_test.rb` |
-| "28 Rust unit tests pass"        | `cd ext/dry_validation_rust && cargo test`                 |
-| "64 malformed inputs handled"    | `bundle exec ruby test/malformed_input_test.rb`            |
-| "Package metadata is consistent" | `script/verify` (package audit step)                       |
-| "RuboCop clean"                  | `bundle exec rubocop`                                      |
+| Claim                            | Command                                                           |
+| -------------------------------- | ----------------------------------------------------------------- |
+| "80+ differential cases pass"    | `bundle exec ruby test/differential_compatibility_test.rb`        |
+| "21 Rust unit tests pass"        | `cd ext/dry_validation_rust && cargo test`                        |
+| "MSRV build and tests pass"      | `cargo +1.75.0 check --locked … && cargo +1.75.0 test --locked …` |
+| "64 malformed inputs handled"    | `bundle exec ruby test/malformed_input_test.rb`                   |
+| "Package metadata is consistent" | `script/verify` (package audit step)                              |
+| "RuboCop clean"                  | `bundle exec rubocop`                                             |

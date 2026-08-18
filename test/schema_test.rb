@@ -1,8 +1,11 @@
 # frozen_string_literal: true
 
 require_relative 'test_helper'
+require 'bigdecimal'
+require 'date'
 require 'dry/types'
 require 'tempfile'
+require 'time'
 
 class SchemaTest < Minitest::Test
   TRAVERSAL_DEPTH_LIMIT = 128
@@ -15,8 +18,24 @@ class SchemaTest < Minitest::Test
     assert_equal Data, result.class.superclass
     assert result.frozen?
     assert_equal result, Dry::Validation::Rust::Schema::Result.new(output, messages)
+    assert_equal result, Dry::Validation::Rust::Schema::Result.new(output: output, messages: messages)
     assert_equal output, result.to_h
     assert result.success?
+  end
+
+  def test_result_caches_a_frozen_schema_error_path_index
+    messages = [
+      Dry::Validation::Rust::Message.new(text: 'is invalid', path: %i[address city], source: :schema),
+      Dry::Validation::Rust::Message.new(text: 'is missing', path: [:name], source: :schema)
+    ]
+
+    paths = Dry::Validation::Rust::Schema::Result.new({}, messages).error_prefixes
+
+    assert paths.prefix?([:address])
+    assert paths.prefix?(%i[address city])
+    assert paths.prefix?(%i[address city district])
+    refute paths.prefix?([:email])
+    assert paths.frozen?
   end
 
   def test_predicate_is_an_immutable_value_object_with_normalized_name_and_default_argument
@@ -65,7 +84,7 @@ class SchemaTest < Minitest::Test
     assert_equal({ age: 43 }, contract.new.call('age' => ' 42 ').to_h)
   end
 
-  def test_before_processor_hooks_receive_a_shallow_duplicate_of_input
+  def test_before_processor_hooks_receive_an_isolated_copy_of_input
     contract = build_contract do
       params do
         before(:value_coercer) { |input| input.fetch('account')['name'] = 'Jane' }
@@ -78,7 +97,23 @@ class SchemaTest < Minitest::Test
 
     assert result.success?
     assert_equal({ account: { name: 'Jane' } }, result.to_h)
-    assert_equal({ 'account' => { 'name' => 'Jane' } }, input)
+    assert_equal({ 'account' => { 'name' => 'John' } }, input)
+  end
+
+  def test_before_processor_hooks_can_mutate_nested_arrays_without_mutating_input
+    contract = build_contract do
+      params do
+        before(:value_coercer) { |input| input.fetch('accounts').first.fetch('name').replace('Jane') }
+        required(:accounts).array(:hash) { required(:name).value(:string) }
+      end
+    end
+    input = { 'accounts' => [{ 'name' => 'John' }] }
+
+    result = contract.new.call(input)
+
+    assert result.success?
+    assert_equal({ accounts: [{ name: 'Jane' }] }, result.to_h)
+    assert_equal({ 'accounts' => [{ 'name' => 'John' }] }, input)
   end
 
   def test_processor_hooks_reject_unknown_stages_and_missing_blocks
@@ -161,7 +196,35 @@ class SchemaTest < Minitest::Test
       end
     end
 
-    assert_equal '+database+ is not a valid messages identifier', error.message
+    assert_equal(
+      'messages.backend must be :yaml, :i18n, or a MessageBackend subclass; got :database',
+      error.message
+    )
+  end
+
+  def test_message_backend_preserves_builtin_identifiers
+    messages = Dry::Validation::Rust::MessageConfig.new
+
+    assert_equal :yaml, messages.backend
+
+    messages.backend = :i18n
+
+    assert_equal :i18n, messages.backend
+  end
+
+  def test_custom_message_backend_class_resolves_schema_messages
+    custom_backend = Class.new(Dry::Validation::Rust::MessageBackend) do
+      def message(code:, **)
+        "CUSTOM: #{code}"
+      end
+    end
+    contract = build_contract do
+      config.messages.backend = custom_backend
+      params { required(:age).value(:integer) }
+    end
+
+    assert_equal custom_backend, contract.config.messages.backend
+    assert_equal({ age: ['CUSTOM: type'] }, contract.new.call(age: 'invalid').errors.to_h)
   end
 
   def test_schema_at_the_nesting_limit_preserves_the_entire_output
@@ -189,9 +252,11 @@ class SchemaTest < Minitest::Test
   def test_native_engine_returns_structured_errors
     schema = Dry::Validation::Rust::Schema.Params { required(:age).value(:integer) }
 
-    _output, native_errors = schema.engine.call(age: 'invalid')
+    result = schema.engine.call(age: 'invalid')
 
-    assert_equal [{ path: [:age], code: :type, text: 'must be an integer' }], native_errors
+    assert_instance_of Dry::Validation::Rust::Native::SchemaResult, result
+    assert_equal({ age: 'invalid' }, result.output)
+    assert_equal [{ path: [:age], code: :type, text: 'must be an integer' }], result.errors
   end
 
   def test_native_engine_supplies_the_unexpected_key_error_text
@@ -201,9 +266,9 @@ class SchemaTest < Minitest::Test
       validate_keys: true
     )
 
-    _output, native_errors = schema.engine.call(unexpected: true)
+    result = schema.engine.call(unexpected: true)
 
-    assert_equal [{ path: [:unexpected], code: :unexpected_key, text: 'is not allowed' }], native_errors
+    assert_equal [{ path: [:unexpected], code: :unexpected_key, text: 'is not allowed' }], result.errors
   end
 
   def test_native_engine_keeps_date_class_lookup_from_initialization
@@ -211,10 +276,10 @@ class SchemaTest < Minitest::Test
     date_class = Object.const_get(:Date)
 
     Object.send(:remove_const, :Date)
-    output, native_errors = schema.engine.call(value: '2026-08-03')
+    result = schema.engine.call(value: '2026-08-03')
 
-    assert_equal({ value: date_class.new(2026, 8, 3) }, output)
-    assert_empty native_errors
+    assert_equal({ value: date_class.new(2026, 8, 3) }, result.output)
+    assert_empty result.errors
   ensure
     Object.const_set(:Date, date_class) unless Object.const_defined?(:Date, false)
   end
@@ -247,6 +312,36 @@ class SchemaTest < Minitest::Test
     assert_equal 42, contract.new.call('value' => '+42').to_h.fetch(:value)
     assert_equal 1_000, contract.new.call('value' => '1_000').to_h.fetch(:value)
     assert_equal 9_223_372_036_854_775_808, contract.new.call('value' => '9223372036854775808').to_h.fetch(:value)
+  end
+
+  def test_params_coerces_common_scalar_literals_with_native_parsers
+    contract = build_contract do
+      params do
+        required(:integer).value(:integer)
+        required(:float).value(:float)
+        required(:decimal).value(:decimal)
+        required(:date).value(:date)
+        required(:date_time).value(:date_time)
+        required(:time).value(:time)
+      end
+    end
+
+    result = contract.new.call(
+      'integer' => '1_024',
+      'float' => '1.25e2',
+      'decimal' => '12.50',
+      'date' => '2026-07-12',
+      'date_time' => '2026-07-12T10:00:00+03:00',
+      'time' => '2026-07-12T10:00:00+03:00'
+    )
+
+    assert result.success?
+    assert_equal 1024, result.to_h.fetch(:integer)
+    assert_equal 125.0, result.to_h.fetch(:float)
+    assert_equal BigDecimal('12.50'), result.to_h.fetch(:decimal)
+    assert_equal Date.iso8601('2026-07-12'), result.to_h.fetch(:date)
+    assert_equal DateTime.iso8601('2026-07-12T10:00:00+03:00'), result.to_h.fetch(:date_time)
+    assert_equal Time.parse('2026-07-12T10:00:00+03:00'), result.to_h.fetch(:time)
   end
 
   def test_schema_does_not_coerce_keys_or_values
@@ -574,6 +669,64 @@ class SchemaTest < Minitest::Test
     result = contract.new.call(age: '17', name: 'Al', email: 'bad', role: 'root')
     assert_equal 4, result.errors.count
     assert_equal 'must be greater than or equal to 18', result.errors.to_h[:age].first
+  end
+
+  def test_ruby_predicates_apply_to_nested_array_members
+    contract = build_contract do
+      params do
+        required(:people).array(:hash) do
+          required(:email).value(:string, format?: /\A[^@]+@[^@]+\z/)
+        end
+      end
+    end
+
+    result = contract.new.call(people: [{ email: 'invalid' }, { email: 'jane@example.test' }])
+
+    assert_equal({ people: { 0 => { email: ['is in invalid format'] } } }, result.errors.to_h)
+  end
+
+  def test_native_predicate_exceptions_propagate_from_schema_call
+    odd_error = Class.new do
+      def odd?
+        raise 'odd predicate failed'
+      end
+    end.new
+    comparison_error = Class.new do
+      def >(other)
+        raise TypeError, "cannot compare with #{other}"
+      end
+    end.new
+    size_error = Class.new do
+      def size
+        raise ArgumentError, 'size predicate failed'
+      end
+    end.new
+    odd_schema = Dry::Validation::Rust::Schema.define do
+      required(:value).value(:any, :odd?)
+    end
+    comparison_schema = Dry::Validation::Rust::Schema.define do
+      required(:value).value(:any, gt?: 18)
+    end
+    size_schema = Dry::Validation::Rust::Schema.define do
+      required(:value).value(:any, min_size?: 3)
+    end
+
+    odd_exception = assert_raises(RuntimeError) { odd_schema.call(value: odd_error) }
+    comparison_exception = assert_raises(TypeError) { comparison_schema.call(value: comparison_error) }
+    size_exception = assert_raises(ArgumentError) { size_schema.call(value: size_error) }
+
+    assert_equal 'odd predicate failed', odd_exception.message
+    assert_equal 'cannot compare with 18', comparison_exception.message
+    assert_equal 'size predicate failed', size_exception.message
+  end
+
+  def test_bigdecimal_comparisons_fall_back_to_ruby
+    contract = build_contract do
+      params { required(:amount).value(:any, gt?: 1) }
+    end
+
+    assert contract.new.call(amount: BigDecimal('1.5')).success?
+    assert_equal({ amount: ['must be greater than 1'] }, contract.new.call(amount: BigDecimal('0.5')).errors.to_h)
   end
 
   def test_predicate_composition_blocks_collect_native_and_ruby_predicates
