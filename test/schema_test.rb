@@ -18,8 +18,21 @@ class SchemaTest < Minitest::Test
     assert_equal Data, result.class.superclass
     assert result.frozen?
     assert_equal result, Dry::Validation::Rust::Schema::Result.new(output, messages)
+    assert_equal result, Dry::Validation::Rust::Schema::Result.new(output: output, messages: messages)
     assert_equal output, result.to_h
     assert result.success?
+  end
+
+  def test_result_caches_frozen_schema_error_path_prefixes
+    messages = [
+      Dry::Validation::Rust::Message.new(text: 'is invalid', path: %i[address city], source: :schema),
+      Dry::Validation::Rust::Message.new(text: 'is missing', path: [:name], source: :schema)
+    ]
+
+    prefixes = Dry::Validation::Rust::Schema::Result.new({}, messages).error_prefixes
+
+    assert_equal Set[[], [:address], %i[address city], [:name]], prefixes
+    assert prefixes.frozen?
   end
 
   def test_predicate_is_an_immutable_value_object_with_normalized_name_and_default_argument
@@ -68,7 +81,7 @@ class SchemaTest < Minitest::Test
     assert_equal({ age: 43 }, contract.new.call('age' => ' 42 ').to_h)
   end
 
-  def test_before_processor_hooks_receive_a_shallow_duplicate_of_input
+  def test_before_processor_hooks_receive_an_isolated_copy_of_input
     contract = build_contract do
       params do
         before(:value_coercer) { |input| input.fetch('account')['name'] = 'Jane' }
@@ -81,7 +94,23 @@ class SchemaTest < Minitest::Test
 
     assert result.success?
     assert_equal({ account: { name: 'Jane' } }, result.to_h)
-    assert_equal({ 'account' => { 'name' => 'Jane' } }, input)
+    assert_equal({ 'account' => { 'name' => 'John' } }, input)
+  end
+
+  def test_before_processor_hooks_can_mutate_nested_arrays_without_mutating_input
+    contract = build_contract do
+      params do
+        before(:value_coercer) { |input| input.fetch('accounts').first.fetch('name').replace('Jane') }
+        required(:accounts).array(:hash) { required(:name).value(:string) }
+      end
+    end
+    input = { 'accounts' => [{ 'name' => 'John' }] }
+
+    result = contract.new.call(input)
+
+    assert result.success?
+    assert_equal({ accounts: [{ name: 'Jane' }] }, result.to_h)
+    assert_equal({ 'accounts' => [{ 'name' => 'John' }] }, input)
   end
 
   def test_processor_hooks_reject_unknown_stages_and_missing_blocks
@@ -609,6 +638,20 @@ class SchemaTest < Minitest::Test
     result = contract.new.call(age: '17', name: 'Al', email: 'bad', role: 'root')
     assert_equal 4, result.errors.count
     assert_equal 'must be greater than or equal to 18', result.errors.to_h[:age].first
+  end
+
+  def test_ruby_predicates_apply_to_nested_array_members
+    contract = build_contract do
+      params do
+        required(:people).array(:hash) do
+          required(:email).value(:string, format?: /\A[^@]+@[^@]+\z/)
+        end
+      end
+    end
+
+    result = contract.new.call(people: [{ email: 'invalid' }, { email: 'jane@example.test' }])
+
+    assert_equal({ people: { 0 => { email: ['is in invalid format'] } } }, result.errors.to_h)
   end
 
   def test_native_predicate_exceptions_propagate_from_schema_call

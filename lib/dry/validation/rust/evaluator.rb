@@ -65,9 +65,9 @@ module Dry
         #   evaluator.failures # => [#<Dry::Validation::Rust::Message ...>]
         attr_reader :failures
 
-        # @api private
-        #
         # Creates a rule evaluation context. This is primarily used by Contract.
+        #
+        # @api private
         #
         # @param contract [Contract] contract executing the rule
         # @param result [Contract::Result] result receiving rule failures
@@ -91,9 +91,9 @@ module Dry
           @base_failures = Failures.new
         end
 
-        # @api private
-        #
         # Executes a rule block and macro calls, then collects their failures.
+        #
+        # @api private
         #
         # @param block [Proc, nil] rule block to execute
         # @param macro_calls [Array<Array>] macro calls declared for the rule

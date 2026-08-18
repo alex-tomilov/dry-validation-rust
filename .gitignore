@@ -9,3 +9,5 @@
 /ext/dry_validation_rust/fuzz/target/
 /tmp/
 /build-week-2026/
+/.vscode/
+/target/

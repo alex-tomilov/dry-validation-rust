@@ -1,0 +1,114 @@
+schema_version: 1
+updated_at: "2026-08-18"
+
+authority:
+  roadmap: docs/ROADMAP.md
+  milestone_specs: docs/codex/
+  compatibility: docs/COMPATIBILITY.md
+  support_matrix: docs/SUPPORT_MATRIX.md
+  performance_evidence:
+    - README.md
+    - benchmark/
+  work_history:
+    - git
+    - issues
+    - pull_requests
+
+release:
+  line: "0.1.x"
+  phase: alpha
+
+upstream:
+  dry_validation: "1.11.1"
+  dry_schema: "1.16.0"
+
+milestones:
+  A:
+    title: Trustworthy Baseline
+    status: complete
+
+  B:
+    title: Common Schema Subset
+    status: complete
+
+  C:
+    title: Ordinary Rules Subset
+    status: active
+    tasks:
+      rule_corpus_50: pending
+      cq1_unify_predicate_evaluation: pending
+      cq2_unify_undefined_sentinels: pending
+      cq3_fix_messageset_freeze: complete
+      cq4_split_schema: complete
+      cq5_message_data_migration: complete
+      rule_dependency_stress: pending
+      differential_rule_corpus_ci: pending
+
+  D:
+    title: Performance Proof
+    status: active
+    tasks:
+      representative_benchmark_matrix: complete
+      ruby_allocation_regression_gate: complete
+      plan_deserialization_fuzzing: complete
+      criterion_native_benchmarks: complete
+      ci_host_criterion_baseline: pending
+      p50_acceptance_criterion_alignment: pending
+      broader_host_evidence: pending
+      native_allocation_evidence: pending
+
+  E:
+    title: Compatibility Slice
+    status: active
+    details: docs/COMPATIBILITY.md
+
+  F:
+    title: Packaging and Platforms
+    status: active
+    tasks:
+      p0_cross_compilation: complete
+      signed_trusted_publishing_workflow: complete
+      rubygems_trusted_publisher_configuration: blocked_external
+      p0_precompiled_gem_publication: pending
+      rbs_signatures: pending
+
+  G:
+    title: Stable Subset
+    status: not_started
+    depends_on:
+      - D
+      - E
+      - F
+
+external_blockers:
+  - id: rubygems_trusted_publisher
+    milestone: F
+    state: blocked
+    description: >-
+      Configure RubyGems trusted publishing before validating and publishing
+      P0 precompiled gems.
+
+rules:
+  allowed_milestone_statuses:
+    - not_started
+    - active
+    - blocked
+    - complete
+  allowed_task_statuses:
+    - pending
+    - active
+    - blocked
+    - blocked_external
+    - complete
+  update_when:
+    - a tracked milestone status changes
+    - a named milestone task status changes
+    - an external blocker is added, changes, or is resolved
+    - the declared release phase changes
+  do_not_update_for:
+    - ordinary commits
+    - test or file counts
+    - completed-task narratives
+    - temporary investigations
+    - unaccepted follow-up ideas
+    - benchmark experiments that do not change published evidence

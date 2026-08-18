@@ -4,6 +4,7 @@ module Dry
   module Validation
     module Rust
       class Schema
+        # @api private
         class PredicateBlock
           ARITY_MAP = {
             gt: 1, gteq: 1, lt: 1, lteq: 1, min_size: 1, max_size: 1, size: 1,
