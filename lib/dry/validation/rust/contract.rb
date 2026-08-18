@@ -17,6 +17,7 @@ module Dry
       #   end
       class Contract
         Undefined = Object.new.freeze
+        # @api private
         OptionDefinition = Data.define(:name, :default, :optional) do
           def initialize(name:, default: Contract::Undefined, optional: false)
             super
@@ -158,6 +159,8 @@ module Dry
 
           # Returns this contract class's macro registry.
           #
+          # @api private
+          #
           # @return [MacroRegistry] registry used to resolve rule macros
           def macro_registry
             @macro_registry ||= MacroRegistry.new(Rust.global_macros)
@@ -269,10 +272,7 @@ module Dry
           schema_result = schema.call(input)
           shared_context = default_context.merge(context)
           result = Result.new(schema_result, shared_context)
-          schema_error_paths = schema_result.messages.to_set(&:path)
-          schema_error_path_prefixes = schema_error_paths.each_with_object(Set.new) do |error_path, prefixes|
-            (0..error_path.length).each { |length| prefixes << error_path.take(length) }
-          end
+          schema_error_path_prefixes = schema_result.error_prefixes
 
           self.class.rules.each do |rule|
             if rule.each?
@@ -302,6 +302,8 @@ module Dry
 
         # Returns whether a macro can be resolved by this contract.
         #
+        # @api private
+        #
         # @param name [Symbol, String] macro name
         # @return [Boolean] whether the macro is registered
         def macro_registered?(name)
@@ -309,6 +311,8 @@ module Dry
         end
 
         # Resolves a registered macro by name.
+        #
+        # @api private
         #
         # @param name [Symbol, String] macro name
         # @return [Macro] registered macro implementation
@@ -326,6 +330,7 @@ module Dry
 
         private
 
+        # @api private
         def initialize_options(provided)
           definitions = self.class.option_definitions
           unknown = provided.keys - definitions.keys
@@ -348,14 +353,17 @@ module Dry
           end
         end
 
+        # @api private
         def dependency_error?(schema_error_path_prefixes, path)
           path.length.downto(1).any? { |length| schema_error_path_prefixes.include?(path.take(length)) }
         end
 
+        # @api private
         def execute_rule(rule, result, context)
           run_evaluator(rule, result, context, paths: rule.paths, default_path: rule.default_path)
         end
 
+        # @api private
         def execute_each(rule, result, context)
           root = rule.paths.first
           collection = Path.fetch(result.to_h, root)
@@ -371,6 +379,7 @@ module Dry
           end
         end
 
+        # @api private
         def run_evaluator(rule, result, context, paths:, default_path:, index: nil)
           evaluator = Evaluator.new(
             contract: self,

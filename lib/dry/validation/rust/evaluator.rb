@@ -57,6 +57,8 @@ module Dry
 
         # Creates a rule evaluation context. This is primarily used by Contract.
         #
+        # @api private
+        #
         # @param contract [Contract] contract executing the rule
         # @param result [Contract::Result] result receiving rule failures
         # @param paths [Array<Array<Symbol, Integer>>] paths declared for the rule
@@ -80,6 +82,8 @@ module Dry
         end
 
         # Executes a rule block and macro calls, then collects their failures.
+        #
+        # @api private
         #
         # @param block [Proc, nil] rule block to execute
         # @param macro_calls [Array<Array>] macro calls declared for the rule
