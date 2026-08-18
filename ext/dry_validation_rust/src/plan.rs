@@ -91,36 +91,7 @@ impl<'de> Deserialize<'de> for PredicateArg {
     }
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub(crate) enum PredicateOp {
-    Gt,
-    Gteq,
-    Lt,
-    Lteq,
-    MinSize,
-    MaxSize,
-    Size,
-    Odd,
-    Even,
-    Unsupported,
-}
-
-impl PredicateOp {
-    fn from_name(name: &str) -> Self {
-        match name {
-            "gt" => Self::Gt,
-            "gteq" => Self::Gteq,
-            "lt" => Self::Lt,
-            "lteq" => Self::Lteq,
-            "min_size" => Self::MinSize,
-            "max_size" => Self::MaxSize,
-            "size" => Self::Size,
-            "odd" => Self::Odd,
-            "even" => Self::Even,
-            _ => Self::Unsupported,
-        }
-    }
-}
+include!("generated_predicates.rs");
 
 #[derive(Debug)]
 pub(crate) struct PredicatePlan {

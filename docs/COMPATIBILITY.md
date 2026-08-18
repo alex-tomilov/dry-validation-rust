@@ -57,7 +57,7 @@ Legend:
 | Multiple schema declaration guard         | ✅     | Raises `DuplicateSchemaError`                                     |
 | Key validation when declaring rules       | ✅     | Common nested paths                                               |
 | Predicate-composition blocks              | ✅     | Supported predicates only; boolean AST composition is unsupported |
-| Schema `before` / `after` processor hooks | ✅     | `:value_coercer` only; callbacks run outside the native engine    |
+| Schema `before` / `after` processor hooks | ✅     | `:value_coercer` only; callbacks run outside the native engine. Before hooks receive an isolated deep copy of the input. |
 | Schema merge operators / AST access       | ❌     |                                                                   |
 | `config.validate_keys = true`             | ✅     | Rejects unknown keys in `params` and `json` schemas               |
 | Filtering DSL                             | ❌     |                                                                   |

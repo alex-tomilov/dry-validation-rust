@@ -23,6 +23,9 @@ class SchemaStressTest < Minitest::Test
   def ruby_predicate_result(definitions, data, member: false)
     schema = Dry::Validation::Rust::Schema.Params { required(:root).value(:any) }
     root = schema.fields.first
+
+    # The native plan has a separate 128-level guard; install the Ruby-only
+    # predicate definitions after shallow native-plan compilation.
     member ? root.member = definitions : root.children = [definitions]
 
     schema.call(root: data)

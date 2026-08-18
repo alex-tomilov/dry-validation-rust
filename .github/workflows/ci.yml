@@ -57,6 +57,12 @@ jobs:
       - name: RuboCop
         run: bundle exec rubocop
 
+      - name: Verify generated predicate sources
+        run: bundle exec rake generate:predicates:check
+
+      - name: Check YARD documentation
+        run: bundle exec yard --fail-on-warning
+
       - name: Compile native extension
         run: bundle exec rake compile
 
