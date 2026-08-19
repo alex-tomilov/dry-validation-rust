@@ -14,7 +14,15 @@ Inspect the current branch before drafting anything. This skill is read-only: do
 3. Review the diff for correctness, compatibility, safety, and missing behavioral coverage. Report only material findings with severity, file/line, impact, and a minimal fix. If none exist, say so and state residual risks briefly.
 4. Infer the narrowest git-flow prefix from the change: `feature/`, `bugfix/`, `release/`, or `hotfix/`. Use a concise lowercase kebab-case name; propose it without creating it.
 5. Draft exactly one imperative Conventional Commit subject in lowercase, under 72 characters, matching nearby repository history. Use the narrowest truthful type and scope.
-6. Draft a concise PR title and fill every relevant section of the repository PR template. Keep unchecked items that were not performed; never claim verification, compatibility evidence, benchmarks, or releases that the diff and command output do not establish.
+6. Decide the changelog disposition before drafting the PR. Require an
+   `Unreleased` entry for a user-visible behavior, compatibility, installation,
+   or operational change; otherwise state that the PR needs the
+   `no-changelog` label. Verify that any entry describes the observable diff,
+   belongs under `Unreleased`, and does not claim unrun evidence or a release.
+   Draft a concise PR title and fill every relevant section of the repository
+   PR template. Keep unchecked items that were not performed; never claim
+   verification, compatibility evidence, benchmarks, or releases that the diff
+   and command output do not establish.
 
 ## Output
 

@@ -2,12 +2,39 @@
 
 ## Unreleased
 
+- Added local release automation for version and Cargo-lockfile updates, dated
+  changelog sections, and release tags, plus pull-request changelog enforcement.
+- Added representative throughput, allocation, and native Criterion benchmark
+  coverage with regression gates where main-branch baselines are available.
+- Improved source and native-gem build reliability across supported targets,
+  including MinGW source builds and cross-compilation packaging.
+- Added release-publishing preflight, signed native-gem artifacts, and trusted
+  RubyGems publishing support.
+
+## 0.1.0.pre5 — 2026-08-18
+
 - Added pluggable schema message backends through custom `MessageBackend`
   subclasses.
 - Changed the native engine boundary to return a typed `SchemaResult` with
   `#output` and `#errors` accessors.
 - Fixed native predicate evaluation to propagate exceptions raised by Ruby
   predicate methods instead of returning validation failures.
+- Added generated predicate ownership declarations and explicit rule-context
+  visibility for the supported contract API.
+- Improved native schema, coercion, predicate, and rule-dependency execution
+  while preserving the documented compatibility subset.
+- Added Rust 1.75 MSRV verification, source-gem package auditing, and public
+  API documentation checks.
+
+## 0.1.0.pre4 — 2026-08-12
+
+- Improved native coercion and declared-key validation performance.
+- Fixed predicate-block arity validation and range-predicate message
+  interpolation.
+- Improved native structured error reporting and stability coverage for hostile
+  Ruby inputs.
+- Refined the public schema, contract, result, values, and message data types
+  without broadening the documented compatibility surface.
 
 ## 0.1.0.pre3 — 2026-08-09
 

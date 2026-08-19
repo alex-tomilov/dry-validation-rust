@@ -26,7 +26,9 @@ Use this skill to review a proposed diff without expanding its scope.
 6. performance regressions where relevant;
 7. documentation accuracy, including YARD completeness when the diff changes a
    public Ruby API;
-8. style only when it affects maintainability.
+8. changelog accuracy when the diff changes user-visible behavior,
+   compatibility, installation, or operations;
+9. style only when it affects maintainability.
 
 ## Output
 

@@ -25,9 +25,11 @@ Use this skill to reproduce one behavior of an external library, protocol, API, 
 4. Implement the smallest supported form.
 5. Make adjacent unsupported forms fail explicitly.
 6. Add differential or contract tests.
-7. Document the exact support boundary in the existing compatibility location.
-   If the slice adds or changes a public Ruby API, also update its inline YARD
-   documentation and run `bundle exec yard --fail-on-warning`.
+7. Document the exact support boundary in the existing compatibility location
+   and add a concise entry under `Unreleased` in `CHANGELOG.md`. If the slice
+   adds or changes a public Ruby API, also update its inline YARD documentation
+   and run `bundle exec yard --fail-on-warning`. Describe only the
+   differential behavior demonstrated by the fixture or contract evidence.
 8. If Ruby files, tests, tooling, or CI configuration changed, run
    `bundle exec rubocop` before reporting completion; resolve or explicitly
    report any offenses.
