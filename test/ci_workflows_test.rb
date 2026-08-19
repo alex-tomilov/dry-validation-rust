@@ -37,7 +37,7 @@ class CiWorkflowsTest < Minitest::Test
 
     assert_equal 'rubygems:push', workflow.fetch('name')
     assert_equal %w[v*], workflow.fetch(true).fetch('push').fetch('tags')
-    assert_equal(%w[x86_64-linux aarch64-linux x86_64-darwin arm64-darwin],
+    assert_equal(%w[x86_64-linux aarch64-linux x86_64-darwin arm64-darwin x64-mingw-ucrt],
                  build.fetch('strategy').fetch('matrix').fetch('include').map { |h| h.fetch('platform') })
 
     steps = build.fetch('steps')
