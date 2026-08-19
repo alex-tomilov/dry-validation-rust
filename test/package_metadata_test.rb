@@ -25,6 +25,13 @@ class PackageMetadataTest < Minitest::Test
     assert_equal '~> 1.1', dependencies.fetch('memory_profiler')
   end
 
+  def test_runtime_dependencies_have_explicit_compatibility_bounds
+    dependencies = spec.dependencies.to_h { |dependency| [dependency.name, dependency.requirement.to_s] }
+
+    assert_equal '>= 3.1, < 5.0', dependencies.fetch('bigdecimal')
+    assert_equal '>= 0.9.100, < 0.10', dependencies.fetch('rb_sys')
+  end
+
   def test_source_gem_manifest_keeps_runtime_and_notice_files
     required = %w[
       CHANGELOG.md

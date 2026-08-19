@@ -3,7 +3,7 @@ PATH
   specs:
     dry-validation-rust (0.1.0.pre5)
       bigdecimal (>= 3.1, < 5.0)
-      rb_sys (~> 0.9)
+      rb_sys (>= 0.9.100, < 0.10)
 
 GEM
   remote: https://rubygems.org/
