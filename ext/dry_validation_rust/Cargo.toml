@@ -4,7 +4,12 @@ version = "0.1.0-pre.5"
 edition = "2021"
 rust-version = "1.75"
 license = "MIT"
-publish = false
+description = "Native validation engine for dry-validation-rust"
+repository = "https://github.com/alex-tomilov/dry-validation-rust"
+homepage = "https://github.com/alex-tomilov/dry-validation-rust"
+documentation = "https://docs.rs/dry_validation_rust_native"
+keywords = ["ruby", "validation", "dry-validation"]
+categories = ["development-tools"]
 
 [lib]
 name = "native"
@@ -37,8 +42,3 @@ harness = false
 [[bench]]
 name = "full_schema"
 harness = false
-
-[profile.release]
-codegen-units = 1
-lto = "thin"
-strip = "debuginfo"

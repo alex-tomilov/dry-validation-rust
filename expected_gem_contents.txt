@@ -25,6 +25,7 @@ ext/dry_validation_rust/benches/coercion.rs
 ext/dry_validation_rust/benches/full_schema.rs
 ext/dry_validation_rust/benches/plan_compile.rs
 ext/dry_validation_rust/benches/predicates.rs
+ext/dry_validation_rust/build.rs
 ext/dry_validation_rust/extconf.rb
 ext/dry_validation_rust/fuzz/.gitignore
 ext/dry_validation_rust/fuzz/Cargo.toml
