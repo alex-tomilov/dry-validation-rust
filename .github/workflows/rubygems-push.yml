@@ -50,7 +50,7 @@ jobs:
           fetch-depth: 0
 
       - name: Install native build prerequisites
-        run: sudo rm -f /etc/apt/sources.list.d/*.list && sudo sed -i 's/azure.archive.ubuntu.com/archive.ubuntu.com/g' /etc/apt/sources.list.d/ubuntu.sources /etc/apt/sources.list 2>/dev/null || true && sudo apt-get update -o Acquire::Retries=3 && sudo apt-get install -y --no-install-recommends -o Acquire::Retries=3 clang libclang-dev
+        run: sudo rm -f /etc/apt/sources.list.d/*.list && sudo sed -i 's/azure.archive.ubuntu.com/archive.ubuntu.com/g' /etc/apt/apt-mirrors.txt /etc/apt/sources.list.d/ubuntu.sources /etc/apt/sources.list 2>/dev/null || true && sudo apt-get update -o Acquire::Retries=3 && sudo apt-get install -y --no-install-recommends -o Acquire::Retries=3 clang libclang-dev
 
       - name: Setup Ruby and Bundler cache
         uses: ruby/setup-ruby@v1
