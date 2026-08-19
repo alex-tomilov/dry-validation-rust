@@ -66,11 +66,25 @@ with RubyGems. Source builds require:
 - libclang for the `rb-sys` bindgen step.
 
 On Linux, install `clang` and `libclang-dev`. On macOS, install Xcode Command
-Line Tools and LLVM (for example, `brew install llvm`). On Windows, install the
-Visual Studio C++ Build Tools with a Windows SDK and LLVM (for example,
-`choco install llvm`). If setup fails, confirm that `cargo`, your C compiler,
-and `libclang` are discoverable on `PATH` before rerunning the install. A
-source checkout pins Rust 1.75.0 automatically through `rust-toolchain.toml`.
+Line Tools and LLVM, then point bindgen to Homebrew's keg-only library:
+
+```bash
+brew install llvm
+export LIBCLANG_PATH="$(brew --prefix llvm)/lib"
+```
+
+On Windows, install the Visual Studio C++ Build Tools with a Windows SDK and
+LLVM, then set the same location for the current PowerShell session:
+
+```powershell
+choco install llvm
+$env:LIBCLANG_PATH = 'C:\Program Files\LLVM\bin'
+```
+
+If setup fails, confirm that `cargo` and your C compiler are discoverable on
+`PATH` and that `LIBCLANG_PATH` contains the `libclang` library before rerunning
+the install. A source checkout pins Rust 1.75.0 automatically through
+`rust-toolchain.toml`.
 
 ```bash
 gem install dry-validation-rust --platform ruby
