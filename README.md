@@ -82,6 +82,9 @@ ridk exec pacman -S --needed mingw-w64-ucrt-x86_64-clang
 $env:LIBCLANG_PATH = "$env:RI_DEVKIT\ucrt64\bin"
 ```
 
+The extension automatically selects Rust's matching GNU toolchain when it is
+built by a MinGW Ruby.
+
 If setup fails, confirm that `cargo` and your C compiler are discoverable on
 `PATH` and that `LIBCLANG_PATH` contains the `libclang` library before rerunning
 the install. A source checkout pins Rust 1.75.0 automatically through
