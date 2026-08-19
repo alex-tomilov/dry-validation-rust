@@ -17,26 +17,24 @@ Gem::Specification.new do |spec|
   spec.required_ruby_version = '>= 3.3'
   spec.homepage = 'https://github.com/alex-tomilov/dry-validation-rust'
 
-  spec.files = [
-    'CHANGELOG.md',
-    'LICENSE',
-    'NOTICE.md',
-    'predicates.yml',
-    'README.md',
-    'dry-validation-rust.gemspec',
-    'rust-toolchain.toml',
-    'docs/ARCHITECTURE.md',
-    'docs/COMPATIBILITY.md',
-    'docs/FEASIBILITY.md',
-    'docs/SUPPORT_MATRIX.md',
-    'docs/VERIFICATION.md',
-    Dir['lib/**/*.rb'],
-    'ext/dry_validation_rust/Cargo.lock',
-    'ext/dry_validation_rust/Cargo.toml',
-    'ext/dry_validation_rust/extconf.rb',
-    Dir['ext/dry_validation_rust/benches/**/*.rs'],
-    Dir['ext/dry_validation_rust/src/**/*.rs']
-  ].flatten.sort
+  excluded_package_paths = %w[
+    .agents/
+    .github/
+    benchmark/
+    compat/
+    docs/
+    examples/
+    features/
+    script/
+    spec/
+    test/
+  ].freeze
+
+  spec.files = Dir.chdir(__dir__) do
+    `git ls-files -z`.split("\x0").reject do |path|
+      path == 'expected_gem_contents.txt' || path.start_with?(*excluded_package_paths)
+    end.sort
+  end
   spec.require_paths = ['lib']
   spec.extensions = ['ext/dry_validation_rust/extconf.rb']
   spec.add_dependency 'bigdecimal', '>= 3.1', '< 5.0'
