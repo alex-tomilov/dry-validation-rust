@@ -126,6 +126,14 @@ class CiWorkflowsTest < Minitest::Test
     assert_includes source, 'require "dry/validation/rust"'
   end
 
+  def test_ruby_integration_cache_is_scoped_to_runner_architecture
+    workflow = workflows.fetch(File.join(WORKFLOW_DIR, 'ci.yml'))
+    setup_rust = workflow.fetch('jobs').fetch('ruby-integration').fetch('steps')
+                         .find { |step| step['name'] == 'Setup Rust toolchain' }
+
+    assert_equal 'ruby-native-${{ runner.arch }}-v2', setup_rust.fetch('with').fetch('cache-key')
+  end
+
   def test_ci_rejects_criterion_regressions_against_main_on_pull_requests
     workflow = workflows.fetch(File.join(WORKFLOW_DIR, 'ci.yml'))
     job = workflow.fetch('jobs').fetch('native-benchmarks')

@@ -108,6 +108,7 @@ jobs:
           toolchain: 1.75.0
           components: rustfmt, clippy
           cache-workspaces: ext/dry_validation_rust -> target
+          cache-key: ruby-native-${{ runner.arch }}-v2
 
       - name: RuboCop
         run: bundle exec rubocop
