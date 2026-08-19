@@ -63,6 +63,27 @@ jobs:
       - name: Verify Cargo lockfile build
         run: cargo check --locked --manifest-path ext/dry_validation_rust/Cargo.toml
 
+  cargo-vet:
+    name: Rust supply-chain audit
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Rust toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: 1.75.0
+          cache-workspaces: ext/dry_validation_rust -> target
+
+      - name: Install cargo-vet
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-vet@0.10.0
+
+      - name: Verify Rust dependency audits
+        run: cargo vet --locked
+
   codeql:
     name: CodeQL
     runs-on: ubuntu-latest

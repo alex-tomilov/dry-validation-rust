@@ -17,6 +17,7 @@ NOTICE.md
 README.md
 Rakefile
 SECURITY.md
+SECURITY_AUDIT.md
 SUPPORT.md
 dry-validation-rust.gemspec
 ext/dry_validation_rust/Cargo.lock
@@ -76,3 +77,6 @@ lib/dry/validation/rust/version.rb
 lib/dry_validation_rust.rb
 predicates.yml
 rust-toolchain.toml
+supply-chain/audits.toml
+supply-chain/config.toml
+supply-chain/imports.lock
