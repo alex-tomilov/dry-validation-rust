@@ -125,6 +125,7 @@ class CiWorkflowsTest < Minitest::Test
     assert_includes source, "gem install rb_sys --version '~> 0.9' --no-document"
     assert_includes source, 'ridk exec pacman -Sy --noconfirm --needed mingw-w64-ucrt-x86_64-clang'
     assert_includes source, 'LIBCLANG_PATH=$env:RI_DEVKIT\\ucrt64\\bin'
+    assert_includes source, 'RUSTUP_TOOLCHAIN=1.75.0-x86_64-pc-windows-gnu'
     refute_includes source, 'choco install llvm'
     assert_includes source, 'gem build dry-validation-rust.gemspec'
     assert_includes source, 'gem install --local dry-validation-rust-*.gem --platform ruby'

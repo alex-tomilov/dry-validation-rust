@@ -51,6 +51,7 @@ jobs:
         run: |
           ridk exec pacman -Sy --noconfirm --needed mingw-w64-ucrt-x86_64-clang
           "LIBCLANG_PATH=$env:RI_DEVKIT\ucrt64\bin" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          'RUSTUP_TOOLCHAIN=1.75.0-x86_64-pc-windows-gnu' | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
       - name: Setup Rust toolchain
         uses: actions-rust-lang/setup-rust-toolchain@v1

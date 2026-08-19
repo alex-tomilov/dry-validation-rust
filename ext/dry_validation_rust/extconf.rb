@@ -22,6 +22,7 @@ create_rust_makefile('dry_validation_rust/native') do |config|
   config.env = {
     'BINDGEN_EXTRA_CLANG_ARGS' => '-include stdbool.h'
   }
+  config.env['RUSTUP_TOOLCHAIN'] = ENV.fetch('RUSTUP_TOOLCHAIN') if ENV.key?('RUSTUP_TOOLCHAIN')
   config.extra_rustup_targets = %w[
     aarch64-unknown-linux-gnu
     x86_64-apple-darwin
