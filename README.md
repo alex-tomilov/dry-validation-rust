@@ -73,12 +73,13 @@ brew install llvm
 export LIBCLANG_PATH="$(brew --prefix llvm)/lib"
 ```
 
-On Windows, install the Visual Studio C++ Build Tools with a Windows SDK and
-LLVM, then set the same location for the current PowerShell session:
+On Windows with RubyInstaller, use its DevKit's UCRT Clang package rather than
+the standalone LLVM distribution; bindgen must use the same headers and C
+runtime as Ruby:
 
 ```powershell
-choco install llvm
-$env:LIBCLANG_PATH = 'C:\Program Files\LLVM\bin'
+ridk exec pacman -S --needed mingw-w64-ucrt-x86_64-clang
+$env:LIBCLANG_PATH = "$env:RI_DEVKIT\ucrt64\bin"
 ```
 
 If setup fails, confirm that `cargo` and your C compiler are discoverable on

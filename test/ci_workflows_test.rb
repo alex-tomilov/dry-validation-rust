@@ -120,7 +120,12 @@ class CiWorkflowsTest < Minitest::Test
     source = job.fetch('steps').map { |step| step['run'].to_s }.join("\n")
 
     assert_equal %w[ubuntu-latest macos-latest windows-latest], job.fetch('strategy').fetch('matrix').fetch('os')
+    assert_equal "${{ runner.os == 'Windows' && '1.75.0-x86_64-pc-windows-gnu' || '1.75.0' }}",
+                 job.fetch('steps').find { |step| step['name'] == 'Setup Rust toolchain' }.fetch('with').fetch('toolchain')
     assert_includes source, "gem install rb_sys --version '~> 0.9' --no-document"
+    assert_includes source, 'ridk exec pacman -Sy --noconfirm --needed mingw-w64-ucrt-x86_64-clang'
+    assert_includes source, 'LIBCLANG_PATH=$env:RI_DEVKIT\\ucrt64\\bin'
+    refute_includes source, 'choco install llvm'
     assert_includes source, 'gem build dry-validation-rust.gemspec'
     assert_includes source, 'gem install --local dry-validation-rust-*.gem --platform ruby'
     assert_includes source, 'require "dry/validation/rust"'
