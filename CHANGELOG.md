@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Added local release automation for version and Cargo-lockfile updates, dated
+  changelog sections, and release tags, plus pull-request changelog enforcement.
 - Added pluggable schema message backends through custom `MessageBackend`
   subclasses.
 - Changed the native engine boundary to return a typed `SchemaResult` with

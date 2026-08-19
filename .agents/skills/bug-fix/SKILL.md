@@ -25,7 +25,12 @@ Use this skill for one reproducible defect class.
 6. Run focused and canonical verification.
    If Ruby files, tests, tooling, or CI configuration changed, also run
    `bundle exec rubocop`; do not report completion while it fails.
-7. Update documentation only if previously documented behavior was wrong or the user-facing workaround changed. If the fix changes a public Ruby API or its documented behavior, update its inline YARD documentation and run `bundle exec yard --fail-on-warning`.
+7. For a user-visible fix, add a concise entry under `Unreleased` in
+   `CHANGELOG.md`. For an internal-only fix, record that the PR needs the
+   `no-changelog` label. Update documentation only if previously documented
+   behavior was wrong or the user-facing workaround changed. If the fix changes
+   a public Ruby API or its documented behavior, update its inline YARD
+   documentation and run `bundle exec yard --fail-on-warning`.
 
 ## Rules
 
