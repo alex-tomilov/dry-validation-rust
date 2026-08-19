@@ -5,10 +5,10 @@ engine with familiar dry-validation-style contract syntax and a precisely
 documented compatible subset. Rust handles the immutable declarative schema
 execution path; Ruby preserves dynamic rules and Ruby-specific semantics.
 
-> Status: `0.1.0.pre5` alpha pre-release. The side-by-side API has a defined
-> `0.1.x` compatibility promise and is covered by focused tests, differential
-> checks, package verification, and reproducible benchmark evidence. It is not
-> a full, production-ready drop-in replacement for upstream `dry-validation`.
+> Note: This is an early-stage project. The side-by-side API is covered by
+> focused tests, differential checks, package verification, and reproducible
+> benchmark evidence, but it is not a full, production-ready drop-in
+> replacement for upstream `dry-validation`.
 
 Before adoption, review [the support matrix](docs/SUPPORT_MATRIX.md),
 [compatibility matrix](docs/COMPATIBILITY.md), and
@@ -52,8 +52,8 @@ When a precompiled gem is published for your platform, install it with:
 gem install dry-validation-rust
 ```
 
-The current `0.1.x` support target is source builds; see the
-[support matrix](docs/SUPPORT_MATRIX.md) for the authoritative platform status.
+See the [support matrix](docs/SUPPORT_MATRIX.md) for the authoritative version
+and platform status.
 
 ### From source
 
@@ -136,13 +136,11 @@ DSL and semantic differences are listed in [COMPATIBILITY.md](docs/COMPATIBILITY
 
 ### Side-by-side API stability
 
-For the `0.1.x` line, the public side-by-side API is
-`Dry::Validation::Rust::Contract`, its nested `Result` and `Values` types, and
-the directly exposed `Schema`, `MessageSet`, and `Evaluator` types. Their
-documented public methods will not be removed or changed incompatibly in a patch
-release; a breaking side-by-side API change requires the next minor release. The
-exact-compatibility entrypoints are explicitly experimental and are not covered
-by this promise.
+The public side-by-side API is `Dry::Validation::Rust::Contract`, its nested
+`Result` and `Values` types, and the directly exposed `Schema`, `MessageSet`,
+and `Evaluator` types. Its compatibility policy is defined in the
+[support matrix](docs/SUPPORT_MATRIX.md). The exact-compatibility entrypoints
+are explicitly experimental and are not covered by that policy.
 
 ## Migration-compatible subset
 
@@ -183,8 +181,7 @@ end
 The exact shim currently lives in this gem. If maintaining the shim separately
 becomes necessary, the intended product split is `dry-validation-rust` for the
 safe namespace and `dry-validation-rust-compat` for the upstream-like require
-paths. No split is planned for the `0.1.x` line without concrete maintenance
-evidence.
+paths. No split is currently planned without concrete maintenance evidence.
 
 ## Loading modes
 
@@ -250,13 +247,8 @@ native-extension lifecycle.
 
 ## Verification
 
-Current release evidence was collected with:
-
-- CRuby 3.3.7;
-- Rust 1.97.0;
-- Magnus 0.8.2;
-- rb-sys 0.9.128;
-- an optimized release profile.
+Representative verification evidence, including its pinned runtime versions,
+is recorded in [VERIFICATION.md](docs/VERIFICATION.md).
 
 The test suite covers the native plan, coercion modes, nested data, rules,
 rule skipping, array rules, macros, options, context, inheritance, external

@@ -31,6 +31,17 @@ class CiWorkflowsTest < Minitest::Test
     refute_includes source, 'id-token: write'
   end
 
+  def test_ci_requires_changelog_updates_unless_the_pull_request_is_labeled
+    workflow = workflows.fetch(File.join(WORKFLOW_DIR, 'ci.yml'))
+    changelog = workflow.fetch('jobs').fetch('changelog')
+    source = changelog.fetch('steps').last.fetch('run')
+
+    assert_equal "github.event_name == 'pull_request'", changelog.fetch('if')
+    assert_equal 0, changelog.fetch('steps').first.fetch('with').fetch('fetch-depth')
+    assert_includes source, 'no-changelog'
+    assert_includes source, 'git diff --quiet "${BASE_SHA}" "${HEAD_SHA}" -- CHANGELOG.md'
+  end
+
   def test_release_workflow_builds_signs_and_publishes_each_p0_platform_on_tags
     workflow = workflows.fetch(File.join(WORKFLOW_DIR, 'rubygems-push.yml'))
     build = workflow.fetch('jobs').fetch('build-native-gem')
