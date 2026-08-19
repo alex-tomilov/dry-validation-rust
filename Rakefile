@@ -21,11 +21,6 @@ PACKAGE_REQUIRED_FILES = %w[
   NOTICE.md
   predicates.yml
   README.md
-  docs/ARCHITECTURE.md
-  docs/COMPATIBILITY.md
-  docs/FEASIBILITY.md
-  docs/SUPPORT_MATRIX.md
-  docs/VERIFICATION.md
   ext/dry_validation_rust/Cargo.lock
   ext/dry_validation_rust/Cargo.toml
   ext/dry_validation_rust/extconf.rb

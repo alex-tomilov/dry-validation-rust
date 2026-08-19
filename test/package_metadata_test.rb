@@ -31,11 +31,6 @@ class PackageMetadataTest < Minitest::Test
       LICENSE
       NOTICE.md
       README.md
-      docs/ARCHITECTURE.md
-      docs/COMPATIBILITY.md
-      docs/FEASIBILITY.md
-      docs/SUPPORT_MATRIX.md
-      docs/VERIFICATION.md
       dry-validation-rust.gemspec
       ext/dry_validation_rust/Cargo.lock
       ext/dry_validation_rust/Cargo.toml
@@ -55,7 +50,7 @@ class PackageMetadataTest < Minitest::Test
     forbidden_patterns = [
       %r{\Abenchmark/},
       %r{\Aexamples/},
-      %r{\Adocs/codex/},
+      %r{\A(?:\.agents|\.github|compat|docs|features|script|spec|test)/},
       %r{\Aext/dry_validation_rust/target/},
       %r{\Aext/dry_validation_rust/(?:Makefile|mkmf\.log|native\.)},
       %r{\A(?:pkg|coverage|\.bundle|\.ruby-lsp)/},

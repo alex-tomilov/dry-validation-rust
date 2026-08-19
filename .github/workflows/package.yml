@@ -41,6 +41,11 @@ jobs:
       - name: Audit source package and clean install
         run: bundle exec rake package:audit
 
+      - name: Audit gem contents
+        run: |
+          script/update-gem-contents gem_contents.txt
+          diff -u expected_gem_contents.txt gem_contents.txt
+
       - name: Upload built source gem
         uses: actions/upload-artifact@v7
         with:
