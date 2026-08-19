@@ -74,6 +74,13 @@ class PackageMetadataTest < Minitest::Test
     end
   end
 
+  def test_extension_config_uses_gnu_rust_for_mingw_ruby
+    extension_config = File.read(File.join(PROJECT_ROOT, 'ext/dry_validation_rust/extconf.rb'))
+
+    assert_includes extension_config, "ENV['RUSTUP_TOOLCHAIN'] ||= '1.75.0-x86_64-pc-windows-gnu' if RUBY_PLATFORM.include?('mingw')"
+    assert_includes extension_config, "config.env['RUSTUP_TOOLCHAIN'] = ENV.fetch('RUSTUP_TOOLCHAIN') if ENV.key?('RUSTUP_TOOLCHAIN')"
+  end
+
   private
 
   def spec

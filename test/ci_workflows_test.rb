@@ -114,6 +114,32 @@ class CiWorkflowsTest < Minitest::Test
     assert_equal '1', job.fetch('steps').last.fetch('env').fetch('MEMORY_REGRESSION')
   end
 
+  def test_ci_validates_source_fallback_on_supported_hosted_runners
+    workflow = workflows.fetch(File.join(WORKFLOW_DIR, 'ci.yml'))
+    job = workflow.fetch('jobs').fetch('source-fallback')
+    source = job.fetch('steps').map { |step| step['run'].to_s }.join("\n")
+
+    assert_equal %w[ubuntu-latest macos-latest windows-latest], job.fetch('strategy').fetch('matrix').fetch('os')
+    assert_equal "${{ runner.os == 'Windows' && '1.75.0-x86_64-pc-windows-gnu' || '1.75.0' }}",
+                 job.fetch('steps').find { |step| step['name'] == 'Setup Rust toolchain' }.fetch('with').fetch('toolchain')
+    assert_includes source, "gem install rb_sys --version '~> 0.9' --no-document"
+    assert_includes source, 'ridk exec pacman -Sy --noconfirm --needed mingw-w64-ucrt-x86_64-clang'
+    assert_includes source, 'LIBCLANG_PATH=$env:RI_DEVKIT\\ucrt64\\bin'
+    assert_includes source, 'RUSTUP_TOOLCHAIN=1.75.0-x86_64-pc-windows-gnu'
+    refute_includes source, 'choco install llvm'
+    assert_includes source, 'gem build dry-validation-rust.gemspec'
+    assert_includes source, 'gem install --local dry-validation-rust-*.gem --platform ruby'
+    assert_includes source, 'require "dry/validation/rust"'
+  end
+
+  def test_ruby_integration_cache_is_scoped_to_runner_architecture
+    workflow = workflows.fetch(File.join(WORKFLOW_DIR, 'ci.yml'))
+    setup_rust = workflow.fetch('jobs').fetch('ruby-integration').fetch('steps')
+                         .find { |step| step['name'] == 'Setup Rust toolchain' }
+
+    assert_equal 'ruby-native-${{ runner.arch }}-v2', setup_rust.fetch('with').fetch('cache-key')
+  end
+
   def test_ci_rejects_criterion_regressions_against_main_on_pull_requests
     workflow = workflows.fetch(File.join(WORKFLOW_DIR, 'ci.yml'))
     job = workflow.fetch('jobs').fetch('native-benchmarks')

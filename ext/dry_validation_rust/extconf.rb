@@ -14,12 +14,15 @@ rescue LoadError
   end
 end
 
+ENV['RUSTUP_TOOLCHAIN'] ||= '1.75.0-x86_64-pc-windows-gnu' if RUBY_PLATFORM.include?('mingw')
+
 create_rust_makefile('dry_validation_rust/native') do |config|
   config.profile = ENV.fetch('RB_SYS_CARGO_PROFILE', 'release').to_sym
   config.ext_dir = '.'
   config.env = {
     'BINDGEN_EXTRA_CLANG_ARGS' => '-include stdbool.h'
   }
+  config.env['RUSTUP_TOOLCHAIN'] = ENV.fetch('RUSTUP_TOOLCHAIN') if ENV.key?('RUSTUP_TOOLCHAIN')
   config.extra_rustup_targets = %w[
     aarch64-unknown-linux-gnu
     x86_64-apple-darwin

@@ -57,9 +57,38 @@ The current `0.1.x` support target is source builds; see the
 
 ### From source
 
-Requires Rust 1.75 or newer, libclang, and a C toolchain. The MSRV is Rust
-1.75 and is tested in CI. A source checkout pins Rust 1.75.0 automatically
-through `rust-toolchain.toml`.
+When no precompiled gem is available for your platform, install the source gem
+with RubyGems. Source builds require:
+
+- CRuby 3.3 or newer with development headers;
+- Rust 1.75 or newer and Cargo (the MSRV, tested in CI);
+- a C toolchain; and
+- libclang for the `rb-sys` bindgen step.
+
+On Linux, install `clang` and `libclang-dev`. On macOS, install Xcode Command
+Line Tools and LLVM, then point bindgen to Homebrew's keg-only library:
+
+```bash
+brew install llvm
+export LIBCLANG_PATH="$(brew --prefix llvm)/lib"
+```
+
+On Windows with RubyInstaller, use its DevKit's UCRT Clang package rather than
+the standalone LLVM distribution; bindgen must use the same headers and C
+runtime as Ruby:
+
+```powershell
+ridk exec pacman -S --needed mingw-w64-ucrt-x86_64-clang
+$env:LIBCLANG_PATH = "$env:RI_DEVKIT\ucrt64\bin"
+```
+
+The extension automatically selects Rust's matching GNU toolchain when it is
+built by a MinGW Ruby.
+
+If setup fails, confirm that `cargo` and your C compiler are discoverable on
+`PATH` and that `LIBCLANG_PATH` contains the `libclang` library before rerunning
+the install. A source checkout pins Rust 1.75.0 automatically through
+`rust-toolchain.toml`.
 
 ```bash
 gem install dry-validation-rust --platform ruby
@@ -206,12 +235,7 @@ The complete exclusions and semantic differences are explicit in
 
 ## Building from source
 
-Requirements:
-
-- Ruby 3.3 or newer with development headers;
-- Rust 1.75 or newer and Cargo (the MSRV, tested in CI);
-- a C toolchain;
-- libclang where the selected `rb-sys` build uses bindgen.
+Meet the [source-install prerequisites](#from-source) first.
 
 Then:
 
