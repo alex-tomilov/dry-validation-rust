@@ -78,3 +78,21 @@ Audit failures are handled under
 Security releases and advisories remain subject to maintainer approval. No
 report grants permission to publish a gem, create a tag, or disclose private
 project information.
+
+## Gem signing and publication
+
+Release gems are built only by the protected `rubygems:push` workflow. The
+workflow signs every source and native gem with GitHub Actions OIDC and
+Sigstore, then attaches the resulting `.sigstore.json` bundle alongside the
+gem to the GitHub release.
+
+RubyGems.org publication uses RubyGems Trusted Publishing through the same
+OIDC identity; the repository does not keep a long-lived RubyGems API key for
+this workflow. RubyGems Trusted Publishing must be configured on RubyGems.org
+for `alex-tomilov/dry-validation-rust`, the `rubygems:push` workflow, and the
+GitHub `release` environment before a release can publish.
+
+The `release` environment is an approval boundary. Maintainers must review the
+tag and generated artifacts before approving it. A test publication, when
+needed, must use a separate RubyGems test-host trusted-publisher configuration
+and must not change the production publisher or release environment.
