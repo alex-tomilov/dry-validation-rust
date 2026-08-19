@@ -11,6 +11,20 @@ executes the initial corpus against both engines in separate Ruby processes.
 Version, platform, and release-line support are documented in
 [SUPPORT_MATRIX.md](SUPPORT_MATRIX.md).
 
+## Runtime build dependencies
+
+The source gem supports `bigdecimal` 3.1.x through 4.x. CI compiles and runs
+the test suite with 3.1.0, 3.2.0, and 4.0.0. The lower bound keeps support for
+the earliest version used by the supported Ruby line; the `< 5.0` bound makes a
+new major release an explicit compatibility decision.
+
+The source extension supports `rb_sys` 0.9.100 through the latest 0.9.x. CI
+tests 0.9.100, 0.9.128, and the latest resolvable 0.9.x. Its native `rb-sys`
+crate enables only `stable-api-compiled-fallback`: the fallback supplies a
+compiled stable Ruby C API implementation when `rb-sys` has no generated stable
+API candidate for the running Ruby. No default or unrelated `rb-sys` features
+are enabled.
+
 For `0.1.x`, the side-by-side API rooted at
 `Dry::Validation::Rust::Contract` is stable: a breaking change to its documented
 public surface, including its nested `Result` and `Values` types and the `Schema`,

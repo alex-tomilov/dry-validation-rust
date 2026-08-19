@@ -140,6 +140,24 @@ class CiWorkflowsTest < Minitest::Test
     assert_equal 'ruby-native-${{ runner.arch }}-v2', setup_rust.fetch('with').fetch('cache-key')
   end
 
+  def test_ci_exercises_runtime_dependency_boundaries
+    workflow = workflows.fetch(File.join(WORKFLOW_DIR, 'ci.yml'))
+    job = workflow.fetch('jobs').fetch('dependency-compatibility')
+    matrix = job.fetch('strategy').fetch('matrix').fetch('include')
+
+    assert_equal [
+      { 'dependency' => 'bigdecimal', 'version' => '3.1.0' },
+      { 'dependency' => 'bigdecimal', 'version' => '3.2.0' },
+      { 'dependency' => 'bigdecimal', 'version' => '4.0.0' },
+      { 'dependency' => 'rb_sys', 'version' => '0.9.100' },
+      { 'dependency' => 'rb_sys', 'version' => '0.9.128' },
+      { 'dependency' => 'rb_sys', 'version' => 'latest' }
+    ], matrix
+
+    source = job.fetch('steps').map { |step| step['run'].to_s }.join("\n")
+    assert_includes source, 'BUNDLE_GEMFILE=Gemfile.dependency-ci bundle exec rake test'
+  end
+
   def test_ci_rejects_criterion_regressions_against_main_on_pull_requests
     workflow = workflows.fetch(File.join(WORKFLOW_DIR, 'ci.yml'))
     job = workflow.fetch('jobs').fetch('native-benchmarks')
