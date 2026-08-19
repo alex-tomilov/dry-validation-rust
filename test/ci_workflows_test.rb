@@ -114,6 +114,18 @@ class CiWorkflowsTest < Minitest::Test
     assert_equal '1', job.fetch('steps').last.fetch('env').fetch('MEMORY_REGRESSION')
   end
 
+  def test_ci_validates_source_fallback_on_supported_hosted_runners
+    workflow = workflows.fetch(File.join(WORKFLOW_DIR, 'ci.yml'))
+    job = workflow.fetch('jobs').fetch('source-fallback')
+    source = job.fetch('steps').map { |step| step['run'].to_s }.join("\n")
+
+    assert_equal %w[ubuntu-latest macos-latest windows-latest], job.fetch('strategy').fetch('matrix').fetch('os')
+    assert_includes source, "gem install rb_sys --version '~> 0.9' --no-document"
+    assert_includes source, 'gem build dry-validation-rust.gemspec'
+    assert_includes source, 'gem install --local dry-validation-rust-*.gem --platform ruby'
+    assert_includes source, 'require "dry/validation/rust"'
+  end
+
   def test_ci_rejects_criterion_regressions_against_main_on_pull_requests
     workflow = workflows.fetch(File.join(WORKFLOW_DIR, 'ci.yml'))
     job = workflow.fetch('jobs').fetch('native-benchmarks')
