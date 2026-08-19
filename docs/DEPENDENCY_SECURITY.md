@@ -29,6 +29,7 @@ The security workflow runs:
 
 - `bundler-audit` for Ruby advisories;
 - `cargo audit --deny warnings` for Rust advisories;
+- `cargo vet --locked` for reviewed Rust dependency provenance;
 - lockfile presence and locked Cargo build checks;
 - CodeQL for Ruby.
 
