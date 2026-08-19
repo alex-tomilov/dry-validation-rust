@@ -27,10 +27,12 @@ Use this skill for one reproducible defect class.
    `bundle exec rubocop`; do not report completion while it fails.
 7. For a user-visible fix, add a concise entry under `Unreleased` in
    `CHANGELOG.md`. For an internal-only fix, record that the PR needs the
-   `no-changelog` label. Update documentation only if previously documented
-   behavior was wrong or the user-facing workaround changed. If the fix changes
-   a public Ruby API or its documented behavior, update its inline YARD
-   documentation and run `bundle exec yard --fail-on-warning`.
+   `no-changelog` label. Derive the entry from the reproduced defect and its
+   observable fix; do not imply broader compatibility. Update documentation
+   only if previously documented behavior was wrong or the user-facing
+   workaround changed. If the fix changes a public Ruby API or its documented
+   behavior, update its inline YARD documentation and run
+   `bundle exec yard --fail-on-warning`.
 
 ## Rules
 

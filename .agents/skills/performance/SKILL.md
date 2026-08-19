@@ -25,9 +25,11 @@ Use this skill for one measured bottleneck.
 5. Re-run correctness checks before timing.
 6. Measure affected and unaffected workloads.
 7. Keep the change only when value justifies complexity.
-8. Update public claims only when evidence supports them. If the optimization
-   changes a public Ruby API, update its inline YARD documentation and run
-   `bundle exec yard --fail-on-warning`.
+8. Update public claims only when evidence supports them. When the evidence
+   changes a published performance claim or supported operational behavior,
+   add a concise `Unreleased` entry derived from the measured result. If the
+   optimization changes a public Ruby API, update its inline YARD documentation
+   and run `bundle exec yard --fail-on-warning`.
 9. If Ruby files, benchmarks, tooling, or CI configuration changed, run
    `bundle exec rubocop` before reporting completion; resolve or explicitly
    report any offenses.

@@ -17,10 +17,12 @@ Inspect the current branch before drafting anything. This skill is read-only: do
 6. Decide the changelog disposition before drafting the PR. Require an
    `Unreleased` entry for a user-visible behavior, compatibility, installation,
    or operational change; otherwise state that the PR needs the
-   `no-changelog` label. Draft a concise PR title and fill every relevant
-   section of the repository PR template. Keep unchecked items that were not
-   performed; never claim verification, compatibility evidence, benchmarks, or
-   releases that the diff and command output do not establish.
+   `no-changelog` label. Verify that any entry describes the observable diff,
+   belongs under `Unreleased`, and does not claim unrun evidence or a release.
+   Draft a concise PR title and fill every relevant section of the repository
+   PR template. Keep unchecked items that were not performed; never claim
+   verification, compatibility evidence, benchmarks, or releases that the diff
+   and command output do not establish.
 
 ## Output
 

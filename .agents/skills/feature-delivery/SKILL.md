@@ -38,9 +38,11 @@ If some input is absent, infer the narrowest useful scope from the issue and exi
 7. For a user-visible behavior, compatibility, installation, or operational
    change, add a concise entry under `Unreleased` in `CHANGELOG.md`. For an
    internal-only change, record that the PR needs the `no-changelog` label.
-   Update only other documentation whose truth changed. When the slice adds or
-   changes a public Ruby API, add or update its inline YARD documentation and
-   run `bundle exec yard --fail-on-warning`.
+   Derive the entry from the observable diff and supported behavior; do not
+   copy commit subjects or claim unverified support. Update only other
+   documentation whose truth changed. When the slice adds or changes a public
+   Ruby API, add or update its inline YARD documentation and run
+   `bundle exec yard --fail-on-warning`.
 8. Report follow-up ideas without implementing them.
 
 ## Definition of done
