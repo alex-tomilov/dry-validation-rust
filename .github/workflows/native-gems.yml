@@ -26,6 +26,8 @@ jobs:
             target: x86_64-apple-darwin
           - platform: arm64-darwin
             target: aarch64-apple-darwin
+          - platform: x64-mingw-ucrt
+            target: x86_64-pc-windows-gnu
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -62,3 +64,49 @@ jobs:
           name: dry-validation-rust-${{ matrix.platform }}
           path: pkg/*-${{ matrix.platform }}.gem
           if-no-files-found: error
+
+  smoke-native-gem:
+    name: Smoke ${{ matrix.platform }} gem
+    needs: build-native-gem
+    runs-on: ${{ matrix.runs-on }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: x86_64-linux
+            runs-on: ubuntu-latest
+          - platform: aarch64-linux
+            runs-on: ubuntu-24.04-arm
+          - platform: x86_64-darwin
+            runs-on: macos-13
+          - platform: arm64-darwin
+            runs-on: macos-14
+          - platform: x64-mingw-ucrt
+            runs-on: windows-latest
+    steps:
+      - name: Setup Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.3"
+
+      - name: Download native platform gem
+        uses: actions/download-artifact@v8
+        with:
+          name: dry-validation-rust-${{ matrix.platform }}
+          path: pkg
+
+      - name: Install and smoke test native platform gem
+        shell: bash
+        run: |
+          set -euo pipefail
+          gem install --local --no-document pkg/*-${{ matrix.platform }}.gem
+          ruby -e '
+            require "dry/validation/rust"
+
+            contract = Class.new(Dry::Validation::Rust::Contract) do
+              params { required(:age).value(:integer) }
+            end
+
+            result = contract.new.call("age" => "21")
+            abort result.errors.to_h.inspect unless result.success? && result.to_h == { age: 21 }
+          '

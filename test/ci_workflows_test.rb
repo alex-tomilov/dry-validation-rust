@@ -58,9 +58,20 @@ class CiWorkflowsTest < Minitest::Test
     build = workflow.fetch('jobs').fetch('build-native-gem')
     source = build.fetch('steps').map { |step| step['run'] }.compact.join("\n")
 
+    assert_equal(%w[x86_64-linux aarch64-linux x86_64-darwin arm64-darwin x64-mingw-ucrt],
+                 build.fetch('strategy').fetch('matrix').fetch('include').map { |h| h.fetch('platform') })
     assert_includes source, 'rb-sys-dock'
     assert_includes source, '--mount-toolchains'
     assert_includes source, '--build'
+
+    smoke = workflow.fetch('jobs').fetch('smoke-native-gem')
+    assert_equal 'build-native-gem', smoke.fetch('needs')
+    assert_equal(%w[x86_64-linux aarch64-linux x86_64-darwin arm64-darwin x64-mingw-ucrt],
+                 smoke.fetch('strategy').fetch('matrix').fetch('include').map { |h| h.fetch('platform') })
+    smoke_source = smoke.fetch('steps').map { |step| step['run'] }.compact.join("\n")
+    assert_includes smoke_source, 'gem install --local'
+    assert_includes smoke_source, 'require "dry/validation/rust"'
+    assert_includes smoke_source, 'result.success?'
   end
 
   def test_release_workflow_verifies_tag_or_manual_release_tag_then_uses_trusted_publishing
