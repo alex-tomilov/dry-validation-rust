@@ -33,8 +33,9 @@ class SupplyChainTest < Minitest::Test
     security = File.read(File.join(PROJECT_ROOT, '.github', 'workflows', 'security.yml'))
 
     assert_includes security, "permissions:\n  contents: read"
-    refute_includes security, 'secrets.'
+    assert_includes security, 'GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}'
     refute_includes security, 'GEM_HOST_API_KEY'
+    refute_includes security, 'GITLEAKS_LICENSE'
     refute_includes security, 'contents: write'
     refute_includes security, 'id-token: write'
   end
