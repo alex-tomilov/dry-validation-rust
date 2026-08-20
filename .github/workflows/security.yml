@@ -84,6 +84,18 @@ jobs:
       - name: Verify Rust dependency audits
         run: cargo vet --locked
 
+  cargo-deny:
+    name: Rust dependency policy
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Enforce Rust dependency policy
+        uses: EmbarkStudios/cargo-deny-action@v2
+        with:
+          manifest-path: ext/dry_validation_rust/Cargo.toml
+
   codeql:
     name: CodeQL
     runs-on: ubuntu-latest
