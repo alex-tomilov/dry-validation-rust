@@ -31,6 +31,8 @@ module Dry
         end
 
         def freeze
+          return super if @root.empty?
+
           stack = [[@root, false]]
           until stack.empty?
             node, visited = stack.pop

@@ -11,17 +11,21 @@ module Dry
             stack = [[:definitions, definitions, data, []]]
 
             until stack.empty?
-              kind, *arguments = stack.pop
-              case kind
+              task = stack.pop
+              case task[0]
               when :definitions
-                current_definitions, current_data, prefix = arguments
+                current_definitions = task[1]
+                current_data = task[2]
+                prefix = task[3]
                 next unless current_data.is_a?(Hash)
 
                 current_definitions.reverse_each do |field|
                   stack << [:field, field, current_data, prefix]
                 end
               when :field
-                field, current_data, prefix = arguments
+                field = task[1]
+                current_data = task[2]
+                prefix = task[3]
                 next unless current_data.key?(field.name)
 
                 path = [*prefix, field.name]
