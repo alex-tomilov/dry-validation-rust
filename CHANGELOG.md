@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Added an allowed-to-fail Windows CI job that compiles the native extension
+  and runs the Ruby test suite with RubyInstaller's UCRT toolchain.
 - Added Gitleaks secret scanning to the Security workflow for pull requests,
   protected-branch pushes, scheduled runs, and manual runs.
 - Added local release automation for version and Cargo-lockfile updates, dated
