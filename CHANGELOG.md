@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Added Gitleaks secret scanning to the Security workflow for pull requests,
+  protected-branch pushes, scheduled runs, and manual runs.
 - Added local release automation for version and Cargo-lockfile updates, dated
   changelog sections, and release tags, plus pull-request changelog enforcement.
 - Added representative throughput, allocation, and native Criterion benchmark

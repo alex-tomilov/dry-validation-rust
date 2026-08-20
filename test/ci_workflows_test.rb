@@ -42,6 +42,19 @@ class CiWorkflowsTest < Minitest::Test
     assert_includes source, 'git diff --quiet "${BASE_SHA}" "${HEAD_SHA}" -- CHANGELOG.md'
   end
 
+  def test_security_workflow_scans_full_history_for_secrets
+    workflow = workflows.fetch(File.join(WORKFLOW_DIR, 'security.yml'))
+    job = workflow.fetch('jobs').fetch('secret-scan')
+    checkout = job.fetch('steps').first
+    scan = job.fetch('steps').last
+
+    assert_equal 'ubuntu-latest', job.fetch('runs-on')
+    assert_equal 'actions/checkout@v7', checkout.fetch('uses')
+    assert_equal 0, checkout.fetch('with').fetch('fetch-depth')
+    assert_equal 'gitleaks/gitleaks-action@v3', scan.fetch('uses')
+    assert_equal '${{ secrets.GITHUB_TOKEN }}', scan.fetch('env').fetch('GITHUB_TOKEN')
+  end
+
   def test_release_workflow_builds_signs_and_publishes_each_p0_platform_on_tags
     workflow = workflows.fetch(File.join(WORKFLOW_DIR, 'rubygems-push.yml'))
     build = workflow.fetch('jobs').fetch('build-native-gem')
