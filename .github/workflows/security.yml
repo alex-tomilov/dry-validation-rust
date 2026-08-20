@@ -18,6 +18,22 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  bundle-audit:
+    name: Ruby dependency audit
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Ruby and Bundler cache
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.3"
+          bundler-cache: true
+
+      - name: Audit Ruby dependencies
+        run: bundle exec bundle-audit check --update
+
   dependency-audit:
     name: Dependency audit
     runs-on: ubuntu-latest
@@ -44,11 +60,6 @@ jobs:
         run: |
           test -f Gemfile.lock
           test -f ext/dry_validation_rust/Cargo.lock
-
-      - name: Audit Ruby dependencies
-        run: |
-          gem install bundler-audit --no-document
-          bundle-audit check --update
 
       - name: Install cargo-audit
         uses: taiki-e/install-action@v2
