@@ -174,7 +174,7 @@ class CiWorkflowsTest < Minitest::Test
     job = workflow.fetch('jobs').fetch('native-benchmarks')
     source = job.fetch('steps').map { |step| step['run'].to_s }.join("\n")
 
-    assert_equal 'Criterion regression gate', job.fetch('name')
+    assert_equal 'Criterion regression gate (${{ matrix.bench }})', job.fetch('name')
     refute job.key?('continue-on-error')
     assert_includes source, 'git show FETCH_HEAD:benchmark/baseline.json'
     assert_includes source, 'No Criterion baseline yet'
