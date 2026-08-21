@@ -162,9 +162,15 @@ jobs:
       - name: Setup Rust toolchain
         uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
-          toolchain: 1.75.0
+          toolchain: ${{ matrix.ruby == 'head' && 'stable' || '1.75.0' }}
           cache-workspaces: ext/dry_validation_rust -> target
           cache-key: ruby-native-${{ runner.arch }}-v2
+
+      - name: Use Magnus with Ruby head typed-data support
+        if: matrix.ruby == 'head'
+        run: |
+          ruby -i -pe 'gsub(/version = "~0.8.2"/, "git = \"https://github.com/matsadler/magnus.git\", rev = \"6d6024c8096c4f8c5288a81a30b7313feed099e6\"")' ext/dry_validation_rust/Cargo.toml
+          cargo update --manifest-path ext/dry_validation_rust/Cargo.toml -p magnus
 
       - name: Compile native extension
         run: bundle exec rake compile

@@ -182,6 +182,19 @@ class CiWorkflowsTest < Minitest::Test
     assert_includes notification.fetch('with').fetch('script'), 'github.rest.issues.create'
   end
 
+  def test_ruby_head_uses_the_upstream_magnus_typed_data_fix_on_stable_rust
+    workflow = workflows.fetch(File.join(WORKFLOW_DIR, 'ci.yml'))
+    job = workflow.fetch('jobs').fetch('ruby-integration')
+    steps = job.fetch('steps')
+    setup_rust = steps.find { |step| step['name'] == 'Setup Rust toolchain' }
+    magnus = steps.find { |step| step['name'] == 'Use Magnus with Ruby head typed-data support' }
+
+    assert_equal "${{ matrix.ruby == 'head' && 'stable' || '1.75.0' }}", setup_rust.fetch('with').fetch('toolchain')
+    assert_equal "matrix.ruby == 'head'", magnus.fetch('if')
+    assert_includes magnus.fetch('run'), '6d6024c8096c4f8c5288a81a30b7313feed099e6'
+    assert_includes magnus.fetch('run'), 'cargo update --manifest-path ext/dry_validation_rust/Cargo.toml -p magnus'
+  end
+
   def test_ci_exercises_runtime_dependency_boundaries
     workflow = workflows.fetch(File.join(WORKFLOW_DIR, 'ci.yml'))
     job = workflow.fetch('jobs').fetch('dependency-compatibility')
