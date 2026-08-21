@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Added native Rust line-coverage reporting and a Codecov quality gate to CI.
 - Added beta Rust CI coverage and a weekly nightly Miri check for the native extension.
 - Added an allowed-to-fail Windows CI job that compiles the native extension
   and runs the Ruby test suite with RubyInstaller's UCRT toolchain.
