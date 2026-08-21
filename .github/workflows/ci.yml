@@ -123,6 +123,10 @@ jobs:
   ruby-integration:
     name: Ruby ${{ matrix.ruby }} on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
+    continue-on-error: ${{ matrix.ruby == 'head' }}
+    permissions:
+      contents: read
+      issues: write
     strategy:
       fail-fast: false
       matrix:
@@ -133,6 +137,7 @@ jobs:
           - "3.3"
           - "3.4"
           - "3.5"
+          - head
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -146,23 +151,65 @@ jobs:
         run: HOMEBREW_NO_AUTO_UPDATE=1 brew install llvm
 
       - name: Setup Ruby and Bundler cache
+        env:
+          BUNDLER_VERSION: ${{ matrix.ruby == 'head' && '4' || '' }}
         uses: ruby/setup-ruby@v1
         with:
           ruby-version: ${{ matrix.ruby }}
+          bundler: ${{ matrix.ruby == 'head' && 'latest' || 'default' }}
           bundler-cache: true
 
       - name: Setup Rust toolchain
         uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
-          toolchain: 1.75.0
+          toolchain: ${{ matrix.ruby == 'head' && 'stable' || '1.75.0' }}
           cache-workspaces: ext/dry_validation_rust -> target
           cache-key: ruby-native-${{ runner.arch }}-v2
+
+      - name: Use Magnus with Ruby head typed-data support
+        if: matrix.ruby == 'head'
+        run: |
+          ruby -i -pe 'gsub(/version = "~0.8.2"/, "git = \"https://github.com/matsadler/magnus.git\", rev = \"6d6024c8096c4f8c5288a81a30b7313feed099e6\"")' ext/dry_validation_rust/Cargo.toml
+          cargo update --manifest-path ext/dry_validation_rust/Cargo.toml -p magnus
 
       - name: Compile native extension
         run: bundle exec rake compile
 
       - name: Run Ruby tests with warnings
         run: bundle exec rake test
+
+      - name: Create or update Ruby head failure issue
+        if: ${{ failure() && matrix.ruby == 'head' }}
+        continue-on-error: true
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const title = 'CI: Ruby head integration failure';
+            const marker = '<!-- ruby-head-integration-failure -->';
+            const body = `${marker}\n\nRuby head integration failed on ${process.env.RUNNER_OS}.\n\nRun: ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const { data: issues } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              per_page: 100
+            });
+            const existing = issues.find((issue) => issue.title === title && issue.body?.includes(marker));
+
+            if (existing) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: existing.number,
+                body
+              });
+            } else {
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title,
+                body
+              });
+            }
 
   windows:
     name: Windows source build and tests
