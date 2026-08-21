@@ -23,7 +23,7 @@ class CiWorkflowsTest < Minitest::Test
   def test_non_release_workflows_contain_no_publication_path
     refute File.exist?(File.join(WORKFLOW_DIR, 'release.yml'))
 
-    source = workflows.reject { |path, _| path.end_with?('rubygems-push.yml') }
+    source = workflows.reject { |path, _| path.end_with?('rubygems-push.yml') || path.end_with?('benchmark-regression.yml') }
                       .keys.map { |path| File.read(path) }.join("\n")
     refute_includes source, 'GEM_HOST_API_KEY'
     refute_includes source, 'gem push'
@@ -249,18 +249,45 @@ class CiWorkflowsTest < Minitest::Test
   def test_benchmark_workflow_gates_prs_and_only_publishes_from_trusted_events
     workflow = workflows.fetch(File.join(WORKFLOW_DIR, 'benchmark-regression.yml'))
     benchmark = workflow.fetch('jobs').fetch('benchmark')
-    action = benchmark.fetch('steps').find { |step| step['uses'] == 'benchmark-action/github-action-benchmark@v1' }
+    benchmark_action = benchmark.fetch('steps').find { |step| step['uses'] == 'benchmark-action/github-action-benchmark@v1' }
+    publisher = workflow.fetch('jobs').fetch('publish-dashboard')
+    publish_action = publisher.fetch('steps').find { |step| step['uses'] == 'benchmark-action/github-action-benchmark@v1' }
 
     assert workflow.fetch(true).key?('pull_request')
     assert workflow.fetch(true).key?('workflow_dispatch')
     assert_equal({ 'contents' => 'read' }, workflow.fetch('permissions'))
-    assert_equal "${{ github.ref == 'refs/heads/main' && 'write' || 'read' }}", benchmark.fetch('permissions').fetch('contents')
+    assert_equal({ 'contents' => 'read' }, benchmark.fetch('permissions'))
+    assert_equal({ 'contents' => 'write', 'deployments' => 'write' }, publisher.fetch('permissions'))
+    assert_equal "github.ref == 'refs/heads/main' && (github.event_name != 'workflow_dispatch' || inputs.publish_dashboard)",
+                 publisher.fetch('if').gsub(/\s+/, ' ')
+    assert_includes benchmark.fetch('steps').map { |step| step['run'].to_s },
+                    'gem install dry-validation --version 1.11.1 --no-document'
+    baseline = benchmark.fetch('steps').find { |step| step['id'] == 'benchmark-baseline' }
+    assert_includes baseline.fetch('run'), 'git ls-remote --exit-code origin refs/heads/gh-pages'
+    assert_equal "steps.benchmark-baseline.outputs.available == 'true'", benchmark_action.fetch('if')
     assert_equal 'FORMAT=github-action-benchmark ruby -Ilib benchmark/schema_throughput.rb > benchmark_results.json',
                  benchmark.fetch('steps').find { |step| step['name'] == 'Run schema throughput benchmark' }.fetch('run')
-    assert_equal 'customSmallerIsBetter', action.fetch('with').fetch('tool')
-    assert_equal '105%', action.fetch('with').fetch('fail-threshold')
-    assert_equal true, action.fetch('with').fetch('fail-on-alert')
-    assert_includes action.fetch('with').fetch('auto-push'), "github.ref == 'refs/heads/main'"
+    assert_equal 'customSmallerIsBetter', benchmark_action.fetch('with').fetch('tool')
+    assert_equal '105%', benchmark_action.fetch('with').fetch('fail-threshold')
+    assert_equal true, benchmark_action.fetch('with').fetch('fail-on-alert')
+    assert_equal false, benchmark_action.fetch('with').fetch('auto-push')
+    assert_equal true, publish_action.fetch('with').fetch('auto-push')
+    initialize_branch = publisher.fetch('steps').find { |step| step['name'] == 'Initialize benchmark dashboard branch' }
+    assert_includes initialize_branch.fetch('run'), 'git checkout --orphan gh-pages'
+    assert_includes initialize_branch.fetch('run'), 'git push origin gh-pages'
+    assert_equal '${{ runner.temp }}/schema-throughput-results/benchmark_results.json',
+                 publish_action.fetch('with').fetch('output-file-path')
+  end
+
+  def test_workflow_permission_values_are_static
+    workflows.each do |path, workflow|
+      permission_sets = [workflow['permissions']] + workflow.fetch('jobs').values.map { |job| job['permissions'] }
+      permission_sets.compact.each do |permissions|
+        permissions.each_value do |value|
+          refute_match(/\$\{\{/, value.to_s, path)
+        end
+      end
+    end
   end
 
   def test_manual_workflow_records_an_artifact_without_writing_to_the_repository

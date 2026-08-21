@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+cd "$(dirname "$0")/.."
+
+output_directory="${PROFILE_OUTPUT_DIR:-tmp}"
+iterations="${PROFILE_ITERATIONS:-100000}"
+dump_path="${output_directory}/stackprof-cpu.dump"
+text_path="${output_directory}/profile.txt"
+flamegraph_path="${output_directory}/flamegraph.html"
+
+mkdir -p "$output_directory"
+
+if ! ruby -rstackprof -e 'exit' >/dev/null 2>&1; then
+  gem install stackprof --no-document
+fi
+
+ruby -Ilib -rstackprof - "$dump_path" "$iterations" <<'RUBY'
+dump_path, iterations = ARGV
+
+require 'dry/validation/rust'
+
+contract_class = Class.new(Dry::Validation::Rust::Contract) do
+  params do
+    required(:name).filled(:string)
+    required(:age).value(:integer)
+    required(:active).value(:bool)
+  end
+end
+
+contract = contract_class.new
+payload = { name: 'Ada', age: '37', active: 'true' }.freeze
+
+StackProf.run(mode: :cpu, out: dump_path, raw: true) do
+  Integer(iterations, 10).times { contract.call(payload) }
+end
+RUBY
+
+stackprof "$dump_path" --text > "$text_path"
+stackprof "$dump_path" --d3-flamegraph > "$flamegraph_path"
+
+printf 'Ruby CPU profile: %s\n' "$text_path"
+printf 'Ruby flamegraph: %s\n' "$flamegraph_path"

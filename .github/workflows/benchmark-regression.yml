@@ -26,8 +26,7 @@ jobs:
     name: Schema throughput regression gate
     runs-on: ubuntu-latest
     permissions:
-      contents: ${{ github.ref == 'refs/heads/main' && 'write' || 'read' }}
-      deployments: ${{ github.ref == 'refs/heads/main' && 'write' || 'none' }}
+      contents: read
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -49,10 +48,23 @@ jobs:
       - name: Compile native extension
         run: bundle exec rake compile
 
+      - name: Install pinned upstream benchmark dependency
+        run: gem install dry-validation --version 1.11.1 --no-document
+
       - name: Run schema throughput benchmark
         run: FORMAT=github-action-benchmark ruby -Ilib benchmark/schema_throughput.rb > benchmark_results.json
 
-      - name: Compare benchmark results and update dashboard
+      - name: Check for benchmark baseline
+        id: benchmark-baseline
+        run: |
+          if git ls-remote --exit-code origin refs/heads/gh-pages >/dev/null 2>&1; then
+            echo 'available=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'available=false' >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Compare benchmark results
+        if: steps.benchmark-baseline.outputs.available == 'true'
         uses: benchmark-action/github-action-benchmark@v1
         with:
           name: Schema throughput p95 latency
@@ -62,4 +74,54 @@ jobs:
           alert-threshold: 105%
           fail-threshold: 105%
           fail-on-alert: true
-          auto-push: ${{ github.ref == 'refs/heads/main' && (github.event_name != 'workflow_dispatch' || inputs.publish_dashboard) }}
+          auto-push: false
+
+      - name: Upload benchmark results for trusted dashboard publishing
+        uses: actions/upload-artifact@v7
+        with:
+          name: schema-throughput-results
+          path: benchmark_results.json
+          if-no-files-found: error
+
+  publish-dashboard:
+    name: Publish trusted benchmark dashboard
+    needs: benchmark
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      (github.event_name != 'workflow_dispatch' || inputs.publish_dashboard)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      deployments: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Download benchmark results
+        uses: actions/download-artifact@v8
+        with:
+          name: schema-throughput-results
+          path: ${{ runner.temp }}/schema-throughput-results
+
+      - name: Initialize benchmark dashboard branch
+        run: |
+          if ! git ls-remote --exit-code origin refs/heads/gh-pages >/dev/null 2>&1; then
+            git checkout --orphan gh-pages
+            git rm -rf .
+            touch .nojekyll
+            git add .nojekyll
+            git -c user.name=github-actions[bot] -c user.email=41898282+github-actions[bot]@users.noreply.github.com commit -m 'chore: initialize benchmark dashboard'
+            git push origin gh-pages
+          fi
+
+      - name: Update benchmark dashboard
+        uses: benchmark-action/github-action-benchmark@v1
+        with:
+          name: Schema throughput p95 latency
+          tool: customSmallerIsBetter
+          output-file-path: ${{ runner.temp }}/schema-throughput-results/benchmark_results.json
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          alert-threshold: 105%
+          fail-threshold: 105%
+          fail-on-alert: true
+          auto-push: true
