@@ -2,6 +2,18 @@
 
 require 'rbconfig'
 require 'open3'
+require 'simplecov'
+require 'simplecov-lcov'
+
+SimpleCov.start do
+  skip '/test/'
+  group 'Lib', 'lib'
+  formatter SimpleCov::Formatter::LcovFormatter
+end
+SimpleCov::Formatter::LcovFormatter.config do |config|
+  config.report_with_single_file = true
+  config.single_report_path = File.join(SimpleCov.coverage_path, 'lcov.info')
+end
 
 PROJECT_ROOT = File.expand_path('..', __dir__)
 
