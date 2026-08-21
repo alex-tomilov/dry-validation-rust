@@ -156,6 +156,27 @@ class CiWorkflowsTest < Minitest::Test
     assert_includes source, 'require "dry/validation/rust"'
   end
 
+  def test_ci_generates_and_uploads_ruby_coverage
+    workflow = workflows.fetch(File.join(WORKFLOW_DIR, 'ci.yml'))
+    job = workflow.fetch('jobs').fetch('ruby-coverage')
+    steps = job.fetch('steps')
+    upload = steps.find { |step| step['name'] == 'Upload Ruby coverage to Codecov' }
+
+    assert_equal 'ubuntu-latest', job.fetch('runs-on')
+    assert_includes steps.map { |step| step['run'].to_s }, 'bundle exec rake test'
+    assert_equal 'codecov/codecov-action@v4', upload.fetch('uses')
+    assert_equal './coverage/lcov.info', upload.fetch('with').fetch('files')
+    assert_equal 'ruby', upload.fetch('with').fetch('flags')
+    assert_equal File.join(PROJECT_ROOT, 'coverage', 'lcov.info'),
+                 SimpleCov::Formatter::LcovFormatter.config.single_report_path
+
+    codecov = YAML.safe_load_file(File.join(PROJECT_ROOT, 'codecov.yml'))
+    ruby_status = codecov.fetch('coverage').fetch('status').fetch('project').fetch('ruby')
+    assert_equal '70%', ruby_status.fetch('target')
+    assert_equal '2%', ruby_status.fetch('threshold')
+    assert_equal ['ruby'], ruby_status.fetch('flags')
+  end
+
   def test_ruby_integration_cache_is_scoped_to_runner_architecture
     workflow = workflows.fetch(File.join(WORKFLOW_DIR, 'ci.yml'))
     setup_rust = workflow.fetch('jobs').fetch('ruby-integration').fetch('steps')
