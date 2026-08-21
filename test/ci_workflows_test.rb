@@ -164,6 +164,21 @@ class CiWorkflowsTest < Minitest::Test
     assert_equal 'ruby-native-${{ runner.arch }}-v2', setup_rust.fetch('with').fetch('cache-key')
   end
 
+  def test_ruby_integration_tests_ruby_head_without_blocking_merges_and_reports_failures
+    workflow = workflows.fetch(File.join(WORKFLOW_DIR, 'ci.yml'))
+    job = workflow.fetch('jobs').fetch('ruby-integration')
+    matrix = job.fetch('strategy').fetch('matrix')
+    notification = job.fetch('steps').find { |step| step['name'] == 'Create or update Ruby head failure issue' }
+
+    assert_equal %w[3.3 3.4 3.5 head], matrix.fetch('ruby')
+    assert_equal "${{ matrix.ruby == 'head' }}", job.fetch('continue-on-error')
+    assert_equal({ 'contents' => 'read', 'issues' => 'write' }, job.fetch('permissions'))
+    assert_equal "${{ failure() && matrix.ruby == 'head' }}", notification.fetch('if')
+    assert_equal true, notification.fetch('continue-on-error')
+    assert_equal 'actions/github-script@v7', notification.fetch('uses')
+    assert_includes notification.fetch('with').fetch('script'), 'github.rest.issues.create'
+  end
+
   def test_ci_exercises_runtime_dependency_boundaries
     workflow = workflows.fetch(File.join(WORKFLOW_DIR, 'ci.yml'))
     job = workflow.fetch('jobs').fetch('dependency-compatibility')
