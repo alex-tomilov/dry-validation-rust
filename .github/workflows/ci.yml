@@ -241,6 +241,8 @@ jobs:
           cache-workspaces: ext/dry_validation_rust -> target
 
       - name: Compile native extension
+        env:
+          RB_SYS_CARGO_PROFILE: dev
         run: bundle exec rake compile
 
       - name: Run Ruby tests with warnings

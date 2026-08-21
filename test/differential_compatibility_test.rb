@@ -10,8 +10,8 @@ class DifferentialCompatibilityTest < Minitest::Test
   RUNNER = <<~RUBY
     require "json"
 
-    mode, encoded = ARGV
-    payload = JSON.parse(encoded)
+    mode = ARGV[0]
+    payloads = JSON.parse(STDIN.read)
     if mode == "upstream"
       project_lib = File.join(ENV.fetch("DRY_VALIDATION_RUST_PROJECT_ROOT"), "lib")
       $LOAD_PATH.delete_if { |entry| File.expand_path(entry) == project_lib }
@@ -44,41 +44,48 @@ class DifferentialCompatibilityTest < Minitest::Test
       end
     end
 
-    begin
-      trace = []
-      contract = eval(payload.fetch("source"), binding, "differential-case.rb", 1)
-      options = payload.fetch("options", {}).transform_keys(&:to_sym)
-      context = payload.fetch("context", {}).transform_keys(&:to_sym)
-      input = if payload.key?("input_source")
-                eval(payload.fetch("input_source"), binding, "differential-input.rb", 1)
-              else
-                payload.fetch("input")
-              end
-      result = contract.new(**options).call(input, context)
-      puts JSON.generate(
-        "engine" => mode,
-        "dry_validation_version" => Gem.loaded_specs["dry-validation"]&.version&.to_s,
-        "dry_validation_source" => dry_validation_source,
-        "success" => result.success?,
-        "output" => normalize(result.to_h),
-        "classes" => classes(result.to_h),
-        "errors" => normalize(result.errors.to_h),
-        "context" => normalize(result.context.each_pair.to_h),
-        "trace" => trace
-      )
-    rescue StandardError => error
-      puts JSON.generate(
-        "engine" => mode,
-        "dry_validation_version" => Gem.loaded_specs["dry-validation"]&.version&.to_s,
-        "exception" => { "class" => error.class.name, "message" => error.message }
-      )
+    results = payloads.map do |payload|
+      begin
+        trace = []
+        contract = eval(payload.fetch("source"), binding, "differential-case.rb", 1)
+        options = payload.fetch("options", {}).transform_keys(&:to_sym)
+        context = payload.fetch("context", {}).transform_keys(&:to_sym)
+        input = if payload.key?("input_source")
+                  eval(payload.fetch("input_source"), binding, "differential-input.rb", 1)
+                else
+                  payload.fetch("input")
+                end
+        result = contract.new(**options).call(input, context)
+        {
+          "engine" => mode,
+          "dry_validation_version" => Gem.loaded_specs["dry-validation"]&.version&.to_s,
+          "dry_validation_source" => dry_validation_source,
+          "success" => result.success?,
+          "output" => normalize(result.to_h),
+          "classes" => classes(result.to_h),
+          "errors" => normalize(result.errors.to_h),
+          "context" => normalize(result.context.each_pair.to_h),
+          "trace" => trace
+        }
+      rescue StandardError => error
+        {
+          "engine" => mode,
+          "dry_validation_version" => Gem.loaded_specs["dry-validation"]&.version&.to_s,
+          "exception" => { "class" => error.class.name, "message" => error.message }
+        }
+      end
     end
+    puts JSON.generate(results)
   RUBY
 
   def test_schema_and_rule_subset_matches_pinned_upstream_in_isolated_processes
-    differential_cases.each do |fixture|
-      upstream = run_case('upstream', fixture)
-      rust = run_case('rust', fixture)
+    cases = differential_cases
+    upstream_results = run_cases('upstream', cases)
+    rust_results = run_cases('rust', cases)
+
+    cases.each_with_index do |fixture, i|
+      upstream = upstream_results[i]
+      rust = rust_results[i]
 
       assert_equal UPSTREAM_VERSION, upstream.fetch('dry_validation_version'), fixture.fetch(:name)
       assert_nil rust.fetch('dry_validation_version'), fixture.fetch(:name)
@@ -94,9 +101,13 @@ class DifferentialCompatibilityTest < Minitest::Test
   end
 
   def test_recognized_unsupported_constructs_fail_explicitly_and_deterministically
-    unsupported_cases.each do |fixture|
-      first = run_rust_source(fixture.fetch(:source), fixture.fetch(:input, {}))
-      second = run_rust_source(fixture.fetch(:source), fixture.fetch(:input, {}))
+    cases = unsupported_cases
+    first_results = run_rust_sources(cases)
+    second_results = run_rust_sources(cases)
+
+    cases.each_with_index do |fixture, i|
+      first = first_results[i]
+      second = second_results[i]
 
       assert_equal first, second, fixture.fetch(:name)
       exception = first.fetch('exception')
@@ -107,15 +118,19 @@ class DifferentialCompatibilityTest < Minitest::Test
 
   private
 
-  def run_case(mode, fixture)
+  def run_cases(mode, fixtures)
     capture = mode == 'upstream' ? :capture_bundled : :capture_isolated
-    payload = {
-      'source' => fixture.fetch(:source),
-      'options' => fixture.fetch(:options, {}),
-      'context' => fixture.fetch(:context, {})
-    }
-    payload['input'] = fixture.fetch(:input) if fixture.key?(:input)
-    payload['input_source'] = fixture.fetch(:input_source) if fixture.key?(:input_source)
+    payloads = fixtures.map do |fixture|
+      payload = {
+        'source' => fixture.fetch(:source),
+        'options' => fixture.fetch(:options, {}),
+        'context' => fixture.fetch(:context, {})
+      }
+      payload['input'] = fixture.fetch(:input) if fixture.key?(:input)
+      payload['input_source'] = fixture.fetch(:input_source) if fixture.key?(:input_source)
+      payload
+    end
+
     stdout, stderr, status = send(
       capture,
       {
@@ -123,16 +138,20 @@ class DifferentialCompatibilityTest < Minitest::Test
         'DRY_VALIDATION_UPSTREAM_VERSION' => UPSTREAM_VERSION
       },
       RbConfig.ruby, *ruby_load_path(mode), '-e', RUNNER, mode,
-      JSON.generate(payload)
+      stdin_data: JSON.generate(payloads)
     )
     assert status.success?, stderr
     JSON.parse(stdout)
   end
 
-  def run_rust_source(source, input = {})
+  def run_rust_sources(fixtures)
+    payloads = fixtures.map do |fixture|
+      { 'source' => fixture.fetch(:source), 'input' => fixture.fetch(:input, {}) }
+    end
+
     stdout, stderr, status = capture_isolated(
       {}, RbConfig.ruby, *ruby_load_path('rust'), '-e', RUNNER, 'rust',
-      JSON.generate('source' => source, 'input' => input)
+      stdin_data: JSON.generate(payloads)
     )
     assert status.success?, stderr
     JSON.parse(stdout)
@@ -145,11 +164,11 @@ class DifferentialCompatibilityTest < Minitest::Test
   end
 
   def capture_isolated(environment, *command)
-    Bundler.with_unbundled_env { Open3.capture3(environment, *command) }
+    Bundler.with_unbundled_env { Open3.capture3(environment, *command[0...-1], stdin_data: command.last[:stdin_data]) }
   end
 
   def capture_bundled(environment, *command)
-    Open3.capture3(environment, *command)
+    Open3.capture3(environment, *command[0...-1], stdin_data: command.last[:stdin_data])
   end
 
   def comparable_payload(payload)
