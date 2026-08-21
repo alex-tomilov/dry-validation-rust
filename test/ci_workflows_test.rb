@@ -246,6 +246,23 @@ class CiWorkflowsTest < Minitest::Test
     assert_includes source, 'script/compare-criterion-baselines "$RUNNER_TEMP/criterion-baseline.json" "$RUNNER_TEMP/candidate-target/criterion"'
   end
 
+  def test_benchmark_workflow_gates_prs_and_only_publishes_from_trusted_events
+    workflow = workflows.fetch(File.join(WORKFLOW_DIR, 'benchmark-regression.yml'))
+    benchmark = workflow.fetch('jobs').fetch('benchmark')
+    action = benchmark.fetch('steps').find { |step| step['uses'] == 'benchmark-action/github-action-benchmark@v1' }
+
+    assert workflow.fetch(true).key?('pull_request')
+    assert workflow.fetch(true).key?('workflow_dispatch')
+    assert_equal({ 'contents' => 'read' }, workflow.fetch('permissions'))
+    assert_equal "${{ github.ref == 'refs/heads/main' && 'write' || 'read' }}", benchmark.fetch('permissions').fetch('contents')
+    assert_equal 'FORMAT=github-action-benchmark ruby -Ilib benchmark/schema_throughput.rb > benchmark_results.json',
+                 benchmark.fetch('steps').find { |step| step['name'] == 'Run schema throughput benchmark' }.fetch('run')
+    assert_equal 'customSmallerIsBetter', action.fetch('with').fetch('tool')
+    assert_equal '105%', action.fetch('with').fetch('fail-threshold')
+    assert_equal true, action.fetch('with').fetch('fail-on-alert')
+    assert_includes action.fetch('with').fetch('auto-push'), "github.ref == 'refs/heads/main'"
+  end
+
   def test_manual_workflow_records_an_artifact_without_writing_to_the_repository
     workflow = workflows.fetch(File.join(WORKFLOW_DIR, 'record-allocation-baseline.yml'))
     job = workflow.fetch('jobs').fetch('record')

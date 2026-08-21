@@ -7,6 +7,27 @@ module SchemaThroughput
   module FixedRun
     module_function
 
+    # Converts fixed-run results to github-action-benchmark's custom JSON
+    # format. p95 latency is used because lower latency is the regression-gate
+    # metric; the remaining measurements stay available in the +extra+ field.
+    #
+    # @param results [Array<Hash>] fixed-run benchmark results
+    # @return [Array<Hash>] dashboard-compatible benchmark entries
+    def github_action_benchmark_results(results)
+      results.map do |result|
+        {
+          'name' => "#{result.fetch('engine')} #{result.fetch('scenario')} p95 latency",
+          'unit' => 'microseconds',
+          'value' => result.fetch('latency_us').fetch('p95'),
+          'extra' => [
+            "throughput_per_second: #{result.fetch('throughput_per_second')}",
+            "ruby_allocated_objects_per_call: #{result.fetch('ruby_allocated_objects_per_call')}",
+            "peak_rss_kb: #{result.fetch('peak_rss_kb')}"
+          ].join("\n")
+        }
+      end
+    end
+
     def benchmark_engine(contract_class, engine:, version:, scenarios:, settings:)
       scenarios.map do |scenario|
         contract = build_contract(contract_class, scenario, settings)
