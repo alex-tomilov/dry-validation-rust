@@ -6,6 +6,8 @@ on:
     branches:
       - main
       - develop
+  schedule:
+    - cron: "0 0 * * 0"
   workflow_dispatch:
 
 permissions:
@@ -239,6 +241,8 @@ jobs:
           cache-workspaces: ext/dry_validation_rust -> target
 
       - name: Compile native extension
+        env:
+          RB_SYS_CARGO_PROFILE: dev
         run: bundle exec rake compile
 
       - name: Run Ruby tests with warnings
@@ -337,12 +341,14 @@ jobs:
   rust-quality:
     name: Rust quality on ${{ matrix.rust }}
     runs-on: ubuntu-latest
+    continue-on-error: ${{ matrix.rust == 'beta' }}
     strategy:
       fail-fast: false
       matrix:
         rust:
           - 1.75.0
           - stable
+          - beta
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -366,6 +372,35 @@ jobs:
 
       - name: Run Rust tests
         run: cargo test --locked --manifest-path ext/dry_validation_rust/Cargo.toml
+
+  rust-nightly:
+    name: Rust nightly Miri
+    if: github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Install native build prerequisites
+        run: sudo rm -f /etc/apt/sources.list.d/*.list && sudo sed -i 's/azure.archive.ubuntu.com/archive.ubuntu.com/g' /etc/apt/apt-mirrors.txt /etc/apt/sources.list.d/ubuntu.sources /etc/apt/sources.list 2>/dev/null || true && sudo apt-get update -o Acquire::Retries=3 && sudo apt-get install -y --no-install-recommends -o Acquire::Retries=3 clang libclang-dev
+
+      - name: Setup Ruby for rb-sys
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.3"
+
+      - name: Expose Ruby shared library
+        run: echo "LD_LIBRARY_PATH=$(ruby -rrbconfig -e 'print RbConfig::CONFIG.fetch(%q[libdir])')${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" >> "$GITHUB_ENV"
+
+      - name: Setup nightly Rust toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: nightly
+          components: miri
+          cache-workspaces: ext/dry_validation_rust -> target
+
+      - name: Run Miri
+        run: cargo +nightly miri test --locked --manifest-path ext/dry_validation_rust/Cargo.toml
 
   native-benchmarks:
     name: Criterion regression gate (${{ matrix.bench }})
