@@ -44,4 +44,5 @@ Use this skill to reproduce one behavior of an external library, protocol, API, 
 
 ## Stop conditions
 
-Stop when the slice requires a major external subsystem, undocumented behavior cannot be characterized, or supported and unsupported forms cannot be distinguished safely.
+Stop when the slice requires a major external subsystem, undocumented behavior cannot be characterized,
+or supported and unsupported forms cannot be distinguished safely.

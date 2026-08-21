@@ -36,11 +36,11 @@ required Ruby 3.3.
 
 Primary references:
 
-- https://github.com/dry-rb/dry-validation
-- https://github.com/dry-rb/dry-schema
-- https://hanakai.org/learn/dry/dry-validation/v1.11
-- https://github.com/matsadler/magnus
-- https://github.com/oxidize-rb/rb-sys
+- <https://github.com/dry-rb/dry-validation>
+- <https://github.com/dry-rb/dry-schema>
+- <https://hanakai.org/learn/dry/dry-validation/v1.11>
+- <https://github.com/matsadler/magnus>
+- <https://github.com/oxidize-rb/rb-sys>
 
 ## What upstream actually does
 

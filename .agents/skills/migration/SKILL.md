@@ -40,7 +40,8 @@ A migration task should prove one realistic path end to end, not claim ecosystem
 - Do not silently approximate dry-validation semantics.
 - Do not recreate a large unsupported upstream subsystem for one migration.
 - Do not broaden one successful scenario into a general compatibility claim.
-- If a missing capability is independently useful and substantial, stop and route it to `compatibility` or `feature-delivery` as a separate task.
+- If a missing capability is independently useful and substantial, stop and route it to
+  `compatibility` or `feature-delivery` as a separate task.
 
 ## Definition of done
 
@@ -52,4 +53,5 @@ A migration task should prove one realistic path end to end, not claim ecosystem
 
 ## Delivery
 
-Report the source scenario, required user changes, compatibility evidence, exact supported boundary, checks run, and deferred migration gaps.
+Report the source scenario, required user changes, compatibility evidence, exact supported boundary,
+checks run, and deferred migration gaps.

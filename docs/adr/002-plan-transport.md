@@ -17,8 +17,9 @@ setting, additional constructor, or MessagePack dependency is shipped.
 
 The benchmark measures schema definition and native plan construction, not
 validation calls. It ran three times on CRuby 3.3.7 / x86_64 Linux. Two runs
-used 1,000 measured schema compilations and 100 warmups; one used 3,000 and 300. Each transport cell reports **schemas compiled per second**: the median
-first, followed by the minimum–maximum across the three normalized-rate runs.
+used 1,000 measured schema compilations and 100 warmups; one used 3,000 and 300. Each transport
+cell reports **schemas compiled per second**: the median first, followed by the minimum–maximum
+across the three normalized-rate runs.
 `Fields` is the number of top-level schema fields, not input payload fields.
 
 | Fields |       JSON (schemas/s) | MessagePack (schemas/s) | Direct walking (schemas/s) |
