@@ -173,6 +173,8 @@ class CiWorkflowsTest < Minitest::Test
     assert_equal %w[3.3 3.4 3.5 head], matrix.fetch('ruby')
     assert_equal "${{ matrix.ruby == 'head' }}", job.fetch('continue-on-error')
     assert_equal({ 'contents' => 'read', 'issues' => 'write' }, job.fetch('permissions'))
+    ruby_setup = job.fetch('steps').find { |step| step['name'] == 'Setup Ruby and Bundler cache' }
+    assert_equal "${{ matrix.ruby == 'head' && 'latest' || 'default' }}", ruby_setup.fetch('with').fetch('bundler')
     assert_equal "${{ failure() && matrix.ruby == 'head' }}", notification.fetch('if')
     assert_equal true, notification.fetch('continue-on-error')
     assert_equal 'actions/github-script@v7', notification.fetch('uses')

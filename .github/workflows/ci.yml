@@ -154,6 +154,7 @@ jobs:
         uses: ruby/setup-ruby@v1
         with:
           ruby-version: ${{ matrix.ruby }}
+          bundler: ${{ matrix.ruby == 'head' && 'latest' || 'default' }}
           bundler-cache: true
 
       - name: Setup Rust toolchain
