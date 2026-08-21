@@ -48,6 +48,9 @@ jobs:
       - name: Compile native extension
         run: bundle exec rake compile
 
+      - name: Install pinned upstream benchmark dependency
+        run: gem install dry-validation --version 1.11.1 --no-document
+
       - name: Run schema throughput benchmark
         run: FORMAT=github-action-benchmark ruby -Ilib benchmark/schema_throughput.rb > benchmark_results.json
 

@@ -260,6 +260,8 @@ class CiWorkflowsTest < Minitest::Test
     assert_equal({ 'contents' => 'write', 'deployments' => 'write' }, publisher.fetch('permissions'))
     assert_equal "github.ref == 'refs/heads/main' && (github.event_name != 'workflow_dispatch' || inputs.publish_dashboard)",
                  publisher.fetch('if').gsub(/\s+/, ' ')
+    assert_includes benchmark.fetch('steps').map { |step| step['run'].to_s },
+                    'gem install dry-validation --version 1.11.1 --no-document'
     assert_equal 'FORMAT=github-action-benchmark ruby -Ilib benchmark/schema_throughput.rb > benchmark_results.json',
                  benchmark.fetch('steps').find { |step| step['name'] == 'Run schema throughput benchmark' }.fetch('run')
     assert_equal 'customSmallerIsBetter', benchmark_action.fetch('with').fetch('tool')
