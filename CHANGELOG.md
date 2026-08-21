@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Added local Ruby and Rust CPU-flamegraph scripts for diagnosing validation
+  hot paths.
 - Added a schema-throughput pull-request regression gate with a 5% p95-latency
   threshold and a GitHub Pages benchmark dashboard refreshed from trusted runs.
 - Added Ruby line-coverage reporting and a Codecov quality gate to CI.
