@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Added a schema-throughput pull-request regression gate with a 5% p95-latency
+  threshold and a GitHub Pages benchmark dashboard refreshed from trusted runs.
 - Added Ruby line-coverage reporting and a Codecov quality gate to CI.
 - Added native Rust line-coverage reporting and a Codecov quality gate to CI.
 - Added beta Rust CI coverage and a weekly nightly Miri check for the native extension.

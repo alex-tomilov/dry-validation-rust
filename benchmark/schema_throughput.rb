@@ -14,7 +14,8 @@ require_relative 'schema_throughput/showcase'
 # +benchmark-ips+ for warmed throughput measurements and comparisons, and
 # +memory_profiler+ for Ruby allocation and retained-memory details. It also
 # prints peak process RSS from the fixed-iteration run. Set +FORMAT=json+ for
-# the stable machine-readable measurement payload instead.
+# the stable machine-readable measurement payload, or
+# +FORMAT=github-action-benchmark+ for the GitHub benchmark dashboard payload.
 #
 # The fixed scenarios cover different validation shapes and validity mixes:
 #
@@ -46,6 +47,9 @@ require_relative 'schema_throughput/showcase'
 # @example Produce the stable JSON payload for automation
 #   FORMAT=json ENGINE=all SCENARIO=small_form ruby -Ilib benchmark/schema_throughput.rb
 #
+# @example Produce latency measurements for github-action-benchmark
+#   FORMAT=github-action-benchmark ruby -Ilib benchmark/schema_throughput.rb
+#
 # @example Use a longer fixed run when collecting JSON evidence
 #   FORMAT=json N=500000 WARMUP=10000 LATENCY_SAMPLES=500 ruby -Ilib benchmark/schema_throughput.rb
 #
@@ -65,7 +69,6 @@ module SchemaThroughput
 
     def rust_results(scenarios, settings)
       require 'dry/validation/rust'
-
       FixedRun.benchmark_engine(
         'Dry::Validation::Rust::Contract',
         engine: 'dry-validation-rust',
@@ -153,31 +156,34 @@ module SchemaThroughput
       end
     end
 
-    # Executes the selected benchmark and writes either text or JSON to stdout.
-    #
-    # @param settings [Settings] parsed benchmark settings; defaults to the
-    #   documented environment-variable configuration.
-    # @return [void]
-    # @raise [SystemExit] when +ENGINE+, +FORMAT+, or +SCENARIO+ is unsupported,
-    #   or when upstream dry-validation is unavailable.
-    # @see SchemaThroughput module documentation for command-line examples.
     def run(settings = Settings.from_environment)
+      Output.run(settings)
+    end
+  end
+
+  # Writes benchmark results in the requested presentation format.
+  module Output
+    module_function
+
+    def run(settings)
       scenarios = Scenarios.selected(settings.scenario_filter)
-      results = requested_results(scenarios, settings)
-      payload = { 'benchmark' => 'schema_throughput_matrix', 'environment' => environment(settings), 'results' => results }
+      results = CLI.requested_results(scenarios, settings)
+      payload = { 'benchmark' => 'schema_throughput_matrix', 'environment' => CLI.environment(settings), 'results' => results }
 
       case settings.format
       when 'json'
         puts JSON.pretty_generate(payload)
+      when 'github-action-benchmark'
+        puts JSON.pretty_generate(FixedRun.github_action_benchmark_results(results))
       when 'text'
-        engines = text_engines(settings)
+        engines = CLI.text_engines(settings)
         scenarios.each_with_index do |scenario, index|
           scenario_results = results.select { |result| result.fetch('scenario') == scenario.fetch('name') }
           Showcase.print_scenario(scenario, scenario_results, engines, settings, index: index + 1)
           puts unless index == scenarios.length - 1
         end
       else
-        abort "Unknown FORMAT=#{settings.format.inspect}. Use text or json."
+        abort "Unknown FORMAT=#{settings.format.inspect}. Use text, json, or github-action-benchmark."
       end
     end
   end

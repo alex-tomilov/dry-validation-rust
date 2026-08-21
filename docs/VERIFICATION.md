@@ -118,24 +118,33 @@ methodology live in the [README](../README.md#representative-benchmark-results);
 they are evidence for those workloads, not a general speed guarantee.
 
 Ruby-allocation and Criterion regression gates compare pull-request candidates
-with the main-branch baselines when those baselines are available. Refresh a
-baseline only after reviewing the measurement:
+with the main-branch baselines when those baselines are available. The
+**Benchmark Regression** workflow also runs the schema-throughput p95 latency
+matrix on pull requests and fails above a 5% regression; trusted branch pushes
+to `main` and manual dispatches from `main` refresh its GitHub Pages baseline
+and dashboard. Refresh the repository baselines only after reviewing the
+measurement:
+
+Before the first trusted Benchmark Regression run, create the `gh-pages` branch
+and configure it as the repository's GitHub Pages source; dispatch baseline
+updates from `main`.
 
     bundle exec script/record-allocation-baseline
     bundle exec script/record-criterion-baseline
 
 ## CI workflows
 
-| Workflow                                                   | Trigger                               | Evidence provided                                                                                                                                                                                            |
-| ---------------------------------------------------------- | ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `CI`                                                       | Pull requests, pushes, weekly, manual | Changelog gate; hosted source fallback; Ruby/Rust quality (including allowed-to-fail beta); weekly nightly Miri; dependency bounds; package smoke; allocation and Criterion regression checks; loading modes |
-| `Compatibility`                                            | Pull requests, pushes, daily, manual  | Pinned upstream installation and baseline-fixture preflight artifact                                                                                                                                         |
-| `Package`                                                  | Pull requests, pushes, manual         | Source-gem audit, isolated install smoke test, and generated package-content manifest                                                                                                                        |
-| `Security`                                                 | Pull requests, pushes, weekly, manual | Ruby/Rust dependency audit, `cargo vet`, locked build, and CodeQL                                                                                                                                            |
-| `Fuzz`                                                     | Weekly, manual                        | Bounded nightly plan-deserialization fuzzing and corpus/crash artifacts; non-gating                                                                                                                          |
-| `Native Gems`                                              | Manual                                | Cross-platform native-gem build and installed-gem smoke tests                                                                                                                                                |
-| `Record Allocation Baseline` / `Record Criterion Baseline` | Manual                                | Reviewable benchmark-baseline artifacts without repository writes                                                                                                                                            |
-| `rubygems:push`                                            | Version tags, manual                  | Release-context verification, signed gem artifacts, and trusted publishing after environment approval                                                                                                        |
+| Workflow                                                   | Trigger                                    | Evidence provided                                                                                                                                                                                            |
+| ---------------------------------------------------------- | ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `CI`                                                       | Pull requests, pushes, weekly, manual      | Changelog gate; hosted source fallback; Ruby/Rust quality (including allowed-to-fail beta); weekly nightly Miri; dependency bounds; package smoke; allocation and Criterion regression checks; loading modes |
+| `Compatibility`                                            | Pull requests, pushes, daily, manual       | Pinned upstream installation and baseline-fixture preflight artifact                                                                                                                                         |
+| `Package`                                                  | Pull requests, pushes, manual              | Source-gem audit, isolated install smoke test, and generated package-content manifest                                                                                                                        |
+| `Security`                                                 | Pull requests, pushes, weekly, manual      | Ruby/Rust dependency audit, `cargo vet`, locked build, and CodeQL                                                                                                                                            |
+| `Fuzz`                                                     | Weekly, manual                             | Bounded nightly plan-deserialization fuzzing and corpus/crash artifacts; non-gating                                                                                                                          |
+| `Benchmark Regression`                                     | Pull requests, main/develop pushes, manual | Schema-throughput p95 latency gate; main runs update the GitHub Pages dashboard                                                                                                                              |
+| `Native Gems`                                              | Manual                                     | Cross-platform native-gem build and installed-gem smoke tests                                                                                                                                                |
+| `Record Allocation Baseline` / `Record Criterion Baseline` | Manual                                     | Reviewable benchmark-baseline artifacts without repository writes                                                                                                                                            |
+| `rubygems:push`                                            | Version tags, manual                       | Release-context verification, signed gem artifacts, and trusted publishing after environment approval                                                                                                        |
 
 ## Claim-to-check map
 

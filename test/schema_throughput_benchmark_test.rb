@@ -36,6 +36,17 @@ class SchemaThroughputBenchmarkTest < Minitest::Test
     assert_includes result, 'peak_rss_kb'
   end
 
+  def test_github_action_benchmark_output_uses_p95_latency_entries
+    stdout, stderr, status = run_benchmark('github-action-benchmark')
+
+    assert status.success?, stderr
+    entry = JSON.parse(stdout).fetch(0)
+    assert_equal 'dry-validation-rust small_form p95 latency', entry.fetch('name')
+    assert_equal 'microseconds', entry.fetch('unit')
+    assert_kind_of Numeric, entry.fetch('value')
+    assert_includes entry.fetch('extra'), 'throughput_per_second:'
+  end
+
   private
 
   def run_benchmark(format, engine: 'rust')
