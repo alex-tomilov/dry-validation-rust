@@ -8,11 +8,11 @@ The public interfaces, documentation, tests, dependency metadata, and
 architecture of these MIT-licensed projects were studied:
 
 - dry-validation, copyright 2015–2026 Hanakai team:
-  https://github.com/dry-rb/dry-validation
+  <https://github.com/dry-rb/dry-validation>
 - dry-schema, copyright its contributors:
-  https://github.com/dry-rb/dry-schema
+  <https://github.com/dry-rb/dry-schema>
 - dry-logic and dry-types:
-  https://github.com/dry-rb
+  <https://github.com/dry-rb>
 
 No upstream implementation source is copied into this project. The compatible
 surface was independently implemented. If future development incorporates
@@ -21,8 +21,8 @@ must be preserved.
 
 The native extension uses:
 
-- Magnus (MIT): https://github.com/matsadler/magnus
-- rb-sys (MIT OR Apache-2.0): https://github.com/oxidize-rb/rb-sys
+- Magnus (MIT): <https://github.com/matsadler/magnus>
+- rb-sys (MIT OR Apache-2.0): <https://github.com/oxidize-rb/rb-sys>
 - serde and serde_json (MIT OR Apache-2.0)
 
 Their complete license texts are distributed by their respective packages.

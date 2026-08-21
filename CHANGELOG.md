@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Added CI checks for Markdown style violations and broken documentation links.
 - Added local Ruby and Rust CPU-flamegraph scripts for diagnosing validation
   hot paths.
 - Added a schema-throughput pull-request regression gate with a 5% p95-latency

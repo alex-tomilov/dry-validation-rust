@@ -337,7 +337,8 @@ The following coercion results were measured locally on 2026-08-14 with CRuby
 3.4.4, Rust 1.90.0, and `dry-validation-rust` 0.1.0.pre4 on x86_64 Linux
 (kernel 7.0.0-29-generic, AMD Ryzen 7 5800H). Criterion used 100 samples with
 a 500 ms warm-up and 1 s measurement period per case. These are host-local
-baseline observations, not cross-host performance guarantees. `Infinity` exercises the intentional non-finite-float rejection path; the datetime-shaped date literal exercises the Ruby fallback path.
+baseline observations, not cross-host performance guarantees. `Infinity` exercises the intentional
+non-finite-float rejection path; the datetime-shaped date literal exercises the Ruby fallback path.
 
 | Group             | Input                  | Criterion estimate (95% confidence interval) | Point estimate |
 | ----------------- | ---------------------- | -------------------------------------------: | -------------: |
@@ -431,7 +432,12 @@ performance guarantee.
 
 ## Representative benchmark results
 
-The six default rows were measured on 2026-08-13 with CRuby 3.3.7 on x86_64 Linux (kernel 7.0.0-29-generic, AMD Ryzen 7 5800H), comparing dry-validation-rust 0.1.0.pre4 with dry-validation 1.11.1. The strict-key row remains the 2026-08-10 pre3 measurement. Each `SCENARIO` ran in its own process three times with `N=1000`, `WARMUP=200`, and `LATENCY_SAMPLES=200`; the table shows medians and the throughput range across those runs. Values are evidence for this host and workload only, not a general performance guarantee.
+The six default rows were measured on 2026-08-13 with CRuby 3.3.7 on x86_64 Linux (kernel
+7.0.0-29-generic, AMD Ryzen 7 5800H), comparing dry-validation-rust 0.1.0.pre4 with
+dry-validation 1.11.1. The strict-key row remains the 2026-08-10 pre3 measurement. Each
+`SCENARIO` ran in its own process three times with `N=1000`, `WARMUP=200`, and
+`LATENCY_SAMPLES=200`; the table shows medians and the throughput range across those runs. Values
+are evidence for this host and workload only, not a general performance guarantee.
 
 | `SCENARIO`                     | Rust validations/s (range) | Upstream validations/s (range) | Throughput ratio |           Rust p50/p95/p99 |       Upstream p50/p95/p99 |
 | ------------------------------ | -------------------------: | -----------------------------: | ---------------: | -------------------------: | -------------------------: |
@@ -453,7 +459,10 @@ The six default rows were measured on 2026-08-13 with CRuby 3.3.7 on x86_64 Linu
 | `all_invalid`                  |                     976.00 |                       4,063.00 |      25.8 MiB |          30.9 MiB |
 | `large_form` (`validate_keys`) |                   2,835.01 |                      10,490.01 |      25.3 MiB |          30.4 MiB |
 
-The Rust path had higher Ruby allocation counts for the small, nested, and array scenarios; this benchmark does not establish a native-allocation total. It measures validation calls after plan construction, so it does not isolate plan-deserialization changes. Peak RSS is process high-water memory, not per-call memory. Reproduce an individual row with, for example:
+The Rust path had higher Ruby allocation counts for the small, nested, and array scenarios; this
+benchmark does not establish a native-allocation total. It measures validation calls after plan
+construction, so it does not isolate plan-deserialization changes. Peak RSS is process high-water
+memory, not per-call memory. Reproduce an individual row with, for example:
 
 ```bash
 N=1000 WARMUP=200 LATENCY_SAMPLES=200 ENGINE=all SCENARIO=large_form ruby -Ilib benchmark/schema_throughput.rb

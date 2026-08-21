@@ -1,4 +1,5 @@
 .gitignore
+.markdownlint.yml
 .rubocop.yml
 .ruby-version
 .tool-versions

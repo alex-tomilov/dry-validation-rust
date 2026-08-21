@@ -15,7 +15,8 @@ description: >
 
 Improve the structure of existing code while preserving its observable behavior.
 
-A successful refactoring should make the code easier to understand, test, modify, or operate without introducing new product capabilities.
+A successful refactoring should make the code easier to understand, test, modify, or operate without
+introducing new product capabilities.
 
 ## Use this skill when
 
@@ -154,7 +155,8 @@ A useful sequence is:
 
 ### 4. Preserve interfaces
 
-Do not change public names, arguments, defaults, return types, exception behavior, or supported input unless explicitly approved.
+Do not change public names, arguments, defaults, return types, exception behavior, or supported input
+unless explicitly approved.
 
 When an internal interface must change, update all callers in the same coherent slice.
 
@@ -167,7 +169,8 @@ Run:
 - integration tests covering the public flow;
 - the repository's canonical verification command.
 
-For performance-sensitive code, compare representative before-and-after measurements when the structural change could materially affect performance.
+For performance-sensitive code, compare representative before-and-after measurements when the
+structural change could materially affect performance.
 
 ### 6. Update documentation only when necessary
 

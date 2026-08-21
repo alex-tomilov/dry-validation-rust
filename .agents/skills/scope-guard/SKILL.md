@@ -41,7 +41,8 @@ Use this skill when:
 - a task contains several features or concerns;
 - requirements are broad or ambiguous;
 - implementation could affect several subsystems;
-- the request includes phrases such as “complete support,” “fully compatible,” “prepare everything,” or “refactor the whole area”;
+- the request includes phrases such as “complete support,” “fully compatible,” “prepare everything,”
+  or “refactor the whole area”;
 - a new framework, registry, plugin system, or configuration layer is being considered;
 - documentation or test infrastructure may become larger than the product change;
 - implementation is likely to exceed repository guardrails;

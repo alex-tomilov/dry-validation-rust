@@ -107,13 +107,16 @@ For an ordinary task, default limits are:
 - updates to at most 2 existing documentation files;
 - at most 150 added documentation lines.
 
-If the likely change exceeds a limit, reduce it to the smallest useful vertical slice before coding. Do not silently continue with a large implementation.
+If the likely change exceeds a limit, reduce it to the smallest useful vertical slice before coding.
+Do not silently continue with a large implementation.
 
-These are agent guardrails, not rigid team policy. Exceed them only when the task explicitly requires it and the reason is stated before implementation.
+These are agent guardrails, not rigid team policy. Exceed them only when the task explicitly requires it
+and the reason is stated before implementation.
 
 ## Tests
 
-Tests should protect observable behavior, important regressions, safety boundaries, integration contracts, and packaging where relevant.
+Tests should protect observable behavior, important regressions, safety boundaries, integration
+contracts, and packaging where relevant.
 
 Before reporting a code-changing task as complete, run `bundle exec rubocop`
 when Ruby source, tests, tooling, or CI configuration changed. Treat any
@@ -170,7 +173,8 @@ into several documents.
 
 ## Abstractions
 
-Do not add a framework, registry, adapter layer, plugin system, generic configuration mechanism, or extension point for one anticipated use case.
+Do not add a framework, registry, adapter layer, plugin system, generic configuration mechanism, or
+extension point for one anticipated use case.
 
 Generalize only when:
 
@@ -198,7 +202,9 @@ Never:
 
 Compatibility claims require executable evidence against a pinned reference or a clearly documented contract.
 
-Performance claims require reproducible before-and-after measurements on representative workloads. Report neutral and negative results as well as improvements. Never broaden a synthetic result into a general claim.
+Performance claims require reproducible before-and-after measurements on representative workloads.
+Report neutral and negative results as well as improvements. Never broaden a synthetic result into a
+general claim.
 
 ## Team decisions
 
@@ -217,7 +223,8 @@ Do not write an ADR for routine implementation choices.
 
 Use the smallest set of skills needed for the active task.
 
-Choose one primary skill for implementation or delivery. Preflight and review skills may be used before or after it, but they should not expand the task.
+Choose one primary skill for implementation or delivery. Preflight and review skills may be used before
+or after it, but they should not expand the task.
 
 ### Primary implementation skills
 
@@ -234,13 +241,15 @@ Use exactly one of these for ordinary implementation work:
 
 Do not combine several primary implementation skills in one ordinary task.
 
-If a task appears to require two primary skills, select the dominant outcome and split the remaining work into a separate task unless the work is genuinely inseparable.
+If a task appears to require two primary skills, select the dominant outcome and split the remaining
+work into a separate task unless the work is genuinely inseparable.
 
 Examples:
 
 - a feature that requires a small local refactoring remains a feature-delivery task;
 - a bug fix that includes a benchmark to confirm no regression remains a bug-fix task;
-- a compatibility feature required for a real migration may use migration as the primary skill and compatibility evidence as part of its workflow;
+- a compatibility feature required for a real migration may use migration as the primary skill and
+  compatibility evidence as part of its workflow;
 - release preparation must not include unrelated feature development.
 
 ### Preflight and decision skills
@@ -249,7 +258,8 @@ Use these before implementation when needed:
 
 - `.agents/skills/scope-guard/SKILL.md` — define the smallest coherent slice and explicit non-goals before coding;
 - `.agents/skills/investigation/SKILL.md` — inspect, reproduce, or evaluate without modifying implementation files;
-- `.agents/skills/architecture-decision/SKILL.md` — evaluate a durable cross-cutting decision and create an ADR only when the ADR threshold is met.
+- `.agents/skills/architecture-decision/SKILL.md` — evaluate a durable cross-cutting decision and
+  create an ADR only when the ADR threshold is met.
 
 These skills normally do not modify production code.
 
@@ -259,14 +269,16 @@ Use `investigation` when the root cause, compatibility behavior, feasibility, or
 
 Use `architecture-decision` only when implementation cannot proceed safely without resolving a durable cross-team decision.
 
-After a preflight or decision task, start a separate implementation run with the selected primary skill and the approved scope.
+After a preflight or decision task, start a separate implementation run with the selected primary skill
+and the approved scope.
 
 ### Review skills
 
 Use these after implementation or for an existing diff:
 
 - `.agents/skills/code-review/SKILL.md` — review correctness, compatibility, maintainability, and unnecessary complexity;
-- `.agents/skills/safety-review/SKILL.md` — review panic safety, memory/resource ownership, concurrency, failure behavior, and other identified safety risks.
+- `.agents/skills/safety-review/SKILL.md` — review panic safety, memory/resource ownership,
+  concurrency, failure behavior, and other identified safety risks.
 
 A review skill must not turn the review into unrelated implementation work.
 
