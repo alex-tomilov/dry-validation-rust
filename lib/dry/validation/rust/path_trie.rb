@@ -31,7 +31,21 @@ module Dry
         end
 
         def freeze
-          freeze_node(@root)
+          return super if @root.empty?
+
+          stack = [[@root, false]]
+          until stack.empty?
+            node, visited = stack.pop
+            if visited
+              node.freeze
+              next
+            end
+
+            stack << [node, true]
+            node.each_value do |child|
+              stack << [child, false] if child.is_a?(Hash)
+            end
+          end
           super
         end
 
@@ -43,13 +57,6 @@ module Dry
 
         def hash
           @root.hash
-        end
-
-        private
-
-        def freeze_node(node)
-          node.each_value { |child| freeze_node(child) if child.is_a?(Hash) }
-          node.freeze
         end
       end
     end

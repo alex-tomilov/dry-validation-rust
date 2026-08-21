@@ -18,9 +18,9 @@ class ReleaseScriptTest < Minitest::Test
   def test_bumps_versions_changelog_commits_and_tags_a_clean_checkout
     Dir.mktmpdir('dry-validation-rust-release') do |directory|
       release_root = prepare_release_repository(directory)
-      stdout, stderr, status = Open3.capture3(
-        { 'RELEASE_DATE' => '2026-08-19' },
-        File.join(release_root, 'script', 'release'), '0.2.0', chdir: release_root
+      stdout, stderr, status = ExecutableScriptTestHelper.capture(
+        File.join(release_root, 'script', 'release'), '0.2.0',
+        environment: { 'RELEASE_DATE' => '2026-08-19' }, chdir: release_root
       )
 
       assert_predicate status, :success?, "#{stdout}\n#{stderr}"
@@ -37,7 +37,7 @@ class ReleaseScriptTest < Minitest::Test
   def test_rejects_invalid_versions_without_modifying_the_checkout
     Dir.mktmpdir('dry-validation-rust-release') do |directory|
       release_root = prepare_release_repository(directory)
-      _stdout, stderr, status = Open3.capture3(
+      _stdout, stderr, status = ExecutableScriptTestHelper.capture(
         File.join(release_root, 'script', 'release'), '0.2', chdir: release_root
       )
 
@@ -51,7 +51,7 @@ class ReleaseScriptTest < Minitest::Test
     Dir.mktmpdir('dry-validation-rust-release') do |directory|
       release_root = prepare_release_repository(directory)
       File.write(File.join(release_root, 'CHANGELOG.md'), "uncommitted\n", mode: 'a')
-      _stdout, stderr, status = Open3.capture3(
+      _stdout, stderr, status = ExecutableScriptTestHelper.capture(
         File.join(release_root, 'script', 'release'), '0.2.0', chdir: release_root
       )
 

@@ -46,6 +46,7 @@ def replace_exactly_once(path, pattern, replacement)
     file.write(updated)
     file.flush
     file.chmod(File.stat(path).mode)
+    file.close
     File.rename(file.path, path)
   end
 end
@@ -64,6 +65,7 @@ def replace_native_crate_version(path, cargo_version)
     file.write(updated)
     file.flush
     file.chmod(File.stat(path).mode)
+    file.close
     File.rename(file.path, path)
   end
 end
@@ -94,6 +96,7 @@ Tempfile.create([File.basename(path), '.tmp'], File.dirname(path)) do |file|
   file.write(updated)
   file.flush
   file.chmod(File.stat(path).mode)
+  file.close
   File.rename(file.path, path)
 end
 RUBY

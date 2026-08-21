@@ -191,7 +191,7 @@ the same field already has a type/structural error.
 | Linux x86-64     | ✅                                       |
 | Linux arm64/musl | 🟡 source design supports it; not tested |
 | macOS            | 🟡 source design supports it; not tested |
-| Windows          | ❌ untested                              |
+| Windows          | 🟡 RubyInstaller UCRT CI runs, allowed to fail |
 | JRuby            | ❌                                       |
 | TruffleRuby      | ❌                                       |
 | Ruby threads     | ✅ call isolation tested                 |
