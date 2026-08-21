@@ -151,6 +151,8 @@ jobs:
         run: HOMEBREW_NO_AUTO_UPDATE=1 brew install llvm
 
       - name: Setup Ruby and Bundler cache
+        env:
+          BUNDLER_VERSION: ${{ matrix.ruby == 'head' && '4' || '' }}
         uses: ruby/setup-ruby@v1
         with:
           ruby-version: ${{ matrix.ruby }}
