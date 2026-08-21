@@ -34,6 +34,7 @@ class ProfilingScriptsTest < Minitest::Test
 
   def test_rust_profile_script_generates_a_flamegraph
     with_profile_project do |project_root, bin_directory|
+      write_executable(bin_directory, 'uname', "#!/usr/bin/env bash\nprintf 'Linux\\n'\n")
       write_executable(bin_directory, 'perf', "#!/usr/bin/env bash\nexit 0\n")
       write_executable(bin_directory, 'cargo', <<~BASH)
         #!/usr/bin/env bash
@@ -51,6 +52,7 @@ class ProfilingScriptsTest < Minitest::Test
 
   def test_rust_profile_script_rejects_unavailable_perf_before_starting_cargo
     with_profile_project do |project_root, bin_directory|
+      write_executable(bin_directory, 'uname', "#!/usr/bin/env bash\nprintf 'Linux\\n'\n")
       write_executable(bin_directory, 'perf', "#!/usr/bin/env bash\nexit 1\n")
       write_executable(bin_directory, 'cargo', "#!/usr/bin/env bash\ntouch cargo-was-run\n")
 
