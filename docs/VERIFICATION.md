@@ -125,9 +125,9 @@ to `main` and manual dispatches from `main` refresh its GitHub Pages baseline
 and dashboard. Refresh the repository baselines only after reviewing the
 measurement:
 
-Before the first trusted Benchmark Regression run, create the `gh-pages` branch
-and configure it as the repository's GitHub Pages source; dispatch baseline
-updates from `main`.
+The first trusted Benchmark Regression run from `main` creates the `gh-pages`
+branch and writes the baseline. Configure that branch as the repository's
+GitHub Pages source to serve the dashboard.
 
     bundle exec script/record-allocation-baseline
     bundle exec script/record-criterion-baseline

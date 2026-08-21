@@ -54,7 +54,17 @@ jobs:
       - name: Run schema throughput benchmark
         run: FORMAT=github-action-benchmark ruby -Ilib benchmark/schema_throughput.rb > benchmark_results.json
 
+      - name: Check for benchmark baseline
+        id: benchmark-baseline
+        run: |
+          if git ls-remote --exit-code origin refs/heads/gh-pages >/dev/null 2>&1; then
+            echo 'available=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'available=false' >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Compare benchmark results
+        if: steps.benchmark-baseline.outputs.available == 'true'
         uses: benchmark-action/github-action-benchmark@v1
         with:
           name: Schema throughput p95 latency
@@ -91,13 +101,25 @@ jobs:
         uses: actions/download-artifact@v8
         with:
           name: schema-throughput-results
+          path: ${{ runner.temp }}/schema-throughput-results
+
+      - name: Initialize benchmark dashboard branch
+        run: |
+          if ! git ls-remote --exit-code origin refs/heads/gh-pages >/dev/null 2>&1; then
+            git checkout --orphan gh-pages
+            git rm -rf .
+            touch .nojekyll
+            git add .nojekyll
+            git -c user.name=github-actions[bot] -c user.email=41898282+github-actions[bot]@users.noreply.github.com commit -m 'chore: initialize benchmark dashboard'
+            git push origin gh-pages
+          fi
 
       - name: Update benchmark dashboard
         uses: benchmark-action/github-action-benchmark@v1
         with:
           name: Schema throughput p95 latency
           tool: customSmallerIsBetter
-          output-file-path: benchmark_results.json
+          output-file-path: ${{ runner.temp }}/schema-throughput-results/benchmark_results.json
           github-token: ${{ secrets.GITHUB_TOKEN }}
           alert-threshold: 105%
           fail-threshold: 105%

@@ -262,6 +262,9 @@ class CiWorkflowsTest < Minitest::Test
                  publisher.fetch('if').gsub(/\s+/, ' ')
     assert_includes benchmark.fetch('steps').map { |step| step['run'].to_s },
                     'gem install dry-validation --version 1.11.1 --no-document'
+    baseline = benchmark.fetch('steps').find { |step| step['id'] == 'benchmark-baseline' }
+    assert_includes baseline.fetch('run'), 'git ls-remote --exit-code origin refs/heads/gh-pages'
+    assert_equal "steps.benchmark-baseline.outputs.available == 'true'", benchmark_action.fetch('if')
     assert_equal 'FORMAT=github-action-benchmark ruby -Ilib benchmark/schema_throughput.rb > benchmark_results.json',
                  benchmark.fetch('steps').find { |step| step['name'] == 'Run schema throughput benchmark' }.fetch('run')
     assert_equal 'customSmallerIsBetter', benchmark_action.fetch('with').fetch('tool')
@@ -269,6 +272,11 @@ class CiWorkflowsTest < Minitest::Test
     assert_equal true, benchmark_action.fetch('with').fetch('fail-on-alert')
     assert_equal false, benchmark_action.fetch('with').fetch('auto-push')
     assert_equal true, publish_action.fetch('with').fetch('auto-push')
+    initialize_branch = publisher.fetch('steps').find { |step| step['name'] == 'Initialize benchmark dashboard branch' }
+    assert_includes initialize_branch.fetch('run'), 'git checkout --orphan gh-pages'
+    assert_includes initialize_branch.fetch('run'), 'git push origin gh-pages'
+    assert_equal '${{ runner.temp }}/schema-throughput-results/benchmark_results.json',
+                 publish_action.fetch('with').fetch('output-file-path')
   end
 
   def test_workflow_permission_values_are_static
