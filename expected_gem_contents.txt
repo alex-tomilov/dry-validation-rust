@@ -19,6 +19,7 @@ Rakefile
 SECURITY.md
 SECURITY_AUDIT.md
 SUPPORT.md
+codecov.yml
 deny.toml
 dry-validation-rust.gemspec
 ext/dry_validation_rust/Cargo.lock
