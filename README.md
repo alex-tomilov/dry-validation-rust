@@ -139,7 +139,8 @@ DSL and semantic differences are listed in [COMPATIBILITY.md](docs/COMPATIBILITY
 The public side-by-side API is `Dry::Validation::Rust::Contract`, its nested
 `Result` and `Values` types, and the directly exposed `Schema`, `MessageSet`,
 and `Evaluator` types. Its compatibility policy is defined in the
-[support matrix](docs/SUPPORT_MATRIX.md). The exact-compatibility entrypoints
+[support matrix](docs/SUPPORT_MATRIX.md), with individual classifications in
+[API_STABILITY.md](docs/API_STABILITY.md). The exact-compatibility entrypoints
 are explicitly experimental and are not covered by that policy.
 
 ## Migration-compatible subset
