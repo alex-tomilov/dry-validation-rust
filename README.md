@@ -230,30 +230,99 @@ rule skipping, array rules, macros, options, context, inheritance, external
 schemas, loading modes, pattern matching, metadata, concurrent calls, malformed
 input resilience, package contents, and differential compatibility fixtures.
 
-Run the representative benchmark matrix with:
+## Benchmarking
+
+The validation benchmark system has three deliberately separate jobs:
+
+1. an interactive `Benchmark.ips`/`MemoryProfiler` showcase for local
+   exploration and screenshots;
+2. a repeatable publication runner for README, release, post, and CV evidence;
+3. CI regression gates for detecting performance changes on CI hosts.
+
+The detailed protocol and metric wording are documented in
+[`docs/BENCHMARKING.md`](docs/BENCHMARKING.md).
+
+### Interactive comparison
+
+Run the representative matrix directly when exploring a change:
 
 ```bash
 ruby -Ilib benchmark/schema_throughput.rb
-N=500000 ruby -Ilib benchmark/schema_throughput.rb
-ENGINE=rust ruby -Ilib benchmark/schema_throughput.rb
-ENGINE=upstream ruby -Ilib benchmark/schema_throughput.rb
-SCENARIO=array_of_objects ENGINE=rust ruby -Ilib benchmark/schema_throughput.rb
-VALIDATE_KEYS=true SCENARIO=large_form ENGINE=rust ruby -Ilib benchmark/schema_throughput.rb
+ENGINE=rust SCENARIO=medium_form ruby -Ilib benchmark/schema_throughput.rb
+ENGINE=upstream SCENARIO=nested_object ruby -Ilib benchmark/schema_throughput.rb
+IPS_WARMUP=3 IPS_TIME=10 MEMORY_PROFILE_N=5000 \
+  SCENARIO=array_of_objects ruby -Ilib benchmark/schema_throughput.rb
 ```
 
-The six fixed scenarios cover small (5-field), medium (25-field, 80% valid),
-and large (100-field, 50% valid) forms; a 10-level nested object; 100 objects
-with five fields each (90% valid); and a 20-field all-invalid case. Each result
-includes validations/second, sampled p50/p95/p99 latency, Ruby allocations per
-call, and peak process RSS under the sustained run. Use `FORMAT=json` for
-machine-readable output, and tune `WARMUP`, `N`, and `LATENCY_SAMPLES` when
-collecting evidence. Text output uses `benchmark-ips` with a 2-second warmup
-and 5-second measurement by default; tune those with `IPS_WARMUP` and
-`IPS_TIME`. Its MemoryProfiler allocation section profiles 1,000 validations
-per engine by default; tune that independently with `MEMORY_PROFILE_N`.
+Text output uses `Benchmark.ips` for warmed throughput, `MemoryProfiler` for
+Ruby-side allocation detail, and the fixed-run path for peak RSS. A single text
+run is useful evidence while developing, but it is not the canonical source for
+README/CV performance claims.
 
-Refresh the allocation-regression baseline only after intentionally reviewing an
-allocation change:
+The matrix currently covers eleven validation shapes: small, medium, and large
+flat forms; deep nesting; arrays of nested objects; an all-invalid error path;
+sparse optional data; mixed scalar coercions; a large primitive array; wide
+nested data; and a contract that combines declarative schema work with
+Ruby-owned dynamic rules.
+
+### Publication-quality evidence
+
+Use the publication runner before updating benchmark claims:
+
+```bash
+bundle exec rake compile
+bundle exec script/benchmark-publication
+```
+
+By default it performs five independent measurements per engine/scenario. It
+first calibrates the iteration count for each scenario, then runs each engine in
+a fresh Ruby process using an engine-specific calibrated `N`, so a faster engine
+is not accidentally measured for a much shorter interval. Engine order alternates
+between runs and scenario order reverses every other run to reduce systematic
+host drift. Successful results are never discarded automatically.
+
+The runner records the exact Git SHA and dirty state, Ruby/platform/CPU details,
+YJIT state, Rust toolchain, requested and actually loaded upstream gem versions,
+protocol settings, every raw measurement, medians,
+ranges, median absolute deviation, paired throughput ratios, Ruby allocation
+changes, and peak RSS changes.
+
+Results and checkpoints are written under `tmp/benchmarks/` (already ignored by
+Git). If a run is interrupted, resume it from the printed checkpoint path:
+
+```bash
+RESUME_FROM=tmp/benchmarks/publication-...checkpoint.json \
+  bundle exec script/benchmark-publication
+```
+
+For a longer final evidence run:
+
+```bash
+RUNS=7 TARGET_SECONDS=10 bundle exec script/benchmark-publication
+```
+
+`RETRIES` applies only to process/tooling failures. The runner does not retry a
+successful measurement merely because it is slow or weakens the speedup claim.
+Publication mode refuses a dirty working tree unless `ALLOW_DIRTY=true` is set;
+dirty runs are exploratory and should not become canonical README/CV evidence.
+
+Use `FORMAT=json` on the lower-level benchmark only when tooling needs one
+single fixed-run payload:
+
+```bash
+FORMAT=json ENGINE=all SCENARIO=small_form \
+  N=10000 WARMUP=1000 LATENCY_SAMPLES=500 \
+  ruby -Ilib benchmark/schema_throughput.rb
+```
+
+Ruby allocation counters (`GC.stat` and the interactive `MemoryProfiler`
+section) describe Ruby-side allocations, not total Rust/native memory. Peak RSS
+is whole-process high-water memory, not per-call memory. Throughput ratios apply
+to validation calls after contract/plan construction and must not be presented
+as end-to-end Rails request speedups.
+
+Refresh the allocation-regression baseline only after intentionally reviewing
+an allocation change:
 
 ```bash
 bundle exec script/record-allocation-baseline
@@ -264,13 +333,10 @@ artifact without changing the repository. Review its value before replacing
 `benchmark/baseline_allocations.json`; do not accept an allocation regression
 merely by refreshing the baseline.
 
-By default the benchmark compares this Rust-backed hybrid implementation with
-the upstream `dry-validation` gem in a separate Ruby process. The upstream gem
-is intentionally not a project dependency; install it for the same Ruby with
-`gem install dry-validation` before running `ENGINE=all` or `ENGINE=upstream`.
-The matrix is a reproducible measurement harness, not a published performance
-claim: compare repeated runs on the same machine and report neutral or negative
-results alongside favorable ones.
+The upstream `dry-validation` gem remains intentionally outside the project
+dependencies. Install the comparison version for the same Ruby before running
+comparison/publication benchmarks. Report the exact upstream version with every
+published result.
 
 ### Plan-compilation benchmark
 
@@ -405,14 +471,15 @@ performance guarantee.
 | 100-object array |                             318.85–322.47 µs |      320.55 µs |
 | 20-field invalid |                             63.480–64.437 µs |      63.953 µs |
 
-## Representative benchmark results
+## Historical representative benchmark results (pre4)
 
-The six default rows were measured on 2026-08-13 with CRuby 3.3.7 on x86_64 Linux (kernel
-7.0.0-29-generic, AMD Ryzen 7 5800H), comparing dry-validation-rust 0.1.0.pre4 with
-dry-validation 1.11.1. The strict-key row remains the 2026-08-10 pre3 measurement. Each
-`SCENARIO` ran in its own process three times with `N=1000`, `WARMUP=200`, and
-`LATENCY_SAMPLES=200`; the table shows medians and the throughput range across those runs. Values
-are evidence for this host and workload only, not a general performance guarantee.
+The table below is retained as historical evidence from 2026-08-13. It was
+measured with the earlier fixed-`N` protocol (`N=1000`, `WARMUP=200`, three
+runs) on CRuby 3.3.7 / x86_64 Linux / AMD Ryzen 7 5800H, comparing the then
+current pre4 code with dry-validation 1.11.1. It should not be compared directly
+with current `Benchmark.ips` showcase output or used as evidence for unreleased
+`develop` code. Replace this table only after reviewing a clean-checkout
+`script/benchmark-publication` run and recording its exact Git SHA and protocol.
 
 | `SCENARIO`                     | Rust validations/s (range) | Upstream validations/s (range) | Throughput ratio |           Rust p50/p95/p99 |       Upstream p50/p95/p99 |
 | ------------------------------ | -------------------------: | -----------------------------: | ---------------: | -------------------------: | -------------------------: |

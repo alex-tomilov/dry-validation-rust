@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Added a repeatable publication benchmark runner with calibrated measurements,
+  checkpoints, environment metadata, and documented evidence guidance.
 - Added CI checks for Markdown style violations and broken documentation links.
 - Added local Ruby and Rust CPU-flamegraph scripts for diagnosing validation
   hot paths.

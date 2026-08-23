@@ -4,15 +4,11 @@ require 'benchmark'
 require 'open3'
 
 module SchemaThroughput
+  # This module is a single measurement helper; splitting it would separate closely coupled metrics.
+  # rubocop:disable Metrics/ModuleLength
   module FixedRun
     module_function
 
-    # Converts fixed-run results to github-action-benchmark's custom JSON
-    # format. p95 latency is used because lower latency is the regression-gate
-    # metric; the remaining measurements stay available in the +extra+ field.
-    #
-    # @param results [Array<Hash>] fixed-run benchmark results
-    # @return [Array<Hash>] dashboard-compatible benchmark entries
     def github_action_benchmark_results(results)
       results.map do |result|
         {
@@ -36,14 +32,31 @@ module SchemaThroughput
           'description' => scenario.fetch('description'),
           'engine' => engine,
           'version' => version,
-          'ruby' => RUBY_DESCRIPTION
+          'ruby' => RUBY_DESCRIPTION,
+          'loaded_gems' => loaded_gem_versions
         )
       end
     end
 
+    def loaded_gem_versions
+      %w[dry-validation dry-schema dry-types].each_with_object({}) do |name, versions|
+        spec = Gem.loaded_specs[name]
+        versions[name] = spec.version.to_s if spec
+      end
+    end
+    private_class_method :loaded_gem_versions
+
     def build_contract(contract_class, scenario, settings)
       configuration = "config.validate_keys = true\n" if settings.validate_keys
-      definition = "Class.new(#{contract_class}) do\n#{configuration}params do\n#{scenario.fetch('source')}\nend\nend"
+      rules = scenario.fetch('rules_source', '')
+      definition = <<~RUBY
+        Class.new(#{contract_class}) do
+        #{configuration}params do
+        #{scenario.fetch('source')}
+        end
+        #{rules}
+        end
+      RUBY
       eval(definition, TOPLEVEL_BINDING, __FILE__, __LINE__).new # rubocop:disable Security/Eval
     end
 
@@ -113,4 +126,5 @@ module SchemaThroughput
     end
     private_class_method :rss_kb
   end
+  # rubocop:enable Metrics/ModuleLength
 end

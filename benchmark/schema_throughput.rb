@@ -4,6 +4,7 @@ require 'json'
 require 'open3'
 require 'rbconfig'
 require_relative 'schema_throughput/fixed_run'
+require_relative 'schema_throughput/metadata'
 require_relative 'schema_throughput/scenarios'
 require_relative 'schema_throughput/settings'
 require_relative 'schema_throughput/showcase'
@@ -17,7 +18,7 @@ require_relative 'schema_throughput/showcase'
 # the stable machine-readable measurement payload, or
 # +FORMAT=github-action-benchmark+ for the GitHub benchmark dashboard payload.
 #
-# The fixed scenarios cover different validation shapes and validity mixes:
+# The matrix covers eleven different validation shapes:
 #
 # - +small_form+: five valid scalar fields; a web-request baseline.
 # - +medium_form+: 25 scalar fields with 80% valid calls.
@@ -25,6 +26,11 @@ require_relative 'schema_throughput/showcase'
 # - +nested_object+: ten nested hash levels.
 # - +array_of_objects+: 100 objects, five fields each, with 90% valid calls.
 # - +all_invalid+: 20 invalid scalar fields; useful for the error path.
+# - +sparse_optional+: 50 optional fields with only 20% present.
+# - +mixed_types+: integer, float, bool, and string coercion in one contract.
+# - +array_of_primitives+: 500 integer values in one array.
+# - +wide_nested_object+: 10 sibling hashes with 10 fields each.
+# - +ruby_rules+: declarative schema work plus Ruby-owned dynamic rules.
 #
 # @example Compare both engines for a screenshot-ready small form report
 #   SCENARIO=small_form ruby -Ilib benchmark/schema_throughput.rb
@@ -37,6 +43,9 @@ require_relative 'schema_throughput/showcase'
 #
 # @example Exercise the collection-validation path
 #   ENGINE=rust SCENARIO=array_of_objects ruby -Ilib benchmark/schema_throughput.rb
+#
+# @example Include Ruby-owned rule execution
+#   ENGINE=all SCENARIO=ruby_rules ruby -Ilib benchmark/schema_throughput.rb
 #
 # @example Focus on invalid input and error construction
 #   ENGINE=all SCENARIO=all_invalid ruby -Ilib benchmark/schema_throughput.rb
@@ -60,9 +69,8 @@ require_relative 'schema_throughput/showcase'
 #   JSON throughput, latency percentiles, allocations, and RSS. +IPS_WARMUP+
 #   and +IPS_TIME+ affect text throughput only; +MEMORY_PROFILE_N+ affects
 #   text allocation profiling only.
-# @note +ENGINE+ accepts +all+ (or +compare+), +rust+ (or
-#   +dry-validation-rust+), and +upstream+ (or +dry-validation+). +SCENARIO+
-#   accepts one of the six names above; omitting it runs the full matrix.
+# @note For publication-quality repeated evidence, use
+#   +script/benchmark-publication+ instead of manually copying one showcase run.
 module SchemaThroughput
   module CLI
     module_function
@@ -87,7 +95,7 @@ module SchemaThroughput
             false
           end
         end
-        gem 'dry-validation'
+        gem 'dry-validation', #{settings.upstream_version.inspect}
         spec = Gem.loaded_specs.fetch('dry-validation')
         $LOAD_PATH.unshift(File.join(spec.full_gem_path, 'lib'))
         require 'dry/validation'
@@ -113,14 +121,15 @@ module SchemaThroughput
     end
 
     def environment(settings)
-      {
-        'ruby_platform' => RUBY_PLATFORM,
-        'ruby' => RUBY_DESCRIPTION,
+      project_root = File.expand_path('..', settings.project_lib)
+      Metadata.snapshot(project_root: project_root).merge(
         'iterations' => settings.fixed_run_iterations,
         'warmup_iterations' => settings.fixed_run_warmup_iterations,
         'latency_samples' => settings.latency_samples,
-        'scenario_filter' => settings.scenario_filter
-      }
+        'scenario_filter' => settings.scenario_filter,
+        'validate_keys' => settings.validate_keys,
+        'upstream_version_requested' => settings.upstream_version
+      )
     end
 
     def upstream_contract_class(settings)
@@ -129,7 +138,7 @@ module SchemaThroughput
       rescue Errno::ENOENT
         false
       end
-      gem 'dry-validation'
+      gem 'dry-validation', settings.upstream_version
       spec = Gem.loaded_specs.fetch('dry-validation')
       $LOAD_PATH.unshift(File.join(spec.full_gem_path, 'lib'))
       require 'dry/validation'
@@ -161,7 +170,6 @@ module SchemaThroughput
     end
   end
 
-  # Writes benchmark results in the requested presentation format.
   module Output
     module_function
 
@@ -177,6 +185,7 @@ module SchemaThroughput
         puts JSON.pretty_generate(FixedRun.github_action_benchmark_results(results))
       when 'text'
         engines = CLI.text_engines(settings)
+        Showcase.print_environment(CLI.environment(settings), settings)
         scenarios.each_with_index do |scenario, index|
           scenario_results = results.select { |result| result.fetch('scenario') == scenario.fetch('name') }
           Showcase.print_scenario(scenario, scenario_results, engines, settings, index: index + 1)
