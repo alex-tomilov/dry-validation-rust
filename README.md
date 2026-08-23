@@ -158,48 +158,22 @@ class AgeContract < Dry::Validation::Rust::Contract
 end
 ```
 
-## Exact compatibility shim
-
-Exact compatibility mode keeps upstream-like require paths and constants:
-
-```ruby
-require "dry/validation"
-
-class AgeContract < Dry::Validation::Contract
-  params do
-    required(:age).value(:integer)
-  end
-end
-```
-
-> Collision warning: exact compatibility mode is experimental and opt-in. Do
-> not install or activate upstream `dry-validation` / `dry-schema` in the same
-> process when using `require "dry/validation"` or `require "dry/schema"` from
-> this gem. Both implementations own the same require paths and constants. This
-> gem raises a clear `LoadError` when it can detect such a collision.
-
-The exact shim currently lives in this gem. If maintaining the shim separately
-becomes necessary, the intended product split is `dry-validation-rust` for the
-safe namespace and `dry-validation-rust-compat` for the upstream-like require
-paths. No split is currently planned without concrete maintenance evidence.
-
-## Loading modes
-
-### Side-by-side mode
+## Loading
 
 `require "dry/validation/rust"` exposes only the
 `Dry::Validation::Rust` namespace. It does not define
 `Dry::Validation::Contract` or `Dry::Schema`.
 
-### Exact compatibility mode
+### Deprecated exact compatibility mode
 
-`require "dry/validation"` defines:
-
-- `Dry::Validation::Contract` and related result/message aliases;
-- minimal `Dry::Schema.Params`, `Dry::Schema.JSON`, and
-  `Dry::Schema.define` factories for reusable schemas.
-
-The collision warning above applies to every exact-mode entrypoint.
+The upstream-like `require "dry/validation"` and `require "dry/schema"`
+entrypoints remain available temporarily, but they are deprecated and are not
+a supported migration target. They cannot safely coexist with upstream
+`dry-validation` or `dry-schema` in one Ruby process because both own the same
+require paths and constants. Use the side-by-side namespace for new work and
+follow the [exact-mode migration guide](docs/MIGRATION_FROM_EXACT_MODE.md) for
+existing applications. The removal release and timeline will be announced in a
+separately scoped deprecation implementation.
 
 ## Supported highlights
 
