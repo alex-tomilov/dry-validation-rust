@@ -1,0 +1,14 @@
+name: size predicates
+cases:
+  - name: fails minimum string size
+    source: |
+      Class.new(Dry::Validation::Contract) do
+        params { required(:name).value(:string, min_size?: 3) }
+      end
+    input: { name: Al }
+  - name: accepts exact string size
+    source: |
+      Class.new(Dry::Validation::Contract) do
+        params { required(:code).value(:string, size?: 3) }
+      end
+    input: { code: ABC }

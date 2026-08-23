@@ -1,0 +1,9 @@
+name: array rules
+cases:
+  - name: adds indexed failures for invalid members
+    source: |
+      Class.new(Dry::Validation::Contract) do
+        params { required(:numbers).array(:integer) }
+        rule(:numbers).each { key.failure("must be positive") if value <= 0 }
+      end
+    input: { numbers: ["1", "0", "-1"] }

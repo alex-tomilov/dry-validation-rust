@@ -1,0 +1,10 @@
+name: params schema
+source: |
+  Class.new(Dry::Validation::Contract) do
+    params { required(:age).value(:integer) }
+  end
+cases:
+  - name: coerces a required integer
+    input: { age: "25" }
+  - name: reports an invalid required integer
+    input: { age: not_a_number }

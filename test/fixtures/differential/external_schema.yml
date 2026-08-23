@@ -1,0 +1,9 @@
+name: external schemas
+cases:
+  - name: imports a reusable params schema
+    source: |
+      address = Dry::Schema.Params { required(:city).filled(:string) }
+      Class.new(Dry::Validation::Contract) do
+        params(address) { required(:name).filled(:string) }
+      end
+    input: { city: "", name: Jane }

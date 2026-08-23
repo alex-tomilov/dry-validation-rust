@@ -1,0 +1,11 @@
+name: basic rules
+source: |
+  Class.new(Dry::Validation::Contract) do
+    params { required(:age).value(:integer) }
+    rule(:age) { key.failure("must be adult") if value < 18 }
+  end
+cases:
+  - name: adds a key failure from a rule
+    input: { age: "17" }
+  - name: skips a rule after schema failure
+    input: { age: invalid }

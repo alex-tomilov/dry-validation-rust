@@ -1,0 +1,9 @@
+name: validate keys
+cases:
+  - name: rejects unknown params keys when configured
+    source: |
+      Class.new(Dry::Validation::Contract) do
+        config.validate_keys = true
+        params { required(:name).value(:string) }
+      end
+    input: { name: Jane, unexpected: true }

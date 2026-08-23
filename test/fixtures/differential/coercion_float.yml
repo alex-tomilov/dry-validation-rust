@@ -1,0 +1,10 @@
+name: float coercion
+source: |
+  Class.new(Dry::Validation::Contract) do
+    params { required(:ratio).value(:float) }
+  end
+cases:
+  - name: coerces scientific float input
+    input: { ratio: "1.5e2" }
+  - name: rejects literal float infinity
+    input: { ratio: Infinity }

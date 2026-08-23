@@ -1,0 +1,10 @@
+name: boolean coercion
+source: |
+  Class.new(Dry::Validation::Contract) do
+    params { required(:enabled).value(:bool) }
+  end
+cases:
+  - name: coerces yes to true
+    input: { enabled: "yes" }
+  - name: rejects unknown boolean spelling
+    input: { enabled: maybe }
