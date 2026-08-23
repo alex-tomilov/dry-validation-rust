@@ -29,12 +29,15 @@ For `0.1.x`, the side-by-side API rooted at
 `Dry::Validation::Rust::Contract` is stable: a breaking change to its documented
 public surface, including its nested `Result` and `Values` types and the `Schema`,
 `MessageSet`, and `Evaluator` types, requires a minor release. Exact-compatibility
-entrypoints remain experimental and are excluded from this compatibility promise.
+entrypoints are deprecated, remain temporarily available, and are excluded from
+this compatibility promise. Migrate to the side-by-side namespace using
+[MIGRATION_FROM_EXACT_MODE.md](MIGRATION_FROM_EXACT_MODE.md).
 
 Legend:
 
 - ✅ implemented and covered by this prototype's tests;
 - 🟡 partial or intentionally narrower;
+- ⚠️ deprecated; available temporarily only for migration;
 - ❌ not implemented;
 - N/A intentionally left to Ruby rather than translated.
 
@@ -44,37 +47,37 @@ Legend:
 | ---------------------------------------- | ------ | ----------------------------------- |
 | `require "dry/validation/rust"`          | ✅     | Side-by-side namespace              |
 | `Dry::Validation::Rust::Contract`        | ✅     | Safe migration superclass           |
-| `require "dry/validation"`               | ✅     | Exact replacement entrypoint        |
-| `Dry::Validation::Contract`              | ✅     | Alias in exact mode                 |
-| `Dry::Validation.Contract { ... }`       | ✅     | Exact factory                       |
+| `require "dry/validation"`               | ⚠️     | Deprecated; migrate to side-by-side |
+| `Dry::Validation::Contract`              | ⚠️     | Deprecated alias; migrate           |
+| `Dry::Validation.Contract { ... }`       | ⚠️     | Deprecated factory; migrate         |
 | `Dry::Validation::Rust.Contract { ... }` | ✅     | Safe factory                        |
-| `Dry::Schema.Params` / `JSON` / `define` | 🟡     | Minimal exact-mode factories        |
+| `Dry::Schema.Params` / `JSON` / `define` | ⚠️     | Deprecated exact-mode factories     |
 | Co-install exact mode with upstream gems | ❌     | Require path and constant collision |
 
 ## Schema definition
 
-| Surface                                   | Status | Notes                                                             |
-| ----------------------------------------- | ------ | ----------------------------------------------------------------- |
-| `params do ... end`                       | ✅     | HTTP-like key/scalar coercion                                     |
-| `json do ... end`                         | ✅     | Key normalization, no scalar coercion                             |
-| `schema do ... end`                       | ✅     | Symbol keys, no coercion                                          |
-| `required(:key)`                          | ✅     |                                                                   |
-| `optional(:key)`                          | ✅     |                                                                   |
-| `value(:type)`                            | ✅     |                                                                   |
-| `filled(:type)` / `filled`                | ✅     | Nil and empty String/Array/Hash                                   |
-| `maybe(:type)`                            | ✅     | Params empty string becomes nil                                   |
-| `hash do ... end`                         | ✅     | Recursive                                                         |
-| `array(:type)`                            | ✅     | Coerced primitive members                                         |
-| `array(:hash) { ... }`                    | ✅     | Nested member schema                                              |
-| External schema arguments                 | ✅     | Rust schemas only                                                 |
-| Contract schema inheritance               | ✅     | Child schema extends parent                                       |
-| Multiple schema declaration guard         | ✅     | Raises `DuplicateSchemaError`                                     |
-| Key validation when declaring rules       | ✅     | Common nested paths                                               |
-| Predicate-composition blocks              | ✅     | Supported predicates only; boolean AST composition is unsupported |
+| Surface                                   | Status | Notes                                                                                                                    |
+| ----------------------------------------- | ------ | ------------------------------------------------------------------------------------------------------------------------ |
+| `params do ... end`                       | ✅     | HTTP-like key/scalar coercion                                                                                            |
+| `json do ... end`                         | ✅     | Key normalization, no scalar coercion                                                                                    |
+| `schema do ... end`                       | ✅     | Symbol keys, no coercion                                                                                                 |
+| `required(:key)`                          | ✅     |                                                                                                                          |
+| `optional(:key)`                          | ✅     |                                                                                                                          |
+| `value(:type)`                            | ✅     |                                                                                                                          |
+| `filled(:type)` / `filled`                | ✅     | Nil and empty String/Array/Hash                                                                                          |
+| `maybe(:type)`                            | ✅     | Params empty string becomes nil                                                                                          |
+| `hash do ... end`                         | ✅     | Recursive                                                                                                                |
+| `array(:type)`                            | ✅     | Coerced primitive members                                                                                                |
+| `array(:hash) { ... }`                    | ✅     | Nested member schema                                                                                                     |
+| External schema arguments                 | ✅     | Rust schemas only                                                                                                        |
+| Contract schema inheritance               | ✅     | Child schema extends parent                                                                                              |
+| Multiple schema declaration guard         | ✅     | Raises `DuplicateSchemaError`                                                                                            |
+| Key validation when declaring rules       | ✅     | Common nested paths                                                                                                      |
+| Predicate-composition blocks              | ✅     | Supported predicates only; boolean AST composition is unsupported                                                        |
 | Schema `before` / `after` processor hooks | ✅     | `:value_coercer` only; callbacks run outside the native engine. Before hooks receive an isolated deep copy of the input. |
-| Schema merge operators / AST access       | ❌     |                                                                   |
-| `config.validate_keys = true`             | ✅     | Rejects unknown keys in `params` and `json` schemas               |
-| Filtering DSL                             | ❌     |                                                                   |
+| Schema merge operators / AST access       | ❌     |                                                                                                                          |
+| `config.validate_keys = true`             | ✅     | Rejects unknown keys in `params` and `json` schemas                                                                      |
+| Filtering DSL                             | ❌     |                                                                                                                          |
 
 ## Types and coercions
 
@@ -184,19 +187,19 @@ the same field already has a type/structural error.
 
 ## Runtime and platform
 
-| Property         | Status                                   |
-| ---------------- | ---------------------------------------- |
-| CRuby 3.3        | ✅ compiled/tested                       |
-| Ruby 3.4/current | 🟡 expected, not verified here           |
-| Linux x86-64     | ✅                                       |
-| Linux arm64/musl | 🟡 source design supports it; not tested |
-| macOS            | 🟡 source design supports it; not tested |
+| Property         | Status                                         |
+| ---------------- | ---------------------------------------------- |
+| CRuby 3.3        | ✅ compiled/tested                             |
+| Ruby 3.4/current | 🟡 expected, not verified here                 |
+| Linux x86-64     | ✅                                             |
+| Linux arm64/musl | 🟡 source design supports it; not tested       |
+| macOS            | 🟡 source design supports it; not tested       |
 | Windows          | 🟡 RubyInstaller UCRT CI runs, allowed to fail |
-| JRuby            | ❌                                       |
-| TruffleRuby      | ❌                                       |
-| Ruby threads     | ✅ call isolation tested                 |
-| Ractors          | ❌ no compatibility promise              |
-| GVL release      | ❌ native Ruby-object path holds GVL     |
+| JRuby            | ❌                                             |
+| TruffleRuby      | ❌                                             |
+| Ruby threads     | ✅ call isolation tested                       |
+| Ractors          | ❌ no compatibility promise                    |
+| GVL release      | ❌ native Ruby-object path holds GVL           |
 
 ## Migration guidance
 
@@ -204,8 +207,8 @@ the same field already has a type/structural error.
 2. Build a fixture corpus from production-shaped valid and invalid payloads.
 3. Run upstream and Rust contracts in separate processes.
 4. Compare output values, classes, errors, paths, metadata, and exceptions.
-5. Do not switch exact mode until every used feature is ✅ or explicitly
-   adapted.
+5. Do not add new exact-mode entrypoints; migrate existing ones to the
+   side-by-side namespace with [MIGRATION_FROM_EXACT_MODE.md](MIGRATION_FROM_EXACT_MODE.md).
 6. Benchmark only after semantic parity.
 
 Any unsupported feature should fail loudly. A silent approximation is treated

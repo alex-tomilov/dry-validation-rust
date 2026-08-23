@@ -52,8 +52,11 @@ gem or matching CI coverage.
 - Familiar dry-validation-style syntax is supported only for the compatible
   subset covered by tests and documented in [COMPATIBILITY.md](COMPATIBILITY.md).
 - Exact compatibility mode owns upstream-like require paths and constants. It
-  is experimental, opt-in, and must run in a process isolated from upstream
-  `dry-validation` and `dry-schema`.
+  is deprecated, excluded from the support promise, and remains temporarily
+  available only for migration. It must run in a process isolated from upstream
+  `dry-validation` and `dry-schema`; use the
+  [exact-mode migration guide](MIGRATION_FROM_EXACT_MODE.md) to move to the
+  supported side-by-side namespace.
 - Runtime support means source builds and test coverage for the listed matrix,
   not precompiled native gems unless a later row explicitly says so.
 
@@ -79,22 +82,20 @@ the eventual stable-release policy conventional.
 | Incompatible change or removal in the documented public side-by-side Ruby API                    | Next minor before 1.0; major from 1.0 onward |
 | Native ABI-incompatible change, including an incompatible Magnus or CRuby ABI support change     | Next minor before 1.0; major from 1.0 onward |
 
-The compatibility shim is experimental and excluded from the public API
-compatibility guarantee. Changes to its documented support status still follow
-this policy when they remove a listed runtime or platform target. A change to
-the Rust crate's internal implementation is not an ABI break by itself; the
-ABI rule applies when it changes which CRuby/Magnus ABI combinations the gem
-supports or requires users to rebuild incompatible native artifacts.
+The compatibility shim is deprecated and excluded from the public API
+compatibility guarantee. Its removal timeline will be set in a separately
+scoped breaking-release implementation; until then, users should follow the
+[exact-mode migration guide](MIGRATION_FROM_EXACT_MODE.md). Changes to its
+documented support status still follow this policy when they remove a listed
+runtime or platform target. A change to the Rust crate's internal
+implementation is not an ABI break by itself; the ABI rule applies when it
+changes which CRuby/Magnus ABI combinations the gem supports or requires users
+to rebuild incompatible native artifacts.
 
-## Product architecture note
+## Exact-mode decision
 
-The current gem contains both the safe namespace and the exact compatibility
-shim. If the exact shim becomes expensive to maintain or its collision surface
-creates user confusion, the intended split is:
-
-```text
-dry-validation-rust
-dry-validation-rust-compat
-```
-
-No split is planned for `0.1.x` without concrete maintenance evidence.
+The current gem contains the deprecated exact compatibility shim while users
+migrate. The project will not extract it into a separate gem or stabilize its
+namespace isolation. The maintained API is
+`Dry::Validation::Rust::Contract`; see [ADR-005](adr/005-exact-mode.md) and
+the [exact-mode migration guide](MIGRATION_FROM_EXACT_MODE.md).
