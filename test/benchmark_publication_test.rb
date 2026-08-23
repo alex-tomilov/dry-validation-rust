@@ -4,6 +4,26 @@ require_relative 'test_helper'
 require_relative '../benchmark/schema_throughput/publication'
 
 class BenchmarkPublicationTest < Minitest::Test
+  def test_runner_announces_expected_duration_and_measurement_progress
+    config = SchemaThroughput::Publication::Config.from_environment({}, project_root: PROJECT_ROOT)
+    runner = SchemaThroughput::Publication::Runner.new(config: config, project_root: PROJECT_ROOT)
+    state = {
+      'environment' => { 'git_short_sha' => 'abc123' },
+      'measurements' => []
+    }
+    scenarios = [{ 'name' => 'one' }, { 'name' => 'two' }]
+
+    _, stderr = capture_io do
+      runner.send(:announce, state, '/tmp/publication.checkpoint.json', scenarios)
+      state['measurements'] << {}
+      runner.send(:announce_measurement_progress, state, scenarios)
+    end
+
+    assert_includes stderr, 'Plan: 20 isolated measurements (5 runs × 2 scenarios × 2 engines); about 1m 40s of measured work remaining'
+    assert_includes stderr, 'Measurement progress: 0/20 complete'
+    assert_includes stderr, 'Measurement progress: 1/20 complete'
+  end
+
   def test_statistics_report_median_range_and_variability_without_dropping_values
     summary = SchemaThroughput::Publication::Statistics.summary([100, 90, 110, 100, 100])
 

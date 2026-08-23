@@ -279,7 +279,10 @@ first calibrates the iteration count for each scenario, then runs each engine in
 a fresh Ruby process using an engine-specific calibrated `N`, so a faster engine
 is not accidentally measured for a much shorter interval. Engine order alternates
 between runs and scenario order reverses every other run to reduce systematic
-host drift. Successful results are never discarded automatically.
+host drift. Successful results are never discarded automatically. The full
+default matrix has 110 measurements, so it performs about 9 minutes of measured
+work before calibration, warmups, and process startup; the runner reports live
+calibration and measurement progress to stderr.
 
 The runner records the exact Git SHA and dirty state, Ruby/platform/CPU details,
 YJIT state, Rust toolchain, requested and actually loaded upstream gem versions,

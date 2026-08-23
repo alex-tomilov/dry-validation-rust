@@ -32,6 +32,8 @@ Defaults:
 
 - 5 independent runs per engine/scenario;
 - approximately 5 seconds of measured work per engine/run after calibration;
+- 110 measurements (about 9 minutes of measured work) for the default 11-scenario,
+  two-engine matrix, plus calibration, warmups, and process startup;
 - a fresh Ruby process for every engine/scenario/run;
 - engine-specific calibrated iteration counts so both sides receive a meaningful measurement duration;
 - alternating Rust/upstream order between runs;
@@ -40,6 +42,7 @@ Defaults:
 - no automatic outlier deletion;
 - up to 2 retries for execution failures only;
 - a checkpoint after calibration and after every successful measurement;
+- live calibration and measurement progress on stderr;
 - refusal to publish from a dirty working tree by default.
 
 The runner writes JSON and Markdown under `tmp/benchmarks/`, which is already

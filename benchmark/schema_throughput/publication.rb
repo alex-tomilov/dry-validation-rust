@@ -110,7 +110,7 @@ module SchemaThroughput
         scenarios = Scenarios.selected(config.scenario_filter)
         state = load_or_initialize_state(metadata, scenarios)
         checkpoint_path = checkpoint_path_for(state)
-        announce(state, checkpoint_path)
+        announce(state, checkpoint_path, scenarios)
 
         calibrate!(state, scenarios, checkpoint_path)
         measure!(state, scenarios, checkpoint_path)
@@ -180,10 +180,29 @@ module SchemaThroughput
         File.join(config.output_dir, "publication-#{timestamp}-#{sha}.checkpoint.json")
       end
 
-      def announce(state, checkpoint_path)
+      def announce(state, checkpoint_path, scenarios)
+        total_measurements = config.runs * scenarios.length * ENGINE_ALIASES.length
+        completed_measurements = state.fetch('measurements').length
+        remaining_seconds = (total_measurements - completed_measurements) * config.target_seconds
+
         warn "Publication benchmark: #{state.dig('environment', 'git_short_sha') || 'unknown commit'}"
         warn "Checkpoint: #{checkpoint_path}"
+        warn "Plan: #{total_measurements} isolated measurements (#{config.runs} runs × #{scenarios.length} scenarios × #{ENGINE_ALIASES.length} engines); about #{format_duration(remaining_seconds)} of measured work remaining, plus calibration, warmups, and process startup."
+        warn "Measurement progress: #{completed_measurements}/#{total_measurements} complete"
         warn "Resume after an interruption with: RESUME_FROM=#{checkpoint_path} bundle exec script/benchmark-publication"
+      end
+
+      def announce_measurement_progress(state, scenarios)
+        total_measurements = config.runs * scenarios.length * ENGINE_ALIASES.length
+        completed_measurements = state.fetch('measurements').length
+        warn "Measurement progress: #{completed_measurements}/#{total_measurements} complete"
+      end
+
+      def format_duration(seconds)
+        minutes, seconds = seconds.round.divmod(60)
+        return "#{seconds}s" if minutes.zero?
+
+        "#{minutes}m #{seconds}s"
       end
 
       def calibrate!(state, scenarios, checkpoint_path)
@@ -194,6 +213,7 @@ module SchemaThroughput
           calibration = calibrate_scenario(name)
           state.fetch('calibrations')[name] = calibration
           write_checkpoint(checkpoint_path, state)
+          warn "Calibration progress: #{state.fetch('calibrations').length}/#{scenarios.length} scenarios complete"
         end
       end
 
@@ -260,6 +280,7 @@ module SchemaThroughput
                 'engine_order' => engine_order
               )
               write_checkpoint(checkpoint_path, state)
+              announce_measurement_progress(state, scenarios)
             end
           end
         end

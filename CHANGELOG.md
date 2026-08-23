@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Made publication benchmark duration and live progress visible, so long
+  full-matrix runs can be distinguished from stalled executions.
 - Added a repeatable publication benchmark runner with calibrated measurements,
   checkpoints, environment metadata, and documented evidence guidance.
 - Added CI checks for Markdown style violations and broken documentation links.
