@@ -1,0 +1,13 @@
+name: contract inheritance
+cases:
+  - name: combines parent and child schemas and rules
+    source: |
+      parent = Class.new(Dry::Validation::Contract) do
+        params { required(:name).filled(:string) }
+        rule(:name) { key.failure("is blocked") if value == "blocked" }
+      end
+      Class.new(parent) do
+        params { required(:age).value(:integer) }
+        rule(:age) { key.failure("must be adult") if value < 18 }
+      end
+    input: { name: blocked, age: "17" }

@@ -1,0 +1,10 @@
+name: date coercion
+source: |
+  Class.new(Dry::Validation::Contract) do
+    params { required(:birthday).value(:date) }
+  end
+cases:
+  - name: coerces ISO date input
+    input: { birthday: "2026-07-12" }
+  - name: rejects invalid calendar dates
+    input: { birthday: "2026-02-30" }

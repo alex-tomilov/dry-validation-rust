@@ -1,0 +1,12 @@
+name: macro acceptance
+cases:
+  - name: invokes a registered macro
+    source: |
+      Dry::Validation.register_macro(:differential_fixture_even) do
+        key.failure("must be even") unless value.even?
+      end
+      Class.new(Dry::Validation::Contract) do
+        params { required(:number).value(:integer) }
+        rule(:number).validate(:differential_fixture_even)
+      end
+    input: { number: "3" }

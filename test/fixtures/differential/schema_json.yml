@@ -1,0 +1,10 @@
+name: json schema
+source: |
+  Class.new(Dry::Validation::Contract) do
+    json { required(:age).value(:integer) }
+  end
+cases:
+  - name: does not coerce JSON scalars
+    input: { age: "25" }
+  - name: accepts a JSON integer
+    input: { age: 25 }

@@ -3,9 +3,17 @@
 require_relative 'test_helper'
 require 'json'
 require 'open3'
+require 'yaml'
 
 class DifferentialCompatibilityTest < Minitest::Test
   UPSTREAM_VERSION = '1.11.1'
+  FIXTURE_FILES = Dir[File.join(__dir__, 'fixtures', 'differential', '*.yml')].freeze
+
+  FIXTURE_FILES.each do |file|
+    define_method("test_#{File.basename(file, '.yml')}") do
+      run_differential_fixture(YAML.safe_load_file(file), file)
+    end
+  end
 
   RUNNER = <<~RUBY
     require "json"
@@ -79,25 +87,7 @@ class DifferentialCompatibilityTest < Minitest::Test
   RUBY
 
   def test_schema_and_rule_subset_matches_pinned_upstream_in_isolated_processes
-    cases = differential_cases
-    upstream_results = run_cases('upstream', cases)
-    rust_results = run_cases('rust', cases)
-
-    cases.each_with_index do |fixture, i|
-      upstream = upstream_results[i]
-      rust = rust_results[i]
-
-      assert_equal UPSTREAM_VERSION, upstream.fetch('dry_validation_version'), fixture.fetch(:name)
-      assert_nil rust.fetch('dry_validation_version'), fixture.fetch(:name)
-
-      if upstream['exception'] || rust['exception']
-        assert_equal upstream['exception'], rust['exception'], fixture.fetch(:name)
-        next
-      end
-
-      assert_equal upstream_validation_source, upstream.fetch('dry_validation_source'), fixture.fetch(:name)
-      assert_equal comparable_payload(upstream), comparable_payload(rust), fixture.fetch(:name)
-    end
+    assert_cases_match(differential_cases)
   end
 
   def test_recognized_unsupported_constructs_fail_explicitly_and_deterministically
@@ -117,6 +107,37 @@ class DifferentialCompatibilityTest < Minitest::Test
   end
 
   private
+
+  def run_differential_fixture(fixture, file)
+    assert_kind_of Hash, fixture, file
+    fixture_source = fixture['source']
+    cases = fixture.fetch('cases').map do |case_definition|
+      { source: fixture_source }.merge(case_definition.transform_keys(&:to_sym))
+    end
+
+    assert_cases_match(cases)
+  end
+
+  def assert_cases_match(cases)
+    upstream_results = run_cases('upstream', cases)
+    rust_results = run_cases('rust', cases)
+
+    cases.each_with_index do |fixture, i|
+      upstream = upstream_results[i]
+      rust = rust_results[i]
+
+      assert_equal UPSTREAM_VERSION, upstream.fetch('dry_validation_version'), fixture.fetch(:name)
+      assert_nil rust.fetch('dry_validation_version'), fixture.fetch(:name)
+
+      if upstream['exception'] || rust['exception']
+        assert_equal upstream['exception'], rust['exception'], fixture.fetch(:name)
+        next
+      end
+
+      assert_equal upstream_validation_source, upstream.fetch('dry_validation_source'), fixture.fetch(:name)
+      assert_equal comparable_payload(upstream), comparable_payload(rust), fixture.fetch(:name)
+    end
+  end
 
   def run_cases(mode, fixtures)
     capture = mode == 'upstream' ? :capture_bundled : :capture_isolated
