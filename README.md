@@ -318,11 +318,34 @@ FORMAT=json ENGINE=all SCENARIO=small_form \
   ruby -Ilib benchmark/schema_throughput.rb
 ```
 
+### Process-memory evidence
+
+Ruby allocation counters are useful for understanding GC pressure, but an
+allocated-object count is not a whole-process memory measurement. For a
+same-work comparison of the hybrid and upstream implementations, run:
+
+```bash
+bundle exec rake compile
+bundle exec script/benchmark-memory-footprint
+```
+
+The memory runner uses the same validation count and warmup for both engines in
+each scenario. On Linux it records current/peak RSS plus PSS and USS around the
+timed validation loop. Peak RSS includes resident Ruby and Rust/native memory;
+PSS apportions shared pages and USS reports private resident pages. See
+[`docs/MEMORY_BENCHMARKING.md`](docs/MEMORY_BENCHMARKING.md) for exact metric
+semantics and limitations.
+
+These are process-footprint metrics, not cumulative bytes allocated over time.
+Ruby object counts from `GC.stat` remain a separate GC-pressure signal.
+
 Ruby allocation counters (`GC.stat` and the interactive `MemoryProfiler`
-section) describe Ruby-side allocations, not total Rust/native memory. Peak RSS
-is whole-process high-water memory, not per-call memory. Throughput ratios apply
-to validation calls after contract/plan construction and must not be presented
-as end-to-end Rails request speedups.
+section) describe Ruby-side allocation activity. Peak RSS is a whole-process
+resident high-water mark and already includes resident Ruby and Rust/native
+memory, but it is not cumulative allocated bytes and it fully counts shared
+resident pages. Use the separate process-memory runner for same-work RSS/PSS/USS
+comparisons. Throughput ratios apply to validation calls after contract/plan
+construction and must not be presented as end-to-end Rails request speedups.
 
 Refresh the allocation-regression baseline only after intentionally reviewing
 an allocation change:

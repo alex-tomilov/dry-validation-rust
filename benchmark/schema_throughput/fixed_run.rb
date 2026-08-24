@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 require 'benchmark'
-require 'open3'
+require_relative 'process_memory'
 
 module SchemaThroughput
   # This module is a single measurement helper; splitting it would separate closely coupled metrics.
@@ -11,6 +11,8 @@ module SchemaThroughput
 
     def github_action_benchmark_results(results)
       results.map do |result|
+        memory = result.fetch('process_memory', {})
+        after = memory.fetch('after', {})
         {
           'name' => "#{result.fetch('engine')} #{result.fetch('scenario')} p95 latency",
           'unit' => 'microseconds',
@@ -18,7 +20,10 @@ module SchemaThroughput
           'extra' => [
             "throughput_per_second: #{result.fetch('throughput_per_second')}",
             "ruby_allocated_objects_per_call: #{result.fetch('ruby_allocated_objects_per_call')}",
-            "peak_rss_kb: #{result.fetch('peak_rss_kb')}"
+            "peak_rss_kb: #{result['peak_rss_kb']}",
+            "rss_after_kb: #{after['rss_kb']}",
+            "pss_after_kb: #{after['pss_kb']}",
+            "uss_after_kb: #{after['uss_kb']}"
           ].join("\n")
         }
       end
@@ -74,9 +79,12 @@ module SchemaThroughput
 
       settings.fixed_run_warmup_iterations.times { invoke.call }
       GC.start
+      process_memory_before = ProcessMemory.snapshot
       before = GC.stat
       elapsed = Benchmark.realtime { settings.fixed_run_iterations.times { invoke.call } }
       after = GC.stat
+      process_memory_after = ProcessMemory.snapshot
+      process_memory = ProcessMemory.measurement(before: process_memory_before, after: process_memory_after)
       samples = latency_samples(invoke, settings)
 
       {
@@ -86,10 +94,17 @@ module SchemaThroughput
         'elapsed_seconds' => elapsed,
         'throughput_per_second' => settings.fixed_run_iterations / elapsed,
         'latency_us' => latency_percentiles(samples),
-        'ruby_allocated_objects_per_call' => (after[:total_allocated_objects] - before[:total_allocated_objects]).fdiv(settings.fixed_run_iterations),
-        'peak_rss_kb' => rss_kb
+        'ruby_allocated_objects_per_call' => allocated_objects_per_call(before, after, settings),
+        'peak_rss_kb' => process_memory['peak_rss_kb'],
+        'process_memory' => process_memory
       }
     end
+
+    def allocated_objects_per_call(before, after, settings)
+      allocated = after[:total_allocated_objects] - before[:total_allocated_objects]
+      allocated.fdiv(settings.fixed_run_iterations)
+    end
+    private_class_method :allocated_objects_per_call
 
     def latency_samples(invoke, settings)
       Array.new([settings.latency_samples, settings.fixed_run_iterations].min) do
@@ -114,17 +129,6 @@ module SchemaThroughput
       samples.sort.fetch(index)
     end
     private_class_method :percentile
-
-    def rss_kb
-      status = '/proc/self/status'
-      return Regexp.last_match(1).to_i if File.file?(status) && File.read(status) =~ /^VmHWM:\s+(\d+) kB$/
-
-      output, = Open3.capture2('ps', '-o', 'rss=', '-p', Process.pid.to_s)
-      Integer(output.strip)
-    rescue Errno::ENOENT, ArgumentError
-      nil
-    end
-    private_class_method :rss_kb
   end
   # rubocop:enable Metrics/ModuleLength
 end
