@@ -59,7 +59,8 @@ RESUME_FROM=tmp/benchmarks/publication-...checkpoint.json \
 
 A checkpoint can only be resumed with the same protocol and Git commit.
 
-The comparison defaults to `dry-validation 1.11.1`. Override it explicitly only when you intend to change the baseline; the actual loaded `dry-validation`, `dry-schema`, and `dry-types` versions are recorded in the raw results.
+The comparison defaults to `dry-validation 1.11.1`. Override it explicitly only when you intend to change the
+baseline; the actual loaded `dry-validation`, `dry-schema`, and `dry-types` versions are recorded in the raw results.
 
 Useful overrides:
 
