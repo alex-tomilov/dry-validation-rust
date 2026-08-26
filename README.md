@@ -230,30 +230,125 @@ rule skipping, array rules, macros, options, context, inheritance, external
 schemas, loading modes, pattern matching, metadata, concurrent calls, malformed
 input resilience, package contents, and differential compatibility fixtures.
 
-Run the representative benchmark matrix with:
+## Benchmarking
+
+The validation benchmark system has three deliberately separate jobs:
+
+1. an interactive `Benchmark.ips`/`MemoryProfiler` showcase for local
+   exploration and screenshots;
+2. a repeatable publication runner for README, release, post, and CV evidence;
+3. CI regression gates for detecting performance changes on CI hosts.
+
+The detailed protocol and metric wording are documented in
+[`docs/BENCHMARKING.md`](docs/BENCHMARKING.md).
+
+### Interactive comparison
+
+Run the representative matrix directly when exploring a change:
 
 ```bash
 ruby -Ilib benchmark/schema_throughput.rb
-N=500000 ruby -Ilib benchmark/schema_throughput.rb
-ENGINE=rust ruby -Ilib benchmark/schema_throughput.rb
-ENGINE=upstream ruby -Ilib benchmark/schema_throughput.rb
-SCENARIO=array_of_objects ENGINE=rust ruby -Ilib benchmark/schema_throughput.rb
-VALIDATE_KEYS=true SCENARIO=large_form ENGINE=rust ruby -Ilib benchmark/schema_throughput.rb
+ENGINE=rust SCENARIO=medium_form ruby -Ilib benchmark/schema_throughput.rb
+ENGINE=upstream SCENARIO=nested_object ruby -Ilib benchmark/schema_throughput.rb
+IPS_WARMUP=3 IPS_TIME=10 MEMORY_PROFILE_N=5000 \
+  SCENARIO=array_of_objects ruby -Ilib benchmark/schema_throughput.rb
 ```
 
-The six fixed scenarios cover small (5-field), medium (25-field, 80% valid),
-and large (100-field, 50% valid) forms; a 10-level nested object; 100 objects
-with five fields each (90% valid); and a 20-field all-invalid case. Each result
-includes validations/second, sampled p50/p95/p99 latency, Ruby allocations per
-call, and peak process RSS under the sustained run. Use `FORMAT=json` for
-machine-readable output, and tune `WARMUP`, `N`, and `LATENCY_SAMPLES` when
-collecting evidence. Text output uses `benchmark-ips` with a 2-second warmup
-and 5-second measurement by default; tune those with `IPS_WARMUP` and
-`IPS_TIME`. Its MemoryProfiler allocation section profiles 1,000 validations
-per engine by default; tune that independently with `MEMORY_PROFILE_N`.
+Text output uses `Benchmark.ips` for warmed throughput, `MemoryProfiler` for
+Ruby-side allocation detail, and the fixed-run path for peak RSS. A single text
+run is useful evidence while developing, but it is not the canonical source for
+README/CV performance claims.
 
-Refresh the allocation-regression baseline only after intentionally reviewing an
-allocation change:
+The matrix currently covers eleven validation shapes: small, medium, and large
+flat forms; deep nesting; arrays of nested objects; an all-invalid error path;
+sparse optional data; mixed scalar coercions; a large primitive array; wide
+nested data; and a contract that combines declarative schema work with
+Ruby-owned dynamic rules.
+
+### Publication-quality evidence
+
+Use the publication runner before updating benchmark claims:
+
+```bash
+bundle exec rake compile
+bundle exec script/benchmark-publication
+```
+
+By default it performs five independent measurements per engine/scenario. It
+first calibrates the iteration count for each scenario, then runs each engine in
+a fresh Ruby process using an engine-specific calibrated `N`, so a faster engine
+is not accidentally measured for a much shorter interval. Engine order alternates
+between runs and scenario order reverses every other run to reduce systematic
+host drift. Successful results are never discarded automatically. The full
+default matrix has 110 measurements, so it performs about 9 minutes of measured
+work before calibration, warmups, and process startup; the runner reports live
+calibration and measurement progress to stderr.
+
+The runner records the exact Git SHA and dirty state, Ruby/platform/CPU details,
+YJIT state, Rust toolchain, requested and actually loaded upstream gem versions,
+protocol settings, every raw measurement, medians,
+ranges, median absolute deviation, paired throughput ratios, Ruby allocation
+changes, and peak RSS changes.
+
+Results and checkpoints are written under `tmp/benchmarks/` (already ignored by
+Git). If a run is interrupted, resume it from the printed checkpoint path:
+
+```bash
+RESUME_FROM=tmp/benchmarks/publication-...checkpoint.json \
+  bundle exec script/benchmark-publication
+```
+
+For a longer final evidence run:
+
+```bash
+RUNS=7 TARGET_SECONDS=10 bundle exec script/benchmark-publication
+```
+
+`RETRIES` applies only to process/tooling failures. The runner does not retry a
+successful measurement merely because it is slow or weakens the speedup claim.
+Publication mode refuses a dirty working tree unless `ALLOW_DIRTY=true` is set;
+dirty runs are exploratory and should not become canonical README/CV evidence.
+
+Use `FORMAT=json` on the lower-level benchmark only when tooling needs one
+single fixed-run payload:
+
+```bash
+FORMAT=json ENGINE=all SCENARIO=small_form \
+  N=10000 WARMUP=1000 LATENCY_SAMPLES=500 \
+  ruby -Ilib benchmark/schema_throughput.rb
+```
+
+### Process-memory evidence
+
+Ruby allocation counters are useful for understanding GC pressure, but an
+allocated-object count is not a whole-process memory measurement. For a
+same-work comparison of the hybrid and upstream implementations, run:
+
+```bash
+bundle exec rake compile
+bundle exec script/benchmark-memory-footprint
+```
+
+The memory runner uses the same validation count and warmup for both engines in
+each scenario. On Linux it records current/peak RSS plus PSS and USS around the
+timed validation loop. Peak RSS includes resident Ruby and Rust/native memory;
+PSS apportions shared pages and USS reports private resident pages. See
+[`docs/MEMORY_BENCHMARKING.md`](docs/MEMORY_BENCHMARKING.md) for exact metric
+semantics and limitations.
+
+These are process-footprint metrics, not cumulative bytes allocated over time.
+Ruby object counts from `GC.stat` remain a separate GC-pressure signal.
+
+Ruby allocation counters (`GC.stat` and the interactive `MemoryProfiler`
+section) describe Ruby-side allocation activity. Peak RSS is a whole-process
+resident high-water mark and already includes resident Ruby and Rust/native
+memory, but it is not cumulative allocated bytes and it fully counts shared
+resident pages. Use the separate process-memory runner for same-work RSS/PSS/USS
+comparisons. Throughput ratios apply to validation calls after contract/plan
+construction and must not be presented as end-to-end Rails request speedups.
+
+Refresh the allocation-regression baseline only after intentionally reviewing
+an allocation change:
 
 ```bash
 bundle exec script/record-allocation-baseline
@@ -264,13 +359,10 @@ artifact without changing the repository. Review its value before replacing
 `benchmark/baseline_allocations.json`; do not accept an allocation regression
 merely by refreshing the baseline.
 
-By default the benchmark compares this Rust-backed hybrid implementation with
-the upstream `dry-validation` gem in a separate Ruby process. The upstream gem
-is intentionally not a project dependency; install it for the same Ruby with
-`gem install dry-validation` before running `ENGINE=all` or `ENGINE=upstream`.
-The matrix is a reproducible measurement harness, not a published performance
-claim: compare repeated runs on the same machine and report neutral or negative
-results alongside favorable ones.
+The upstream `dry-validation` gem remains intentionally outside the project
+dependencies. Install the comparison version for the same Ruby before running
+comparison/publication benchmarks. Report the exact upstream version with every
+published result.
 
 ### Plan-compilation benchmark
 
@@ -405,43 +497,56 @@ performance guarantee.
 | 100-object array |                             318.85–322.47 µs |      320.55 µs |
 | 20-field invalid |                             63.480–64.437 µs |      63.953 µs |
 
-## Representative benchmark results
+## Representative publication results (2026-08-24)
 
-The six default rows were measured on 2026-08-13 with CRuby 3.3.7 on x86_64 Linux (kernel
-7.0.0-29-generic, AMD Ryzen 7 5800H), comparing dry-validation-rust 0.1.0.pre4 with
-dry-validation 1.11.1. The strict-key row remains the 2026-08-10 pre3 measurement. Each
-`SCENARIO` ran in its own process three times with `N=1000`, `WARMUP=200`, and
-`LATENCY_SAMPLES=200`; the table shows medians and the throughput range across those runs. Values
-are evidence for this host and workload only, not a general performance guarantee.
+The following publication runs compare the hybrid engine with
+dry-validation 1.11.1 (dry-schema 1.16.0 and dry-types 1.9.1) on CRuby 3.3.7,
+x86_64 Linux, and an AMD Ryzen 7 5800H. They are host-local evidence, not a
+cross-host guarantee or an end-to-end Rails request benchmark.
 
-| `SCENARIO`                     | Rust validations/s (range) | Upstream validations/s (range) | Throughput ratio |           Rust p50/p95/p99 |       Upstream p50/p95/p99 |
-| ------------------------------ | -------------------------: | -----------------------------: | ---------------: | -------------------------: | -------------------------: |
-| `small_form`                   |     71,433 (67,480–76,023) |         35,157 (32,095–36,674) |            2.03× |          12.9/17.5/63.9 µs |          27.6/36.2/91.8 µs |
-| `medium_form`                  |      10,595 (9,783–11,012) |            2,605 (1,731–2,689) |            4.07× |        38.3/295.9/475.9 µs |    86.0/1,707.8/1,945.3 µs |
-| `large_form`                   |        1,549 (1,475–1,654) |                  307 (209–331) |            5.04× |   955.9/1,298.0/2,117.3 µs | 5,440.0/6,719.5/7,119.9 µs |
-| `nested_object`                |     48,723 (35,219–49,256) |         19,212 (12,892–19,990) |            2.54× |         19.5/29.5/216.5 µs |         51.5/77.1/397.1 µs |
-| `array_of_objects`             |        1,951 (1,811–2,028) |                  781 (743–802) |            2.50× |       455.9/707.2/824.6 µs | 1,207.2/1,594.1/1,979.3 µs |
-| `all_invalid`                  |        4,071 (3,560–4,088) |                  772 (730–837) |            5.28× |       218.5/420.6/611.6 µs | 1,209.3/1,582.9/1,918.4 µs |
-| `large_form` (`validate_keys`) |            974 (970–1,022) |                  304 (303–304) |            3.21× | 1,621.4/2,118.8/2,345.3 µs | 5,432.8/6,300.7/7,223.7 µs |
+The throughput run measured commit `e26bbb18e90f` in seven isolated Ruby
+processes per engine and scenario, targeting 10 seconds each. It measures
+validation calls after contract/plan construction; ranges show the full set of
+successful measurements.
 
-| `SCENARIO`                     | Rust Ruby allocations/call | Upstream Ruby allocations/call | Rust peak RSS | Upstream peak RSS |
-| ------------------------------ | -------------------------: | -----------------------------: | ------------: | ----------------: |
-| `small_form`                   |                      81.01 |                          49.01 |      24.6 MiB |          29.5 MiB |
-| `medium_form`                  |                     451.00 |                       1,116.80 |      25.4 MiB |          29.9 MiB |
-| `large_form`                   |                   2,836.00 |                      10,286.00 |      25.6 MiB |          30.4 MiB |
-| `nested_object`                |                     145.00 |                         113.00 |      25.8 MiB |          30.5 MiB |
-| `array_of_objects`             |                   3,460.80 |                       1,713.60 |      25.8 MiB |          30.8 MiB |
-| `all_invalid`                  |                     976.00 |                       4,063.00 |      25.8 MiB |          30.9 MiB |
-| `large_form` (`validate_keys`) |                   2,835.01 |                      10,490.01 |      25.3 MiB |          30.4 MiB |
+| `SCENARIO`            | Rust validations/s, median (range) | Upstream validations/s, median (range) | Median speedup (range) |
+| --------------------- | ---------------------------------: | -------------------------------------: | ---------------------: |
+| `small_form`          |           100,083 (84,791–101,865) |                 40,111 (36,933–41,111) |      2.50× (2.11–2.56) |
+| `medium_form`         |             14,517 (13,099–14,657) |                    2,792 (2,439–2,921) |      5.14× (4.97–5.51) |
+| `large_form`          |                2,140 (1,816–2,153) |                          307 (275–344) |      6.73× (6.24–7.36) |
+| `nested_object`       |             56,291 (50,939–62,997) |                 19,402 (17,589–20,917) |      2.98× (2.90–3.15) |
+| `array_of_objects`    |                4,411 (4,202–4,778) |                          800 (709–832) |      5.68× (5.33–5.93) |
+| `all_invalid`         |                5,397 (5,057–5,625) |                          823 (762–887) |      6.44× (6.16–7.38) |
+| `sparse_optional`     |             30,623 (29,528–32,315) |                    7,345 (7,073–8,073) |      4.12× (3.66–4.41) |
+| `mixed_types`         |             38,408 (36,599–39,227) |                 15,420 (14,069–16,033) |      2.48× (2.45–2.69) |
+| `array_of_primitives` |             16,656 (15,718–17,299) |                    3,220 (3,083–3,272) |      5.20× (4.80–5.32) |
+| `wide_nested_object`  |                8,472 (7,993–8,802) |                    3,744 (3,440–4,002) |      2.26× (2.06–2.33) |
+| `ruby_rules`          |             18,127 (16,774–19,774) |                    8,812 (8,487–9,239) |      2.09× (1.93–2.16) |
 
-The Rust path had higher Ruby allocation counts for the small, nested, and array scenarios; this
-benchmark does not establish a native-allocation total. It measures validation calls after plan
-construction, so it does not isolate plan-deserialization changes. Peak RSS is process high-water
-memory, not per-call memory. Reproduce an individual row with, for example:
+The separate process-memory run measured commit `0f2f46414bc9`, also with
+seven runs and identical validation count/warmup for both engines within each
+scenario. Peak RSS is a whole-process high-water mark during the loop; the
+Linux-only PSS and USS measurements are taken after it. PSS apportions shared
+pages and USS counts private resident pages.
 
-```bash
-N=1000 WARMUP=200 LATENCY_SAMPLES=200 ENGINE=all SCENARIO=large_form ruby -Ilib benchmark/schema_throughput.rb
-```
+| `SCENARIO`            | Peak RSS reduction |     PSS reduction |     USS reduction | Ruby object reduction |
+| --------------------- | -----------------: | ----------------: | ----------------: | --------------------: |
+| `small_form`          |  12.9% (12.6–13.2) | 14.8% (14.5–15.0) | 16.2% (15.8–16.4) |                -42.9% |
+| `medium_form`         |  12.3% (12.2–12.7) | 14.6% (14.3–14.8) | 15.9% (15.6–16.1) |                 63.7% |
+| `large_form`          |  11.2% (10.7–11.4) | 12.9% (12.2–13.1) | 14.1% (13.5–14.3) |                 74.9% |
+| `nested_object`       |  13.1% (12.8–13.4) | 15.3% (15.0–15.6) | 16.7% (16.4–17.0) |                -13.3% |
+| `array_of_objects`    |  13.0% (12.2–13.1) | 15.1% (14.4–15.4) | 16.4% (15.7–16.7) |                  3.6% |
+| `all_invalid`         |     9.5% (9.0–9.9) | 10.8% (10.2–11.1) | 12.0% (11.4–12.2) |                 78.0% |
+| `sparse_optional`     |  15.7% (15.6–16.1) | 18.7% (18.2–18.9) | 20.1% (19.7–20.4) |                 39.3% |
+| `mixed_types`         |  16.0% (15.4–16.2) | 18.8% (18.5–19.1) | 20.2% (19.9–20.6) |                -74.3% |
+| `array_of_primitives` |  12.9% (11.9–13.1) | 14.6% (13.4–14.8) | 15.7% (14.5–15.9) |                 -2.6% |
+| `wide_nested_object`  |  14.8% (14.4–15.2) | 17.1% (16.8–17.7) | 18.5% (18.2–19.1) |               -179.6% |
+| `ruby_rules`          |  11.4% (10.9–12.3) | 13.1% (12.5–14.2) | 14.4% (13.7–15.4) |                 34.2% |
+
+Ruby object reduction is a `GC.stat` count, not a byte total; negative values
+mean the hybrid path allocated more Ruby objects. None of RSS, PSS, or USS is a
+measure of cumulative allocated bytes. Reproduce fresh evidence with the
+publication runners above rather than extrapolating these host-local figures.
 
 ## Important performance caveat
 

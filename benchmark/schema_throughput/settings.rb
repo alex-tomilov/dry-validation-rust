@@ -1,6 +1,8 @@
 # frozen_string_literal: true
 
 module SchemaThroughput
+  DEFAULT_UPSTREAM_VERSION = '1.11.1'
+
   Settings = Data.define(
     :fixed_run_iterations,
     :fixed_run_warmup_iterations,
@@ -12,6 +14,7 @@ module SchemaThroughput
     :format,
     :scenario_filter,
     :validate_keys,
+    :upstream_version,
     :project_lib
   ) do
     def self.from_environment(environment = ENV)
@@ -26,6 +29,7 @@ module SchemaThroughput
         format: environment.fetch('FORMAT', 'text'),
         scenario_filter: environment.fetch('SCENARIO', nil),
         validate_keys: environment.fetch('VALIDATE_KEYS', 'false') == 'true',
+        upstream_version: environment.fetch('UPSTREAM_VERSION', DEFAULT_UPSTREAM_VERSION),
         project_lib: File.expand_path('../../lib', __dir__)
       )
     end

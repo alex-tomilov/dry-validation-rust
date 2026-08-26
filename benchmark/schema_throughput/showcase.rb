@@ -4,6 +4,16 @@ module SchemaThroughput
   module Showcase
     module_function
 
+    def print_environment(environment, settings)
+      sha = environment['git_short_sha'] || 'unknown'
+      state = environment['git_dirty'] ? 'dirty' : 'clean'
+      cpu = environment['cpu_model'] || environment['host_cpu'] || 'unknown CPU'
+      puts "Benchmark environment — git #{sha} (#{state})"
+      puts "  #{environment['ruby']} · #{cpu}"
+      puts "  upstream target: dry-validation #{settings.upstream_version}"
+      puts
+    end
+
     def print_scenario(scenario, fixed_results, engines, settings, index:)
       require 'benchmark/ips'
       require 'memory_profiler'

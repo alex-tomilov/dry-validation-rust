@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require_relative 'test_helper'
+require_relative '../benchmark/schema_throughput'
 require 'json'
 require 'open3'
 
@@ -45,6 +46,28 @@ class SchemaThroughputBenchmarkTest < Minitest::Test
     assert_equal 'microseconds', entry.fetch('unit')
     assert_kind_of Numeric, entry.fetch('value')
     assert_includes entry.fetch('extra'), 'throughput_per_second:'
+  end
+
+  def test_upstream_runner_does_not_preload_json_before_activating_the_bundle
+    settings = SchemaThroughput::Settings.from_environment
+    status = Struct.new(:success?).new(true)
+    original_capture3 = Open3.method(:capture3)
+    open3_singleton = Open3.singleton_class
+    command = nil
+
+    open3_singleton.send(:remove_method, :capture3)
+    open3_singleton.define_method(:capture3, lambda { |_environment, *arguments|
+      command = arguments
+      ['[]', '', status]
+    })
+
+    begin
+      assert_equal [], SchemaThroughput::CLI.upstream_results([], settings)
+      refute_includes command, '-rjson'
+    ensure
+      open3_singleton.send(:remove_method, :capture3)
+      open3_singleton.define_method(:capture3, original_capture3)
+    end
   end
 
   private
