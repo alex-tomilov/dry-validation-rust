@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Added a five-minute pinned-upstream differential fuzz CI job covering 1,000
+  generated schema/input pairs per run.
 - Added a blocking pull-request CI job for the pinned upstream differential
   compatibility suite, with uploaded test logs.
 - Made publication benchmark duration and live progress visible, so long
