@@ -105,7 +105,7 @@ module SchemaThroughput
         puts JSON.generate(SchemaThroughput::FixedRun.benchmark_engine('Dry::Validation::Contract', engine: 'dry-validation', version: spec.version.to_s, scenarios: scenarios, settings: settings))
       RUBY
       env = ENV.to_h.reject { |key, _| key.start_with?('BUNDLE_', 'BUNDLER_') || %w[RUBYLIB RUBYOPT ENGINE FORMAT].include?(key) }
-      stdout, stderr, status = Open3.capture3(env, RbConfig.ruby, '-rjson', '-e', source)
+      stdout, stderr, status = Open3.capture3(env, RbConfig.ruby, '-e', source)
       return JSON.parse(stdout) if status.success?
 
       raise "upstream dry-validation benchmark failed. Install it for #{RbConfig.ruby} before running ENGINE=all or ENGINE=upstream.\n\n#{stderr}"
