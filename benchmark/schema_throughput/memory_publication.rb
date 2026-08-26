@@ -101,7 +101,9 @@ module SchemaThroughput
 
         state = JSON.parse(File.read(config.resume_from))
         protocol_keys = config.protocol.keys
-        raise 'RESUME_FROM protocol does not match' unless state.fetch('protocol').slice(*protocol_keys) == config.protocol
+        unless state.fetch('protocol').slice(*protocol_keys) == config.protocol
+          raise 'RESUME_FROM protocol does not match'
+        end
         raise 'RESUME_FROM uses another Git commit' unless state.dig('environment', 'git_sha') == metadata['git_sha']
 
         state

@@ -25,9 +25,7 @@ module SchemaThroughput
     def measurement(before:, after:)
       peak_before = before['peak_rss_kb']
       peak_after = after['peak_rss_kb']
-      peak_growth = if peak_before && peak_after
-                      [peak_after - peak_before, 0].max
-                    end
+      peak_growth = ([peak_after - peak_before, 0].max if peak_before && peak_after)
 
       {
         'before' => before,
@@ -48,13 +46,13 @@ module SchemaThroughput
       smaps = parse_kb_file("/proc/#{pid}/smaps_rollup")
       private_values = PRIVATE_KEYS.filter_map { |key| smaps[key] }
 
-      LINUX_STATUS_KEYS.each_with_object({}) do |(source, target), result|
-        result[target] = status[source] if status.key?(source)
-      end.tap do |result|
-        result['pss_kb'] = smaps['Pss'] if smaps.key?('Pss')
-        result['uss_kb'] = private_values.sum unless private_values.empty?
-        result['swap_kb'] ||= smaps['Swap'] if smaps.key?('Swap')
+      result = LINUX_STATUS_KEYS.each_with_object({}) do |(source, target), values|
+        values[target] = status[source] if status.key?(source)
       end
+      result['pss_kb'] = smaps['Pss'] if smaps.key?('Pss')
+      result['uss_kb'] = private_values.sum unless private_values.empty?
+      result['swap_kb'] ||= smaps['Swap'] if smaps.key?('Swap')
+      result
     rescue SystemCallError
       nil
     end
