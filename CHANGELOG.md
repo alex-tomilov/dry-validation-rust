@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Added a blocking pull-request CI job for the pinned upstream differential
+  compatibility suite, with uploaded test logs.
 - Made publication benchmark duration and live progress visible, so long
   full-matrix runs can be distinguished from stalled executions.
 - Added a repeatable publication benchmark runner with calibrated measurements,

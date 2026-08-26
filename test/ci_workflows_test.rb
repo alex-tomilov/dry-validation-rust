@@ -234,6 +234,26 @@ class CiWorkflowsTest < Minitest::Test
     assert_includes source, 'BUNDLE_GEMFILE=Gemfile.dependency-ci bundle exec rake test'
   end
 
+  def test_compatibility_workflow_runs_blocking_differential_tests_and_uploads_results
+    workflow = workflows.fetch(File.join(WORKFLOW_DIR, 'compatibility.yml'))
+    job = workflow.fetch('jobs').fetch('differential')
+    steps = job.fetch('steps')
+    source = steps.map { |step| step['run'].to_s }.join("\n")
+    upload = steps.find { |step| step['name'] == 'Upload differential test results' }
+
+    assert workflow.fetch(true).key?('pull_request')
+    assert_equal 'ubuntu-latest', job.fetch('runs-on')
+    refute job.key?('continue-on-error')
+    assert_equal '1.85.0', steps.find { |step| step['name'] == 'Setup Rust toolchain' }.fetch('with').fetch('toolchain')
+    assert_includes source, 'bundle exec rake compile'
+    assert_includes source, 'gem install dry-validation -v 1.11.1 --no-document'
+    assert_includes source, 'bundle exec rake compatibility:differential'
+    assert_includes source, 'set -o pipefail'
+    assert_equal 'actions/upload-artifact@v7', upload.fetch('uses')
+    assert_equal 'always()', upload.fetch('if')
+    assert_equal 'tmp/compatibility/differential.log', upload.fetch('with').fetch('path')
+  end
+
   def test_ci_rejects_criterion_regressions_against_main_on_pull_requests
     workflow = workflows.fetch(File.join(WORKFLOW_DIR, 'ci.yml'))
     job = workflow.fetch('jobs').fetch('native-benchmarks')

@@ -62,3 +62,41 @@ jobs:
           name: compatibility-preflight
           path: tmp/compatibility/compatibility-preflight.json
           if-no-files-found: error
+
+  differential:
+    name: Differential compatibility
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Ruby and Bundler cache
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.3"
+          bundler-cache: true
+
+      - name: Setup Rust toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: 1.85.0
+
+      - name: Compile native extension
+        run: bundle exec rake compile
+
+      - name: Install pinned dry-validation
+        run: gem install dry-validation -v 1.11.1 --no-document
+
+      - name: Run differential compatibility tests
+        run: |
+          mkdir -p tmp/compatibility
+          set -o pipefail
+          bundle exec rake compatibility:differential | tee tmp/compatibility/differential.log
+
+      - name: Upload differential test results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: differential-compatibility-results
+          path: tmp/compatibility/differential.log
+          if-no-files-found: error
