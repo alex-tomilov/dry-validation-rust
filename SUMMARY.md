@@ -3,7 +3,7 @@
 - [Overview](README.md)
 - [Roadmap](docs/ROADMAP.md)
 
-# Using dry-validation-rust
+## Using dry-validation-rust
 
 - [Compatibility](docs/COMPATIBILITY.md)
 - [Support matrix](docs/SUPPORT_MATRIX.md)
@@ -12,7 +12,7 @@
 - [Migrating from exact mode](docs/MIGRATION_FROM_EXACT_MODE.md)
 - [Windows](docs/WINDOWS.md)
 
-# Reference
+## Reference
 
 - [Architecture](docs/ARCHITECTURE.md)
 - [API boundary](docs/API_BOUNDARY.md)
@@ -23,7 +23,7 @@
 - [Dependency security](docs/DEPENDENCY_SECURITY.md)
 - [Feasibility](docs/FEASIBILITY.md)
 
-# Project
+## Project
 
 - [Project management](docs/PROJECT_MANAGEMENT.md)
 - [Release checklist](docs/RELEASE_CHECKLIST.md)
