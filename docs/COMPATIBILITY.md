@@ -73,11 +73,11 @@ Legend:
 | Contract schema inheritance               | ✅     | Child schema extends parent                                                                                              |
 | Multiple schema declaration guard         | ✅     | Raises `DuplicateSchemaError`                                                                                            |
 | Key validation when declaring rules       | ✅     | Common nested paths                                                                                                      |
-| Predicate-composition blocks              | ✅     | Supported predicates only; boolean AST composition is unsupported                                                        |
+| Predicate-composition blocks              | ✅     | Supported predicates only; boolean AST composition is unsupported. See [migration recipe](MIGRATION_RECIPES.md#boolean-predicate-composition). |
 | Schema `before` / `after` processor hooks | ✅     | `:value_coercer` only; callbacks run outside the native engine. Before hooks receive an isolated deep copy of the input. |
 | Schema merge operators / AST access       | ❌     |                                                                                                                          |
 | `config.validate_keys = true`             | ✅     | Rejects unknown keys in `params` and `json` schemas                                                                      |
-| Filtering DSL                             | ❌     |                                                                                                                          |
+| Filtering DSL                             | ❌     | Will not implement for 0.1.x; filter `result.to_h` explicitly. See [migration recipe](MIGRATION_RECIPES.md#schema-filtering-dsl). |
 
 ## Types and coercions
 
@@ -119,8 +119,8 @@ types remain unsupported.
 | `included_in?`, `excluded_from?`    | ✅     | Ruby                                           |
 | `eql?`, `not_eql?`                  | ✅     | Ruby                                           |
 | Arbitrary/custom predicate name     | ❌     | Explicit error at execution                    |
-| Boolean predicate AST composition   | ❌     | Predicate blocks support sequential calls only |
-| UUID and other dry-logic predicates | ❌     |                                                |
+| Boolean predicate AST composition   | ❌     | Will not implement for 0.1.x; predicate blocks support sequential calls only. See [migration recipe](MIGRATION_RECIPES.md#boolean-predicate-composition). |
+| UUID and other dry-logic predicates | ❌     | Will not implement for 0.1.x; use `format?` or a contract rule. See [migration recipe](MIGRATION_RECIPES.md#uuid-and-other-dry-logic-predicates). |
 
 Ruby-owned predicates execute after structural processing and are skipped when
 the same field already has a type/structural error.
