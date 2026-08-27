@@ -86,6 +86,7 @@ module SchemaThroughput
       process_memory_after = ProcessMemory.snapshot
       process_memory = ProcessMemory.measurement(before: process_memory_before, after: process_memory_after)
       samples = latency_samples(invoke, settings)
+      memory_profile = memory_profile(invoke, settings) if settings.memory_profile
 
       {
         'iterations' => settings.fixed_run_iterations,
@@ -97,7 +98,7 @@ module SchemaThroughput
         'ruby_allocated_objects_per_call' => allocated_objects_per_call(before, after, settings),
         'peak_rss_kb' => process_memory['peak_rss_kb'],
         'process_memory' => process_memory
-      }
+      }.tap { |result| result['memory_profile'] = memory_profile if memory_profile }
     end
 
     def allocated_objects_per_call(before, after, settings)
@@ -105,6 +106,21 @@ module SchemaThroughput
       allocated.fdiv(settings.fixed_run_iterations)
     end
     private_class_method :allocated_objects_per_call
+
+    def memory_profile(invoke, settings)
+      require 'memory_profiler'
+
+      GC.start
+      report = MemoryProfiler.report { settings.memory_profile_iterations.times { invoke.call } }
+      {
+        'iterations' => settings.memory_profile_iterations,
+        'total_allocated_objects' => report.total_allocated,
+        'total_allocated_bytes' => report.total_allocated_memsize,
+        'retained_objects' => report.total_retained,
+        'retained_bytes' => report.total_retained_memsize
+      }
+    end
+    private_class_method :memory_profile
 
     def latency_samples(invoke, settings)
       Array.new([settings.latency_samples, settings.fixed_run_iterations].min) do

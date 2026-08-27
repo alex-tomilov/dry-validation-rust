@@ -25,7 +25,7 @@ class SchemaThroughputBenchmarkTest < Minitest::Test
   end
 
   def test_json_output_keeps_the_machine_readable_payload
-    stdout, stderr, status = run_benchmark('json')
+    stdout, stderr, status = run_benchmark('json', memory_profile: true)
 
     assert status.success?, stderr
     payload = JSON.parse(stdout)
@@ -35,6 +35,9 @@ class SchemaThroughputBenchmarkTest < Minitest::Test
     assert_includes result, 'throughput_per_second'
     assert_includes result, 'ruby_allocated_objects_per_call'
     assert_includes result, 'peak_rss_kb'
+    assert_equal 5, result.dig('memory_profile', 'iterations')
+    assert_operator result.dig('memory_profile', 'total_allocated_objects'), :>, 0
+    assert_operator result.dig('memory_profile', 'total_allocated_bytes'), :>, 0
   end
 
   def test_github_action_benchmark_output_uses_p95_latency_entries
@@ -46,6 +49,19 @@ class SchemaThroughputBenchmarkTest < Minitest::Test
     assert_equal 'microseconds', entry.fetch('unit')
     assert_kind_of Numeric, entry.fetch('value')
     assert_includes entry.fetch('extra'), 'throughput_per_second:'
+  end
+
+  def test_fixed_run_loads_without_the_optional_memory_profiler_dependency
+    _stdout, stderr, status = Open3.capture3(
+      RbConfig.ruby,
+      '--disable-gems',
+      '-Ibenchmark/schema_throughput',
+      '-e',
+      "require 'fixed_run'",
+      chdir: PROJECT_ROOT
+    )
+
+    assert_predicate status, :success?, stderr
   end
 
   def test_upstream_runner_does_not_preload_json_before_activating_the_bundle
@@ -72,7 +88,7 @@ class SchemaThroughputBenchmarkTest < Minitest::Test
 
   private
 
-  def run_benchmark(format, engine: 'rust')
+  def run_benchmark(format, engine: 'rust', memory_profile: false)
     environment = {
       'ENGINE' => engine,
       'FORMAT' => format,
@@ -82,6 +98,7 @@ class SchemaThroughputBenchmarkTest < Minitest::Test
       'LATENCY_SAMPLES' => '1',
       'IPS_TIME' => '0.01',
       'IPS_WARMUP' => '0.01',
+      'MEMORY_PROFILE' => memory_profile.to_s,
       'MEMORY_PROFILE_N' => '5'
     }
     Open3.capture3(environment, RbConfig.ruby, '-Ilib', SCRIPT, chdir: PROJECT_ROOT)

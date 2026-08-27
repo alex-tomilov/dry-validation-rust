@@ -57,11 +57,13 @@ claim from a single run.
 Ruby, platform, toolchain, and selected fixed-run settings. Each result records
 the engine and version, scenario, throughput per second, p50/p95/p99 latency
 in microseconds, Ruby objects allocated per call, and process-memory metrics.
+Set `MEMORY_PROFILE=true` to additionally include `MemoryProfiler` allocation
+totals and retained-memory metrics for each selected scenario and engine.
 For example:
 
 ```bash
 FORMAT=json ENGINE=all SCENARIO=small_form \
-  N=10000 WARMUP=1000 LATENCY_SAMPLES=500 \
+  N=10000 WARMUP=1000 LATENCY_SAMPLES=500 MEMORY_PROFILE=true MEMORY_PROFILE_N=1000 \
   bundle exec script/benchmark > schema-throughput.json
 ```
 
@@ -69,9 +71,10 @@ The harness also supports `FORMAT=github-action-benchmark` for the CI dashboard
 payload; it is not intended as the general interchange format.
 
 `N`, `WARMUP`, and `LATENCY_SAMPLES` control the fixed measurement loop, its
-warmup, and the number of sampled latency calls. `IPS_WARMUP`, `IPS_TIME`, and
-`MEMORY_PROFILE_N` affect only the text showcase. Keep fixed-run settings the
-same for both engines when comparing them.
+warmup, and the number of sampled latency calls. `IPS_WARMUP` and `IPS_TIME`
+affect only the text showcase. `MEMORY_PROFILE_N` controls the text showcase
+and opt-in JSON profiler call count. Keep fixed-run settings the same for both
+engines when comparing them.
 
 ## Comparing with upstream
 
