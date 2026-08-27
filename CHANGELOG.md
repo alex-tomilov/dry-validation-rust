@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Added a documented `script/benchmark` entrypoint for reproducible local
+  schema-throughput comparisons and JSON measurements.
 - Improved unsupported schema DSL errors with migration guidance for boolean
   predicate composition, UUID predicates, and filtering.
 - Added a five-minute pinned-upstream differential fuzz CI job covering 1,000
