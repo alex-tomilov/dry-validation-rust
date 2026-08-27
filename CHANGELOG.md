@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Improved unsupported schema DSL errors with migration guidance for boolean
+  predicate composition, UUID predicates, and filtering.
 - Added a five-minute pinned-upstream differential fuzz CI job covering 1,000
   generated schema/input pairs per run.
 - Added a blocking pull-request CI job for the pinned upstream differential

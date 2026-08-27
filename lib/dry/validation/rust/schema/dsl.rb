@@ -50,6 +50,14 @@ module Dry
             self
           end
 
+          # The upstream filtering DSL has no equivalent in this compatibility slice.
+          # @raise [UnsupportedFeatureError] with migration guidance.
+          def filter(*)
+            raise UnsupportedFeatureError,
+                  'the schema filtering DSL is not supported; filter result.to_h explicitly. ' \
+                  'See: https://github.com/alex-tomilov/dry-validation-rust/blob/main/docs/MIGRATION_RECIPES.md#schema-filtering-dsl'
+          end
+
           def compile(validate_keys: false, messages: MessageConfig.new)
             Schema.new(
               mode: mode, fields: fields, before_hooks: before_hooks, after_hooks: after_hooks,

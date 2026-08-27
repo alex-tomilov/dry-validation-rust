@@ -29,7 +29,8 @@ module Dry
             end
 
             raise UnsupportedFeatureError,
-                  "unsupported predicate composition expression: #{name.inspect}"
+                  'boolean predicate AST composition is not supported; use sequential predicates. ' \
+                  'See: https://github.com/alex-tomilov/dry-validation-rust/blob/main/docs/MIGRATION_RECIPES.md#boolean-predicate-composition'
           end
 
           def respond_to_missing?(name, include_private = false)

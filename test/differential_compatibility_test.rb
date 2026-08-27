@@ -325,7 +325,7 @@ class DifferentialCompatibilityTest < Minitest::Test
       { name: 'unknown predicate',
         source: 'Class.new(Dry::Validation::Contract) { params { required(:age).value(:integer, unknown?: 1) } }', input: { 'age' => '1' }, message: /predicate :unknown/ },
       { name: 'unsupported predicate composition expression',
-        source: 'Class.new(Dry::Validation::Contract) { params { required(:age).value(:integer) { required(:child) } } }', message: /unsupported predicate composition expression/ }
+        source: 'Class.new(Dry::Validation::Contract) { params { required(:age).value(:integer) { gt?(18) & lt?(65) } } }', message: /boolean predicate AST composition is not supported/ }
     ]
   end
 
