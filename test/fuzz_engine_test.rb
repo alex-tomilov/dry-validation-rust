@@ -139,9 +139,11 @@ class FuzzEngineTest < Minitest::Test
       'DRY_VALIDATION_RUST_PROJECT_ROOT' => PROJECT_ROOT,
       'DRY_VALIDATION_UPSTREAM_VERSION' => UPSTREAM_VERSION
     }
-    stdout, stderr, status = Bundler.with_unbundled_env do
-      Open3.capture3(environment, *command, stdin_data: JSON.generate(cases))
-    end
+    stdout, stderr, status = Open3.capture3(
+      environment,
+      *command,
+      stdin_data: JSON.generate(cases)
+    )
 
     assert status.success?, stderr
     JSON.parse(stdout)
