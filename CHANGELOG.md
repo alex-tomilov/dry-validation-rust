@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Added opt-in MemoryProfiler allocation and retained-memory totals to the
+  schema-throughput JSON benchmark matrix for both engines.
 - Added a documented `script/benchmark` entrypoint for reproducible local
   schema-throughput comparisons and JSON measurements.
 - Improved unsupported schema DSL errors with migration guidance for boolean
