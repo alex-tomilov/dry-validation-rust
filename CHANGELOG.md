@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Added an mdBook documentation site with sidebar navigation, native search,
+  and GitHub Pages deployment from `main`.
 - Added opt-in MemoryProfiler allocation and retained-memory totals to the
   schema-throughput JSON benchmark matrix for both engines.
 - Added a documented `script/benchmark` entrypoint for reproducible local

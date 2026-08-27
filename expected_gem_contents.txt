@@ -19,7 +19,9 @@ README.md
 Rakefile
 SECURITY.md
 SECURITY_AUDIT.md
+SUMMARY.md
 SUPPORT.md
+book.toml
 codecov.yml
 deny.toml
 dry-validation-rust.gemspec
