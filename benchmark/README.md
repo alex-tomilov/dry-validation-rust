@@ -94,3 +94,43 @@ Ruby allocation counts are not total process-memory allocation. For results
 intended for the README, release notes, or external publication, use the
 calibrated repeated-run workflow in `script/benchmark-publication` rather than
 choosing a favorable interactive result.
+
+## Thread scaling
+
+`benchmark/concurrency_benchmark.rb` compares equivalent Rust-backed and
+upstream 10-field form contracts with 1, 2, and 4 Ruby threads. Each engine
+runs in its own fresh Ruby process, so loading and runtime state from the other
+engine cannot affect the measurement. Each thread performs the
+same number of valid calls; its normalized scaling value divides the concurrent
+aggregate throughput by the single-thread throughput. Run it after compiling
+the extension:
+
+```bash
+bundle exec rake compile
+bundle exec ruby -Ilib benchmark/concurrency_benchmark.rb
+```
+
+The default is 10,000 calls per thread. Set `ITERATIONS` for a shorter smoke
+run, for example `ITERATIONS=100 bundle exec ruby -Ilib
+benchmark/concurrency_benchmark.rb`.
+
+On the current implementation, neither engine should be expected to approach
+4.00x at four threads. The Rust engine reads and creates Ruby objects while
+validating, so CRuby retains the GVL; the benchmark is a regression detector
+for that boundary, not evidence of GVL release. Any future claim of parallel
+scaling requires repeated clean-host measurements and an implementation that
+can safely release the GVL.
+
+### Exploratory result (2026-08-27)
+
+Five default isolated-process runs on CRuby 3.3.7, x86_64 Linux, and a
+16-logical-CPU host gave the following normalized scaling ranges (median):
+
+| Engine   |          2 threads |          4 threads |
+| -------- | -----------------: | -----------------: |
+| Rust     | 1.00–1.07x (1.03x) | 1.00–1.09x (1.03x) |
+| Upstream | 1.00–1.08x (1.04x) | 1.01–1.12x (1.06x) |
+
+These are exploratory dirty-worktree measurements, not publication-quality
+evidence. They show no reliable multithreaded scaling and therefore do not
+support a GVL-release claim.
