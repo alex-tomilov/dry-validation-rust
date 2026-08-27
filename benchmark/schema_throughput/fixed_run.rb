@@ -1,7 +1,6 @@
 # frozen_string_literal: true
 
 require 'benchmark'
-require 'memory_profiler'
 require_relative 'process_memory'
 
 module SchemaThroughput
@@ -109,6 +108,8 @@ module SchemaThroughput
     private_class_method :allocated_objects_per_call
 
     def memory_profile(invoke, settings)
+      require 'memory_profiler'
+
       GC.start
       report = MemoryProfiler.report { settings.memory_profile_iterations.times { invoke.call } }
       {

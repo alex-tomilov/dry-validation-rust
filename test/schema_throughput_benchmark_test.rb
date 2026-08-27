@@ -51,6 +51,19 @@ class SchemaThroughputBenchmarkTest < Minitest::Test
     assert_includes entry.fetch('extra'), 'throughput_per_second:'
   end
 
+  def test_fixed_run_loads_without_the_optional_memory_profiler_dependency
+    _stdout, stderr, status = Open3.capture3(
+      RbConfig.ruby,
+      '--disable-gems',
+      '-Ibenchmark/schema_throughput',
+      '-e',
+      "require 'fixed_run'",
+      chdir: PROJECT_ROOT
+    )
+
+    assert_predicate status, :success?, stderr
+  end
+
   def test_upstream_runner_does_not_preload_json_before_activating_the_bundle
     settings = SchemaThroughput::Settings.from_environment
     status = Struct.new(:success?).new(true)
