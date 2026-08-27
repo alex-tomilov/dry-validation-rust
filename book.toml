@@ -1,0 +1,9 @@
+[book]
+title = "dry-validation-rust"
+src = "."
+
+[output.html]
+git-repository-url = "https://github.com/alex-tomilov/dry-validation-rust"
+
+[output.html.search]
+enable = true

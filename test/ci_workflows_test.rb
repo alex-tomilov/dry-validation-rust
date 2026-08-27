@@ -23,12 +23,40 @@ class CiWorkflowsTest < Minitest::Test
   def test_non_release_workflows_contain_no_publication_path
     refute File.exist?(File.join(WORKFLOW_DIR, 'release.yml'))
 
-    source = workflows.reject { |path, _| path.end_with?('rubygems-push.yml') || path.end_with?('benchmark-regression.yml') }
-                      .keys.map { |path| File.read(path) }.join("\n")
+    excluded_workflows = %w[rubygems-push.yml benchmark-regression.yml pages.yml]
+    source_paths = workflows.keys.reject do |path|
+      excluded_workflows.any? { |filename| path.end_with?(filename) }
+    end
+    source = source_paths.map { |path| File.read(path) }.join("\n")
     refute_includes source, 'GEM_HOST_API_KEY'
     refute_includes source, 'gem push'
     refute_includes source, 'contents: write'
     refute_includes source, 'id-token: write'
+  end
+
+  def test_pages_workflow_builds_and_deploys_the_mdbook_site_from_main
+    workflow = workflows.fetch(File.join(WORKFLOW_DIR, 'pages.yml'))
+    build = workflow.fetch('jobs').fetch('build')
+    deploy = workflow.fetch('jobs').fetch('deploy')
+    build_steps = build.fetch('steps')
+    upload = build_steps.find { |step| step['name'] == 'Upload GitHub Pages artifact' }
+
+    assert_equal %w[main], workflow.fetch(true).fetch('push').fetch('branches')
+    assert_equal({ 'contents' => 'read' }, workflow.fetch('permissions'))
+    assert_equal 'pages', workflow.fetch('concurrency').fetch('group')
+    assert_equal false, workflow.fetch('concurrency').fetch('cancel-in-progress')
+    assert_equal 'peaceiris/actions-mdbook@v2', build_steps.find { |step| step['name'] == 'Setup mdBook' }.fetch('uses')
+    assert_equal 'latest', build_steps.find { |step| step['name'] == 'Setup mdBook' }.fetch('with').fetch('mdbook-version')
+    assert_includes build_steps.map { |step| step['run'] }, 'mdbook build'
+    assert_equal 'actions/configure-pages@v5', build_steps.find { |step| step['name'] == 'Configure GitHub Pages' }.fetch('uses')
+    assert_equal 'actions/upload-pages-artifact@v4', upload.fetch('uses')
+    assert_equal 'book', upload.fetch('with').fetch('path')
+    assert_equal 'build', deploy.fetch('needs')
+    assert_equal({ 'pages' => 'write', 'id-token' => 'write' }, deploy.fetch('permissions'))
+    assert_equal 'github-pages', deploy.fetch('environment').fetch('name')
+    assert_equal 'actions/deploy-pages@v4', deploy.fetch('steps').first.fetch('uses')
+    assert_equal '.', File.read(File.join(PROJECT_ROOT, 'book.toml'))[/^src = "(.+)"$/, 1]
+    assert_equal true, File.read(File.join(PROJECT_ROOT, 'book.toml')).include?("[output.html.search]\nenable = true")
   end
 
   def test_ci_requires_changelog_updates_unless_the_pull_request_is_labeled
