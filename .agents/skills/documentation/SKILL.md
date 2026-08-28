@@ -57,6 +57,15 @@ than claiming the generated API reference was verified.
 - Do not test prose or document layout unless it is machine-consumed.
 - Do not write a document merely to prove a task was completed.
 
+## Changelog
+
+When a documentation change adds or materially changes user-facing installation,
+operational, compatibility, or supported-usage guidance, inspect
+`CHANGELOG.md`. If the repository records such changes under `Unreleased`, add
+a concise entry that describes the user-visible documentation change. Do not
+add a changelog entry for editorial-only corrections or internal-maintainer
+documentation unless the repository's release policy requires one.
+
 ## Review questions
 
 - Who needs this information?
