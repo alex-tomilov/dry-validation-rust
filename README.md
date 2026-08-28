@@ -15,6 +15,9 @@ Before adoption, review [the support matrix](docs/SUPPORT_MATRIX.md),
 [verification evidence](docs/VERIFICATION.md) for the exact supported surface,
 platforms, and known boundaries.
 
+New users can follow the [Getting started guide](docs/getting-started.md) to
+install the gem and build their first contract.
+
 For project participation and reporting routes, see
 [CONTRIBUTING.md](CONTRIBUTING.md), [SUPPORT.md](SUPPORT.md),
 [SECURITY.md](SECURITY.md), [GOVERNANCE.md](GOVERNANCE.md), and the
@@ -44,8 +47,6 @@ desirable. Calling those blocks through Ruby preserves the feature that makes
 
 ## Installation
 
-### Precompiled (recommended)
-
 When a precompiled gem is published for your platform, install it with:
 
 ```bash
@@ -53,86 +54,18 @@ gem install dry-validation-rust
 ```
 
 See the [support matrix](docs/SUPPORT_MATRIX.md) for the authoritative version
-and platform status.
-
-### From source
-
-When no precompiled gem is available for your platform, install the source gem
-with RubyGems. Source builds require:
-
-- CRuby 3.3 or newer with development headers;
-- Rust 1.75 or newer and Cargo (the MSRV, tested in CI);
-- a C toolchain; and
-- libclang for the `rb-sys` bindgen step.
-
-On Linux, install `clang` and `libclang-dev`. On macOS, install Xcode Command
-Line Tools and LLVM, then point bindgen to Homebrew's keg-only library:
-
-```bash
-brew install llvm
-export LIBCLANG_PATH="$(brew --prefix llvm)/lib"
-```
-
-On Windows with RubyInstaller, use its DevKit's UCRT Clang package rather than
-the standalone LLVM distribution; bindgen must use the same headers and C
-runtime as Ruby:
-
-```powershell
-ridk exec pacman -S --needed mingw-w64-ucrt-x86_64-clang
-$env:LIBCLANG_PATH = "$env:RI_DEVKIT\ucrt64\bin"
-```
-
-The extension automatically selects Rust's matching GNU toolchain when it is
-built by a MinGW Ruby.
-
-If setup fails, confirm that `cargo` and your C compiler are discoverable on
-`PATH` and that `LIBCLANG_PATH` contains the `libclang` library before rerunning
-the install. A source checkout pins Rust 1.75.0 automatically through
-`rust-toolchain.toml`.
-
-```bash
-gem install dry-validation-rust --platform ruby
-```
+and platform status. If a source build is required, see the
+[source-build instructions](docs/getting-started.md#build-from-source).
 
 ## Primary safe API
 
-Use the side-by-side namespace first:
+For new work, use `require "dry/validation/rust"` and subclass
+`Dry::Validation::Rust::Contract`. The [Getting started guide](docs/getting-started.md)
+has a copy-pasteable contract, rule, error-handling, and web-framework examples.
 
-```ruby
-require "dry/validation/rust"
-
-class NewUserContract < Dry::Validation::Rust::Contract
-  params do
-    required(:email).filled(:string, format?: /\A[^@]+@[^@]+\z/)
-    required(:age).value(:integer)
-    optional(:display_name).maybe(:string)
-
-    required(:addresses).array(:hash) do
-      required(:city).filled(:string)
-      required(:postcode).filled(:string)
-    end
-  end
-
-  rule(:age) do
-    key.failure("must be at least 18") if value < 18
-  end
-end
-
-result = NewUserContract.new.call(
-  "email" => "jane@example.org",
-  "age" => "17",
-  "display_name" => "",
-  "addresses" => [{"city" => "Astana", "postcode" => "010000"}]
-)
-
-result.to_h
-result.success?
-result.errors.to_h
-```
-
-This is the primary supported API. Version, platform, and upstream-reference
-targets are listed in [SUPPORT_MATRIX.md](docs/SUPPORT_MATRIX.md). Supported
-DSL and semantic differences are listed in [COMPATIBILITY.md](docs/COMPATIBILITY.md).
+Version, platform, and upstream-reference targets are listed in
+[SUPPORT_MATRIX.md](docs/SUPPORT_MATRIX.md). Supported DSL and semantic
+differences are listed in [COMPATIBILITY.md](docs/COMPATIBILITY.md).
 
 ### Side-by-side API stability
 
@@ -143,38 +76,17 @@ and `Evaluator` types. Its compatibility policy is defined in the
 [API_STABILITY.md](docs/API_STABILITY.md). The exact-compatibility entrypoints
 are explicitly experimental and are not covered by that policy.
 
-## Migration-compatible subset
-
-The safe API intentionally keeps familiar contract syntax where that behavior
-is implemented and covered. Use it for comparison work and gradual migration
-without taking over upstream constants:
-
-```ruby
-require "dry/validation/rust"
-
-class AgeContract < Dry::Validation::Rust::Contract
-  params do
-    required(:age).value(:integer)
-  end
-end
-```
-
 ## Loading
 
 `require "dry/validation/rust"` exposes only the
 `Dry::Validation::Rust` namespace. It does not define
 `Dry::Validation::Contract` or `Dry::Schema`.
 
-### Deprecated exact compatibility mode
-
 The upstream-like `require "dry/validation"` and `require "dry/schema"`
-entrypoints remain available temporarily, but they are deprecated and are not
-a supported migration target. They cannot safely coexist with upstream
-`dry-validation` or `dry-schema` in one Ruby process because both own the same
-require paths and constants. Use the side-by-side namespace for new work and
-follow the [exact-mode migration guide](docs/MIGRATION_FROM_EXACT_MODE.md) for
-existing applications. The removal release and timeline will be announced in a
-separately scoped deprecation implementation.
+entrypoints are deprecated and cannot safely coexist with upstream
+`dry-validation` or `dry-schema` in one Ruby process. Use side-by-side mode for
+new work; existing applications should follow the
+[exact-mode migration guide](docs/MIGRATION_FROM_EXACT_MODE.md).
 
 ## Supported highlights
 
@@ -207,7 +119,8 @@ The complete exclusions and semantic differences are explicit in
 
 ## Building from source
 
-Meet the [source-install prerequisites](#from-source) first.
+Meet the [source-build prerequisites](docs/getting-started.md#build-from-source)
+first.
 
 Then:
 

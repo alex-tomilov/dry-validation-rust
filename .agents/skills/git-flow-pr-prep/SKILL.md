@@ -22,11 +22,14 @@ or commits, stage files, push, open a PR, or alter repository settings.
    matching nearby repository history. Use the narrowest truthful type and scope.
 6. Decide the changelog disposition before drafting the PR. Require an
    `Unreleased` entry for a user-visible behavior, compatibility, installation,
-   or operational change; otherwise state that the PR needs the
-   `no-changelog` label. Verify that any entry describes the observable diff,
-   belongs under `Unreleased`, and does not claim unrun evidence or a release.
-   Draft a concise PR title and fill every relevant section of the repository
-   PR template. Keep unchecked items that were not performed; never claim
+   or operational change. Treat new or materially expanded getting-started,
+   installation, or migration documentation as user-visible. If a required
+   entry is missing, report it as a material finding and include the exact
+   entry needed; otherwise state that the PR needs the `no-changelog` label.
+   Verify that any entry describes the observable diff, belongs under
+   `Unreleased`, and does not claim unrun evidence or a release. Draft a
+   concise PR title and fill every relevant section of the repository PR
+   template. Keep unchecked items that were not performed; never claim
    verification, compatibility evidence, benchmarks, or releases that the diff
    and command output do not establish.
 

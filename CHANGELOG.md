@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Added a getting-started guide for installation, first contracts, macros,
+  web integration, and native-build troubleshooting.
 - Added an mdBook documentation site with sidebar navigation, native search,
   and GitHub Pages deployment from `main`.
 - Added opt-in MemoryProfiler allocation and retained-memory totals to the
