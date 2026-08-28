@@ -8,8 +8,8 @@
 - [Compatibility](docs/COMPATIBILITY.md)
 - [Support matrix](docs/SUPPORT_MATRIX.md)
 - [API stability](docs/API_STABILITY.md)
+- [Migration guide](docs/migration.md)
 - [Migration recipes](docs/MIGRATION_RECIPES.md)
-- [Migrating from exact mode](docs/MIGRATION_FROM_EXACT_MODE.md)
 - [Windows](docs/WINDOWS.md)
 
 ## Reference
