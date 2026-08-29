@@ -47,10 +47,16 @@ class CiWorkflowsTest < Minitest::Test
     assert_equal false, workflow.fetch('concurrency').fetch('cancel-in-progress')
     assert_equal 'peaceiris/actions-mdbook@v2', build_steps.find { |step| step['name'] == 'Setup mdBook' }.fetch('uses')
     assert_equal 'latest', build_steps.find { |step| step['name'] == 'Setup mdBook' }.fetch('with').fetch('mdbook-version')
-    assert_includes build_steps.map { |step| step['run'] }, 'mdbook build'
+    ruby_setup = build_steps.find { |step| step['name'] == 'Setup Ruby' }
+    assert_equal 'ruby/setup-ruby@v1', ruby_setup.fetch('uses')
+    assert_equal '3.3', ruby_setup.fetch('with').fetch('ruby-version')
+    assert_equal true, ruby_setup.fetch('with').fetch('bundler-cache')
+    assert_includes build_steps.map { |step| step['run'] }, 'mdbook build --dest-dir _site'
+    assert_includes build_steps.map { |step| step['run'] }, 'bundle exec yard doc'
+    assert_includes build_steps.map { |step| step['run'] }, 'mkdir -p _site/yard && cp -r doc/* _site/yard/'
     assert_equal 'actions/configure-pages@v5', build_steps.find { |step| step['name'] == 'Configure GitHub Pages' }.fetch('uses')
     assert_equal 'actions/upload-pages-artifact@v4', upload.fetch('uses')
-    assert_equal 'book', upload.fetch('with').fetch('path')
+    assert_equal '_site', upload.fetch('with').fetch('path')
     assert_equal 'build', deploy.fetch('needs')
     assert_equal({ 'pages' => 'write', 'id-token' => 'write' }, deploy.fetch('permissions'))
     assert_equal 'github-pages', deploy.fetch('environment').fetch('name')

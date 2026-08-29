@@ -20,6 +20,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
+      - name: Setup Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3'
+          bundler-cache: true
+
       - name: Setup mdBook
         uses: peaceiris/actions-mdbook@v2
         with:
@@ -29,12 +35,18 @@ jobs:
         uses: actions/configure-pages@v5
 
       - name: Build documentation site
-        run: mdbook build
+        run: mdbook build --dest-dir _site
+
+      - name: Build YARD API reference
+        run: bundle exec yard doc
+
+      - name: Add YARD API reference to site
+        run: mkdir -p _site/yard && cp -r doc/* _site/yard/
 
       - name: Upload GitHub Pages artifact
         uses: actions/upload-pages-artifact@v4
         with:
-          path: book
+          path: _site
 
   deploy:
     needs: build
