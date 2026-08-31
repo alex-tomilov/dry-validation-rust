@@ -1,5 +1,7 @@
 # Support matrix
 
+<!-- Generated support targets are maintained in support_matrix.yml by script/generate-ci-matrix. -->
+
 This matrix describes the public support target for each planned gem line. It
 does not widen the implemented API surface; feature support remains documented
 in [COMPATIBILITY.md](COMPATIBILITY.md).
@@ -10,6 +12,15 @@ in [COMPATIBILITY.md](COMPATIBILITY.md).
 | -------- | ------- | --------- | --------------------------------------------------- | -------------------------------------------- | ------ |
 | 0.1.x    | 3.3-3.5 | 1.75      | Source build; four precompiled gems in `0.1.0.pre5` | `dry-validation` 1.11.1, `dry-schema` 1.16.0 | alpha  |
 | 0.2.x    | 3.3-3.5 | 1.75      | Planned Tier-1 gems; source-build fallback          | pinned before beta                           | beta   |
+
+## Generated CI support targets
+
+<!-- BEGIN GENERATED SUPPORT MATRIX -->
+| Platform | Ruby | Rust | Status |
+| -------- | ---- | ---- | ------ |
+| `x86_64-linux` | 3.3, 3.4, 3.5 | 1.75.0, stable | supported |
+| `arm64-darwin` | 3.3, 3.4 | stable | supported |
+<!-- END GENERATED SUPPORT MATRIX -->
 
 ## Released 0.1.x native gems
 

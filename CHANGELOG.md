@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Made the CI support matrix and its published platform table YAML-backed and
+  checked for synchronization in CI.
 - Made the documented compatibility matrix YAML-backed and checked for sync in CI.
 - Added hosted Rust API reference documentation to the GitHub Pages site.
 - Added a getting-started guide for installation, first contracts, macros,

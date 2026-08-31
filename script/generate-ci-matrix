@@ -1,0 +1,112 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+require 'yaml'
+
+PROJECT_ROOT = File.expand_path('..', __dir__)
+SOURCE_PATH = File.join(PROJECT_ROOT, 'support_matrix.yml')
+CI_PATH = File.join(PROJECT_ROOT, '.github/workflows/ci.yml')
+SUPPORT_MATRIX_PATH = File.join(PROJECT_ROOT, 'docs/SUPPORT_MATRIX.md')
+def load_platforms
+  document = YAML.safe_load_file(SOURCE_PATH, permitted_classes: [], aliases: false)
+  raise 'support_matrix.yml must be a mapping' unless document.is_a?(Hash)
+
+  platforms = document.fetch('platforms')
+  raise 'support_matrix.yml platforms must be a non-empty array' unless platforms.is_a?(Array) && !platforms.empty?
+
+  names = []
+  platforms.each do |platform|
+    raise 'each platform must be a mapping' unless platform.is_a?(Hash)
+
+    name = platform.fetch('name')
+    ruby_versions = platform.fetch('ruby')
+    rust_versions = platform.fetch('rust')
+    status = platform.fetch('status')
+    runner_for(name)
+    raise "duplicate platform: #{name}" if names.include?(name)
+    unless ruby_versions.is_a?(Array) && !ruby_versions.empty?
+      raise "ruby versions for #{name} must be a non-empty array"
+    end
+    unless rust_versions.is_a?(Array) && !rust_versions.empty?
+      raise "rust versions for #{name} must be a non-empty array"
+    end
+    raise "invalid status for #{name}: #{status.inspect}" unless status == 'supported'
+
+    platform['ruby'] = ruby_versions.map(&:to_s)
+    platform['rust'] = rust_versions.map(&:to_s)
+    names << name
+  end
+  platforms
+end
+
+def runner_for(platform)
+  case platform
+  when 'x86_64-linux' then 'ubuntu-latest'
+  when 'aarch64-linux', 'arm64-linux' then 'ubuntu-24.04-arm'
+  when 'x86_64-darwin' then 'macos-latest'
+  when 'arm64-darwin' then 'macos-14'
+  when 'x64-mingw-ucrt' then 'windows-latest'
+  else raise "unsupported platform: #{platform.inspect}"
+  end
+end
+
+def ci_matrix(platforms)
+  rows = platforms.flat_map do |platform|
+    platform.fetch('ruby').product(platform.fetch('rust')).map do |ruby_version, rust_version|
+      { 'platform' => platform.fetch('name'), 'os' => runner_for(platform.fetch('name')),
+        'ruby' => ruby_version, 'rust' => rust_version }
+    end
+  end
+
+  YAML.dump('matrix' => { 'include' => rows }).delete_prefix("---\n")
+end
+
+def support_table(platforms)
+  rows = platforms.map do |platform|
+    "| `#{platform.fetch('name')}` | #{platform.fetch('ruby').join(', ')} | #{platform.fetch('rust').join(', ')} | #{platform.fetch('status')} |"
+  end
+  <<~MARKDOWN
+    | Platform | Ruby | Rust | Status |
+    | -------- | ---- | ---- | ------ |
+    #{rows.join("\n")}
+  MARKDOWN
+end
+
+def replace_generated_section(path, content)
+  source = File.read(path)
+  comment = path.end_with?('.yml') ? '#' : '<!--'
+  suffix = path.end_with?('.yml') ? '' : ' -->'
+  start_marker = "#{comment} BEGIN GENERATED SUPPORT MATRIX#{suffix}"
+  end_marker = "#{comment} END GENERATED SUPPORT MATRIX#{suffix}"
+  start_index = source.index(start_marker)
+  end_index = source.index(end_marker)
+  raise "#{path} is missing generated support-matrix markers" unless start_index && end_index && end_index > start_index
+
+  before = source[0, start_index + start_marker.length]
+  line_start = source.rindex("\n", start_index) + 1
+  indent = source[line_start...start_index]
+  after = "#{indent}#{source[end_index..]}"
+  generated = content.chomp.lines.map { |line| "#{indent}#{line}" }.join
+  "#{before}\n#{generated}\n#{after}"
+end
+
+def generated_files(platforms)
+  {
+    CI_PATH => replace_generated_section(CI_PATH, ci_matrix(platforms)),
+    SUPPORT_MATRIX_PATH => replace_generated_section(SUPPORT_MATRIX_PATH, support_table(platforms))
+  }
+end
+
+files = generated_files(load_platforms)
+
+case ARGV
+when ['--write'] then files.each { |path, content| File.write(path, content) }
+when ['--check']
+  stale = files.reject { |path, content| File.read(path) == content }.keys
+  unless stale.empty?
+    abort "Generated support matrix is out of sync: #{stale.join(', ')}. Run ruby script/generate-ci-matrix --write."
+  end
+when ['--ci'] then print files.fetch(CI_PATH)
+when ['--support-doc'] then print files.fetch(SUPPORT_MATRIX_PATH)
+else abort 'Usage: script/generate-ci-matrix [--write|--check|--ci|--support-doc]'
+end

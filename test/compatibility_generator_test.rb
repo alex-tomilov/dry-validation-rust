@@ -11,4 +11,20 @@ class CompatibilityGeneratorTest < Minitest::Test
     assert_predicate status, :success?, stderr
     assert_equal File.read(File.join(PROJECT_ROOT, 'docs/COMPATIBILITY.md')), stdout
   end
+
+  def test_generates_the_checked_in_support_matrix_and_ci_matrix_from_yaml
+    stdout, stderr, status = ExecutableScriptTestHelper.capture(
+      'script/generate-ci-matrix', '--support-doc', chdir: PROJECT_ROOT
+    )
+
+    assert_predicate status, :success?, stderr
+    assert_equal File.read(File.join(PROJECT_ROOT, 'docs/SUPPORT_MATRIX.md')), stdout
+
+    stdout, stderr, status = ExecutableScriptTestHelper.capture(
+      'script/generate-ci-matrix', '--ci', chdir: PROJECT_ROOT
+    )
+
+    assert_predicate status, :success?, stderr
+    assert_equal File.read(File.join(PROJECT_ROOT, '.github/workflows/ci.yml')), stdout
+  end
 end
