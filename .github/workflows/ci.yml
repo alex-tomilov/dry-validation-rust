@@ -138,6 +138,9 @@ jobs:
       - name: Verify generated predicate sources
         run: bundle exec rake generate:predicates:check
 
+      - name: Verify generated compatibility matrix
+        run: ruby script/generate-compatibility-md | diff -u docs/COMPATIBILITY.md -
+
       - name: Check YARD documentation
         run: bundle exec yard --fail-on-warning
 
