@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Made the documented compatibility matrix YAML-backed and checked for sync in CI.
 - Added hosted Rust API reference documentation to the GitHub Pages site.
 - Added a getting-started guide for installation, first contracts, macros,
   web integration, and native-build troubleshooting.

@@ -4,7 +4,7 @@ updated_at: "2026-08-18"
 authority:
   roadmap: docs/ROADMAP.md
   milestone_specs: docs/codex/
-  compatibility: docs/COMPATIBILITY.md
+  compatibility: compatibility.yml
   support_matrix: docs/SUPPORT_MATRIX.md
   performance_evidence:
     - README.md
