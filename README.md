@@ -18,6 +18,9 @@ platforms, and known boundaries.
 New users can follow the [Getting started guide](docs/getting-started.md) to
 install the gem and build their first contract.
 
+The native extension's [Rust API reference](https://alex-tomilov.github.io/dry-validation-rust/rustdoc/)
+is published with the documentation site.
+
 For project participation and reporting routes, see
 [CONTRIBUTING.md](CONTRIBUTING.md), [SUPPORT.md](SUPPORT.md),
 [SECURITY.md](SECURITY.md), [GOVERNANCE.md](GOVERNANCE.md), and the

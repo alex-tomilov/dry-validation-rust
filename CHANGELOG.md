@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Added hosted Rust API reference documentation to the GitHub Pages site.
 - Added a getting-started guide for installation, first contracts, macros,
   web integration, and native-build troubleshooting.
 - Added an mdBook documentation site with sidebar navigation, native search,
