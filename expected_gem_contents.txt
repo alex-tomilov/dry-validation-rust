@@ -23,6 +23,7 @@ SUMMARY.md
 SUPPORT.md
 book.toml
 codecov.yml
+compatibility.yml
 deny.toml
 dry-validation-rust.gemspec
 ext/dry_validation_rust/Cargo.lock
