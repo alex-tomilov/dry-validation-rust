@@ -86,3 +86,4 @@ rust-toolchain.toml
 supply-chain/audits.toml
 supply-chain/config.toml
 supply-chain/imports.lock
+support_matrix.yml

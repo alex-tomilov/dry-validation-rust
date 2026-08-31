@@ -224,35 +224,55 @@ class CiWorkflowsTest < Minitest::Test
     assert_equal 'ruby-native-${{ runner.arch }}-v2', setup_rust.fetch('with').fetch('cache-key')
   end
 
-  def test_ruby_integration_tests_ruby_head_without_blocking_merges_and_reports_failures
+  def test_ruby_integration_uses_the_generated_support_matrix
     workflow = workflows.fetch(File.join(WORKFLOW_DIR, 'ci.yml'))
     job = workflow.fetch('jobs').fetch('ruby-integration')
     matrix = job.fetch('strategy').fetch('matrix')
-    notification = job.fetch('steps').find { |step| step['name'] == 'Create or update Ruby head failure issue' }
 
-    assert_equal %w[3.3 3.4 3.5 head], matrix.fetch('ruby')
-    assert_equal "${{ matrix.ruby == 'head' }}", job.fetch('continue-on-error')
-    assert_equal({ 'contents' => 'read', 'issues' => 'write' }, job.fetch('permissions'))
+    assert_equal [
+      { 'platform' => 'x86_64-linux', 'os' => 'ubuntu-latest', 'ruby' => '3.3', 'rust' => '1.75.0' },
+      { 'platform' => 'x86_64-linux', 'os' => 'ubuntu-latest', 'ruby' => '3.3', 'rust' => 'stable' },
+      { 'platform' => 'x86_64-linux', 'os' => 'ubuntu-latest', 'ruby' => '3.4', 'rust' => '1.75.0' },
+      { 'platform' => 'x86_64-linux', 'os' => 'ubuntu-latest', 'ruby' => '3.4', 'rust' => 'stable' },
+      { 'platform' => 'x86_64-linux', 'os' => 'ubuntu-latest', 'ruby' => '3.5', 'rust' => '1.75.0' },
+      { 'platform' => 'x86_64-linux', 'os' => 'ubuntu-latest', 'ruby' => '3.5', 'rust' => 'stable' },
+      { 'platform' => 'arm64-darwin', 'os' => 'macos-14', 'ruby' => '3.3', 'rust' => 'stable' },
+      { 'platform' => 'arm64-darwin', 'os' => 'macos-14', 'ruby' => '3.4', 'rust' => 'stable' }
+    ], matrix.fetch('include')
+    assert_equal({ 'contents' => 'read' }, job.fetch('permissions'))
     ruby_setup = job.fetch('steps').find { |step| step['name'] == 'Setup Ruby and Bundler cache' }
-    assert_equal "${{ matrix.ruby == 'head' && 'latest' || 'default' }}", ruby_setup.fetch('with').fetch('bundler')
-    assert_equal "${{ matrix.ruby == 'head' && '4' || '' }}", ruby_setup.fetch('env').fetch('BUNDLER_VERSION')
-    assert_equal "${{ failure() && matrix.ruby == 'head' }}", notification.fetch('if')
-    assert_equal true, notification.fetch('continue-on-error')
-    assert_equal 'actions/github-script@v7', notification.fetch('uses')
-    assert_includes notification.fetch('with').fetch('script'), 'github.rest.issues.create'
+    assert_equal 'default', ruby_setup.fetch('with').fetch('bundler')
   end
 
-  def test_ruby_head_uses_the_upstream_magnus_typed_data_fix_on_stable_rust
+  def test_ruby_integration_uses_the_generated_rust_toolchain
     workflow = workflows.fetch(File.join(WORKFLOW_DIR, 'ci.yml'))
     job = workflow.fetch('jobs').fetch('ruby-integration')
     steps = job.fetch('steps')
     setup_rust = steps.find { |step| step['name'] == 'Setup Rust toolchain' }
+    assert_equal '${{ matrix.rust }}', setup_rust.fetch('with').fetch('toolchain')
+  end
+
+  def test_ruby_head_integration_remains_allowed_to_fail_and_reports_failures
+    workflow = workflows.fetch(File.join(WORKFLOW_DIR, 'ci.yml'))
+    job = workflow.fetch('jobs').fetch('ruby-head-integration')
+    steps = job.fetch('steps')
+    notification = steps.find { |step| step['name'] == 'Create or update Ruby head failure issue' }
+    ruby_setup = steps.find { |step| step['name'] == 'Setup Ruby and Bundler cache' }
+    rust_setup = steps.find { |step| step['name'] == 'Setup Rust toolchain' }
     magnus = steps.find { |step| step['name'] == 'Use Magnus with Ruby head typed-data support' }
 
-    assert_equal "${{ matrix.ruby == 'head' && 'stable' || '1.75.0' }}", setup_rust.fetch('with').fetch('toolchain')
-    assert_equal "matrix.ruby == 'head'", magnus.fetch('if')
+    assert_equal %w[ubuntu-latest macos-latest], job.fetch('strategy').fetch('matrix').fetch('os')
+    assert_equal true, job.fetch('continue-on-error')
+    assert_equal({ 'contents' => 'read', 'issues' => 'write' }, job.fetch('permissions'))
+    assert_equal 'head', ruby_setup.fetch('with').fetch('ruby-version')
+    assert_equal 'latest', ruby_setup.fetch('with').fetch('bundler')
+    assert_equal '4', ruby_setup.fetch('env').fetch('BUNDLER_VERSION')
+    assert_equal 'stable', rust_setup.fetch('with').fetch('toolchain')
     assert_includes magnus.fetch('run'), '6d6024c8096c4f8c5288a81a30b7313feed099e6'
-    assert_includes magnus.fetch('run'), 'cargo update --manifest-path ext/dry_validation_rust/Cargo.toml -p magnus'
+    assert_equal 'failure()', notification.fetch('if')
+    assert_equal true, notification.fetch('continue-on-error')
+    assert_equal 'actions/github-script@v7', notification.fetch('uses')
+    assert_includes notification.fetch('with').fetch('script'), 'github.rest.issues.create'
   end
 
   def test_ci_exercises_runtime_dependency_boundaries

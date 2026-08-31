@@ -1,0 +1,9 @@
+platforms:
+  - name: x86_64-linux
+    ruby: [3.3, 3.4, 3.5]
+    rust: [1.75.0, stable]
+    status: supported
+  - name: arm64-darwin
+    ruby: [3.3, 3.4]
+    rust: [stable]
+    status: supported

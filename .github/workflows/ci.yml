@@ -141,6 +141,9 @@ jobs:
       - name: Verify generated compatibility matrix
         run: ruby script/generate-compatibility-md | diff -u docs/COMPATIBILITY.md -
 
+      - name: Verify generated support matrix
+        run: ruby script/generate-ci-matrix --check
+
       - name: Check YARD documentation
         run: bundle exec yard --fail-on-warning
 
@@ -179,9 +182,84 @@ jobs:
           flags: ruby
 
   ruby-integration:
-    name: Ruby ${{ matrix.ruby }} on ${{ matrix.os }}
+    name: Ruby ${{ matrix.ruby }} on ${{ matrix.platform }}
     runs-on: ${{ matrix.os }}
-    continue-on-error: ${{ matrix.ruby == 'head' }}
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      # BEGIN GENERATED SUPPORT MATRIX
+      matrix:
+        include:
+        - platform: x86_64-linux
+          os: ubuntu-latest
+          ruby: '3.3'
+          rust: 1.75.0
+        - platform: x86_64-linux
+          os: ubuntu-latest
+          ruby: '3.3'
+          rust: stable
+        - platform: x86_64-linux
+          os: ubuntu-latest
+          ruby: '3.4'
+          rust: 1.75.0
+        - platform: x86_64-linux
+          os: ubuntu-latest
+          ruby: '3.4'
+          rust: stable
+        - platform: x86_64-linux
+          os: ubuntu-latest
+          ruby: '3.5'
+          rust: 1.75.0
+        - platform: x86_64-linux
+          os: ubuntu-latest
+          ruby: '3.5'
+          rust: stable
+        - platform: arm64-darwin
+          os: macos-14
+          ruby: '3.3'
+          rust: stable
+        - platform: arm64-darwin
+          os: macos-14
+          ruby: '3.4'
+          rust: stable
+      # END GENERATED SUPPORT MATRIX
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Install native build prerequisites on Linux
+        if: runner.os == 'Linux'
+        run: sudo rm -f /etc/apt/sources.list.d/*.list && sudo sed -i 's/azure.archive.ubuntu.com/archive.ubuntu.com/g' /etc/apt/apt-mirrors.txt /etc/apt/sources.list.d/ubuntu.sources /etc/apt/sources.list 2>/dev/null || true && sudo apt-get update -o Acquire::Retries=3 && sudo apt-get install -y --no-install-recommends -o Acquire::Retries=3 clang libclang-dev
+
+      - name: Install native build prerequisites on macOS
+        if: runner.os == 'macOS'
+        run: HOMEBREW_NO_AUTO_UPDATE=1 brew install llvm
+
+      - name: Setup Ruby and Bundler cache
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: ${{ matrix.ruby }}
+          bundler: default
+          bundler-cache: true
+
+      - name: Setup Rust toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: ${{ matrix.rust }}
+          cache-workspaces: ext/dry_validation_rust -> target
+          cache-key: ruby-native-${{ runner.arch }}-v2
+
+      - name: Compile native extension
+        run: bundle exec rake compile
+
+      - name: Run Ruby tests with warnings
+        run: bundle exec rake test
+
+  ruby-head-integration:
+    name: Ruby head on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    continue-on-error: true
     permissions:
       contents: read
       issues: write
@@ -191,11 +269,6 @@ jobs:
         os:
           - ubuntu-latest
           - macos-latest
-        ruby:
-          - "3.3"
-          - "3.4"
-          - "3.5"
-          - head
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -210,22 +283,21 @@ jobs:
 
       - name: Setup Ruby and Bundler cache
         env:
-          BUNDLER_VERSION: ${{ matrix.ruby == 'head' && '4' || '' }}
+          BUNDLER_VERSION: '4'
         uses: ruby/setup-ruby@v1
         with:
-          ruby-version: ${{ matrix.ruby }}
-          bundler: ${{ matrix.ruby == 'head' && 'latest' || 'default' }}
+          ruby-version: head
+          bundler: latest
           bundler-cache: true
 
       - name: Setup Rust toolchain
         uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
-          toolchain: ${{ matrix.ruby == 'head' && 'stable' || '1.75.0' }}
+          toolchain: stable
           cache-workspaces: ext/dry_validation_rust -> target
           cache-key: ruby-native-${{ runner.arch }}-v2
 
       - name: Use Magnus with Ruby head typed-data support
-        if: matrix.ruby == 'head'
         run: |
           ruby -i -pe 'gsub(/version = "~0.8.2"/, "git = \"https://github.com/matsadler/magnus.git\", rev = \"6d6024c8096c4f8c5288a81a30b7313feed099e6\"")' ext/dry_validation_rust/Cargo.toml
           cargo update --manifest-path ext/dry_validation_rust/Cargo.toml -p magnus
@@ -237,7 +309,7 @@ jobs:
         run: bundle exec rake test
 
       - name: Create or update Ruby head failure issue
-        if: ${{ failure() && matrix.ruby == 'head' }}
+        if: failure()
         continue-on-error: true
         uses: actions/github-script@v7
         with:
