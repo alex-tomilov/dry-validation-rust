@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Added guided bug, feature, and performance-regression issue forms for contributors.
 - Made the CI support matrix and its published platform table YAML-backed and
   checked for synchronization in CI.
 - Made the documented compatibility matrix YAML-backed and checked for sync in CI.

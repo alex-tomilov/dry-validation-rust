@@ -64,7 +64,7 @@ body:
   - type: textarea
     id: reproducer
     attributes:
-      label: Minimal contract and input
+      label: Minimal reproduction script
       description: Provide the smallest complete Ruby program that reproduces the problem.
       render: ruby
     validations:
@@ -72,21 +72,21 @@ body:
   - type: textarea
     id: expected
     attributes:
-      label: Expected result
+      label: Expected output
       description: Include values, errors, exception class, or loading behavior as applicable.
     validations:
       required: true
   - type: textarea
     id: actual
     attributes:
-      label: Actual result
+      label: Actual output
       description: Include the complete output and state whether the failure is deterministic.
     validations:
       required: true
   - type: textarea
     id: upstream_comparison
     attributes:
-      label: Upstream comparison
+      label: Upstream behavior
       description: If applicable, include pinned dry-validation/dry-schema versions and output from a separate process. Otherwise explain why it is not applicable.
     validations:
       required: true
