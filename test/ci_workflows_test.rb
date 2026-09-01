@@ -5,13 +5,22 @@ require 'yaml'
 
 class CiWorkflowsTest < Minitest::Test
   WORKFLOW_DIR = File.join(PROJECT_ROOT, '.github', 'workflows')
+  READ_ONLY_PERMISSIONS = { 'contents' => 'read' }.freeze
+  DEFAULT_WORKFLOW_POLICY = { permissions: READ_ONLY_PERMISSIONS, concurrency: true }.freeze
+  WORKFLOW_POLICIES = {
+    'labeler.yml' => {
+      permissions: READ_ONLY_PERMISSIONS.merge('pull-requests' => 'write').freeze,
+      concurrency: false
+    }.freeze
+  }.freeze
 
-  def test_non_release_workflows_parse_and_default_to_read_only
+  def test_non_release_workflows_parse_and_use_declared_permissions
     workflows.each do |path, workflow|
       next if path.end_with?('rubygems-push.yml')
 
-      assert_equal({ 'contents' => 'read' }, workflow.fetch('permissions'), path)
-      assert workflow.key?('concurrency'), path
+      policy = WORKFLOW_POLICIES.fetch(File.basename(path), DEFAULT_WORKFLOW_POLICY)
+      assert_equal policy.fetch(:permissions), workflow.fetch('permissions'), path
+      assert_equal policy.fetch(:concurrency), workflow.key?('concurrency'), path
     end
 
     codeql = workflows.fetch(File.join(WORKFLOW_DIR, 'security.yml'))

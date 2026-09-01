@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Added a pull-request checklist and path-based labels for changed areas.
 - Added guided bug, feature, and performance-regression issue forms for contributors.
 - Made the CI support matrix and its published platform table YAML-backed and
   checked for synchronization in CI.
