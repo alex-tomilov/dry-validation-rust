@@ -1,0 +1,17 @@
+name: Pull Request Labeler
+
+on:
+  pull_request_target:
+    types: [opened, reopened, synchronize]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  label:
+    runs-on: ubuntu-latest
+    steps:
+      # This action reads changed-file metadata and the base branch's config;
+      # it does not check out or execute pull request code.
+      - uses: actions/labeler@v7
