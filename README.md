@@ -24,7 +24,8 @@ is published with the documentation site.
 For project participation and reporting routes, see
 [CONTRIBUTING.md](CONTRIBUTING.md), [SUPPORT.md](SUPPORT.md),
 [SECURITY.md](SECURITY.md), [GOVERNANCE.md](GOVERNANCE.md), and the
-[Code of Conduct](CODE_OF_CONDUCT.md).
+[Code of Conduct](CODE_OF_CONDUCT.md). Ask usage questions in
+[GitHub Discussions](https://github.com/alex-tomilov/dry-validation-rust/discussions).
 See the concise [roadmap](docs/ROADMAP.md) for planned outcomes and
 [project-management policy](docs/PROJECT_MANAGEMENT.md) for issue workflow.
 
