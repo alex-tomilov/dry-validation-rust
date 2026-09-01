@@ -186,6 +186,14 @@ end
 The Sinatra example accepts JSON input. `params` accepts either string or
 symbol keys, so no key conversion is needed after `JSON.parse`.
 
+### Framework guides
+
+The gem has no framework adapters: call an application-owned contract at the
+request boundary and return `result.to_h` or `result.errors.to_h`. Minimal
+examples for common frameworks are available for [Rails](integrations/rails.md),
+[Hanami](integrations/hanami.md), [Roda](integrations/roda.md), and
+[Grape](integrations/grape.md).
+
 ## Choose a loading mode
 
 For new applications, load the side-by-side API:

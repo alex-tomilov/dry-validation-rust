@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Added Rails, Hanami, Roda, and Grape integration guides for the side-by-side
+  contract API.
 - Added a GitHub Discussions link for usage questions in the README.
 - Added a pull-request checklist and path-based labels for changed areas.
 - Added guided bug, feature, and performance-regression issue forms for contributors.
