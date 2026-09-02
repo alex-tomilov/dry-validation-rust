@@ -3,7 +3,6 @@ name: Benchmark Regression
 on:
   pull_request:
     paths:
-      - '.github/workflows/benchmark-regression.yml'
       - 'benchmark/**'
       - 'ext/dry_validation_rust/Cargo.lock'
       - 'ext/dry_validation_rust/Cargo.toml'
@@ -18,7 +17,6 @@ on:
       - main
       - develop
     paths:
-      - '.github/workflows/benchmark-regression.yml'
       - 'benchmark/**'
       - 'ext/dry_validation_rust/Cargo.lock'
       - 'ext/dry_validation_rust/Cargo.toml'

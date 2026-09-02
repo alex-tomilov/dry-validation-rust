@@ -350,6 +350,7 @@ class CiWorkflowsTest < Minitest::Test
     assert_includes benchmark_inputs, 'lib/**'
     assert_includes benchmark_inputs, 'ext/dry_validation_rust/src/**'
     refute_includes benchmark_inputs, 'ext/dry_validation_rust/extconf.rb'
+    refute_includes benchmark_inputs, '.github/workflows/benchmark-regression.yml'
     assert_equal({ 'contents' => 'read' }, workflow.fetch('permissions'))
     assert_equal({ 'contents' => 'read' }, benchmark.fetch('permissions'))
     assert_equal({ 'contents' => 'write', 'deployments' => 'write' }, publisher.fetch('permissions'))
