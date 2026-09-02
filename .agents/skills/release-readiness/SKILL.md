@@ -22,7 +22,8 @@ Use this skill only for an actual release candidate or explicit release-preparat
 ## Verify
 
 - supported behavior and compatibility claims;
-- changelog entries for user-visible changes;
+- changelog entries for user-visible changes, reconciled with the observable
+  diff since the previous release tag;
 - package contents and clean installation;
 - supported environment/platform matrix;
 - security-sensitive changes;

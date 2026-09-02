@@ -53,7 +53,10 @@ The native object exposes `field_count` and `plan_bytes` for diagnostics.
 
 ### Rust extension layout
 
-The native extension keeps the Magnus binding in `lib.rs` and separates plan parsing, traversal, coercion, predicate evaluation, errors, and GVL-bound Ruby calls into focused modules.
+The native extension keeps the Magnus binding in `lib.rs` and separates plan parsing, traversal,
+coercion, predicate evaluation, errors, and GVL-bound Ruby calls into focused modules.
+The generated [Rust API reference](https://alex-tomilov.github.io/dry-validation-rust/rustdoc/)
+is published alongside this guide.
 
 ```text
 ext/dry_validation_rust/src/

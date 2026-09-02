@@ -1,0 +1,43 @@
+"area:ruby-dsl":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "lib/**/*.rb"
+          - "spec/**/*.rb"
+
+"area:rust-engine":
+  - changed-files:
+      - any-glob-to-any-file: "ext/**/*.rs"
+
+"area:compatibility":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "compat/**"
+          - "docs/COMPATIBILITY.md"
+
+"area:benchmark":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "benchmark/**"
+          - "benchmarks/**"
+          - "script/*baseline*"
+
+"area:packaging":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "*.gemspec"
+          - "Gemfile"
+          - "Gemfile.lock"
+          - "Rakefile"
+          - "Cargo.lock"
+          - "ext/**/Cargo.toml"
+
+"area:ci":
+  - changed-files:
+      - any-glob-to-any-file: ".github/**"
+
+"area:docs":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "docs/**"
+          - "README.md"
+          - "CHANGELOG.md"

@@ -1,3 +1,7 @@
+plugins:
+  - rubocop-performance
+  - rubocop-minitest
+
 AllCops:
   TargetRubyVersion: 3.3
   NewCops: enable
@@ -71,3 +75,50 @@ Naming/MethodName:
     - 'lib/dry/validation.rb'
     - 'lib/dry/validation/rust.rb'
     - 'lib/dry/validation/rust/schema.rb'
+
+# The suite uses several assertions to describe each public behavioral scenario.
+# Enforcing assertion style or count would make tests less readable without
+# improving coverage or failure diagnostics.
+Minitest/AssertInDelta:
+  Enabled: false
+
+Minitest/AssertPathExists:
+  Enabled: false
+
+Minitest/AssertPredicate:
+  Enabled: false
+
+Minitest/AssertTruthy:
+  Enabled: false
+
+Minitest/AssertWithExpectedArgument:
+  Enabled: false
+
+Minitest/EmptyLineBeforeAssertionMethods:
+  Enabled: false
+
+Minitest/MultipleAssertions:
+  Enabled: false
+
+Minitest/RefuteFalse:
+  Enabled: false
+
+Minitest/RefutePathExists:
+  Enabled: false
+
+Minitest/RefutePredicate:
+  Enabled: false
+
+# These allocation-oriented rewrites are not applied wholesale without measured
+# benchmarks; the performance suite remains the source of such evidence.
+Performance/CollectionLiteralInLoop:
+  Enabled: false
+
+Performance/DoubleStartEndWith:
+  Enabled: false
+
+Performance/MapCompact:
+  Enabled: false
+
+Performance/TimesMap:
+  Enabled: false

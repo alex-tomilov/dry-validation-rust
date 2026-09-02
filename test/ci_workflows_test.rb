@@ -5,13 +5,22 @@ require 'yaml'
 
 class CiWorkflowsTest < Minitest::Test
   WORKFLOW_DIR = File.join(PROJECT_ROOT, '.github', 'workflows')
+  READ_ONLY_PERMISSIONS = { 'contents' => 'read' }.freeze
+  DEFAULT_WORKFLOW_POLICY = { permissions: READ_ONLY_PERMISSIONS, concurrency: true }.freeze
+  WORKFLOW_POLICIES = {
+    'labeler.yml' => {
+      permissions: READ_ONLY_PERMISSIONS.merge('pull-requests' => 'write').freeze,
+      concurrency: false
+    }.freeze
+  }.freeze
 
-  def test_non_release_workflows_parse_and_default_to_read_only
+  def test_non_release_workflows_parse_and_use_declared_permissions
     workflows.each do |path, workflow|
       next if path.end_with?('rubygems-push.yml')
 
-      assert_equal({ 'contents' => 'read' }, workflow.fetch('permissions'), path)
-      assert workflow.key?('concurrency'), path
+      policy = WORKFLOW_POLICIES.fetch(File.basename(path), DEFAULT_WORKFLOW_POLICY)
+      assert_equal policy.fetch(:permissions), workflow.fetch('permissions'), path
+      assert_equal policy.fetch(:concurrency), workflow.key?('concurrency'), path
     end
 
     codeql = workflows.fetch(File.join(WORKFLOW_DIR, 'security.yml'))
@@ -23,12 +32,75 @@ class CiWorkflowsTest < Minitest::Test
   def test_non_release_workflows_contain_no_publication_path
     refute File.exist?(File.join(WORKFLOW_DIR, 'release.yml'))
 
-    source = workflows.reject { |path, _| path.end_with?('rubygems-push.yml') }
-                      .keys.map { |path| File.read(path) }.join("\n")
+    excluded_workflows = %w[rubygems-push.yml benchmark-regression.yml pages.yml]
+    source_paths = workflows.keys.reject do |path|
+      excluded_workflows.any? { |filename| path.end_with?(filename) }
+    end
+    source = source_paths.map { |path| File.read(path) }.join("\n")
     refute_includes source, 'GEM_HOST_API_KEY'
     refute_includes source, 'gem push'
     refute_includes source, 'contents: write'
     refute_includes source, 'id-token: write'
+  end
+
+  def test_pages_workflow_builds_and_deploys_the_mdbook_site_from_main
+    workflow = workflows.fetch(File.join(WORKFLOW_DIR, 'pages.yml'))
+    build = workflow.fetch('jobs').fetch('build')
+    deploy = workflow.fetch('jobs').fetch('deploy')
+    build_steps = build.fetch('steps')
+    upload = build_steps.find { |step| step['name'] == 'Upload GitHub Pages artifact' }
+
+    assert_equal %w[main], workflow.fetch(true).fetch('push').fetch('branches')
+    assert_equal({ 'contents' => 'read' }, workflow.fetch('permissions'))
+    assert_equal 'pages', workflow.fetch('concurrency').fetch('group')
+    assert_equal false, workflow.fetch('concurrency').fetch('cancel-in-progress')
+    assert_equal 'peaceiris/actions-mdbook@v2', build_steps.find { |step| step['name'] == 'Setup mdBook' }.fetch('uses')
+    assert_equal 'latest', build_steps.find { |step| step['name'] == 'Setup mdBook' }.fetch('with').fetch('mdbook-version')
+    rust_setup = build_steps.find { |step| step['name'] == 'Setup Rust toolchain' }
+    assert_equal 'actions-rust-lang/setup-rust-toolchain@v1', rust_setup.fetch('uses')
+    refute rust_setup.key?('with')
+    ruby_setup = build_steps.find { |step| step['name'] == 'Setup Ruby' }
+    assert_equal 'ruby/setup-ruby@v1', ruby_setup.fetch('uses')
+    assert_equal '3.3', ruby_setup.fetch('with').fetch('ruby-version')
+    assert_equal true, ruby_setup.fetch('with').fetch('bundler-cache')
+    assert_includes build_steps.map { |step| step['run'] }, 'mdbook build --dest-dir _site'
+    assert_includes build_steps.map { |step| step['run'] }, 'bundle exec yard doc'
+    assert_includes build_steps.map { |step| step['run'] }, 'mkdir -p _site/yard && cp -r doc/* _site/yard/'
+    assert_includes build_steps.map { |step| step['run'] }, 'cargo doc --manifest-path ext/dry_validation_rust/Cargo.toml --no-deps'
+    assert_includes build_steps.map { |step| step['run'] }, 'mkdir -p _site/rustdoc && cp -r target/doc/* _site/rustdoc/'
+    assert_equal 'actions/configure-pages@v5', build_steps.find { |step| step['name'] == 'Configure GitHub Pages' }.fetch('uses')
+    assert_equal 'actions/upload-pages-artifact@v4', upload.fetch('uses')
+    assert_equal '_site', upload.fetch('with').fetch('path')
+    assert_equal 'build', deploy.fetch('needs')
+    assert_equal({ 'pages' => 'write', 'id-token' => 'write' }, deploy.fetch('permissions'))
+    assert_equal 'github-pages', deploy.fetch('environment').fetch('name')
+    assert_equal 'actions/deploy-pages@v4', deploy.fetch('steps').first.fetch('uses')
+    assert_equal '.', File.read(File.join(PROJECT_ROOT, 'book.toml'))[/^src = "(.+)"$/, 1]
+    assert_equal true, File.read(File.join(PROJECT_ROOT, 'book.toml')).include?("[output.html.search]\nenable = true")
+  end
+
+  def test_ci_requires_changelog_updates_unless_the_pull_request_is_labeled
+    workflow = workflows.fetch(File.join(WORKFLOW_DIR, 'ci.yml'))
+    changelog = workflow.fetch('jobs').fetch('changelog')
+    source = changelog.fetch('steps').last.fetch('run')
+
+    assert_equal "github.event_name == 'pull_request'", changelog.fetch('if')
+    assert_equal 0, changelog.fetch('steps').first.fetch('with').fetch('fetch-depth')
+    assert_includes source, 'no-changelog'
+    assert_includes source, 'git diff --quiet "${BASE_SHA}" "${HEAD_SHA}" -- CHANGELOG.md'
+  end
+
+  def test_security_workflow_scans_full_history_for_secrets
+    workflow = workflows.fetch(File.join(WORKFLOW_DIR, 'security.yml'))
+    job = workflow.fetch('jobs').fetch('secret-scan')
+    checkout = job.fetch('steps').first
+    scan = job.fetch('steps').last
+
+    assert_equal 'ubuntu-latest', job.fetch('runs-on')
+    assert_equal 'actions/checkout@v7', checkout.fetch('uses')
+    assert_equal 0, checkout.fetch('with').fetch('fetch-depth')
+    assert_equal 'gitleaks/gitleaks-action@v3', scan.fetch('uses')
+    assert_equal '${{ secrets.GITHUB_TOKEN }}', scan.fetch('env').fetch('GITHUB_TOKEN')
   end
 
   def test_release_workflow_builds_signs_and_publishes_each_p0_platform_on_tags
@@ -37,7 +109,7 @@ class CiWorkflowsTest < Minitest::Test
 
     assert_equal 'rubygems:push', workflow.fetch('name')
     assert_equal %w[v*], workflow.fetch(true).fetch('push').fetch('tags')
-    assert_equal(%w[x86_64-linux aarch64-linux x86_64-darwin arm64-darwin],
+    assert_equal(%w[x86_64-linux aarch64-linux x86_64-darwin arm64-darwin x64-mingw-ucrt],
                  build.fetch('strategy').fetch('matrix').fetch('include').map { |h| h.fetch('platform') })
 
     steps = build.fetch('steps')
@@ -58,9 +130,20 @@ class CiWorkflowsTest < Minitest::Test
     build = workflow.fetch('jobs').fetch('build-native-gem')
     source = build.fetch('steps').map { |step| step['run'] }.compact.join("\n")
 
+    assert_equal(%w[x86_64-linux aarch64-linux x86_64-darwin arm64-darwin x64-mingw-ucrt],
+                 build.fetch('strategy').fetch('matrix').fetch('include').map { |h| h.fetch('platform') })
     assert_includes source, 'rb-sys-dock'
     assert_includes source, '--mount-toolchains'
     assert_includes source, '--build'
+
+    smoke = workflow.fetch('jobs').fetch('smoke-native-gem')
+    assert_equal 'build-native-gem', smoke.fetch('needs')
+    assert_equal(%w[x86_64-linux aarch64-linux x86_64-darwin arm64-darwin x64-mingw-ucrt],
+                 smoke.fetch('strategy').fetch('matrix').fetch('include').map { |h| h.fetch('platform') })
+    smoke_source = smoke.fetch('steps').map { |step| step['run'] }.compact.join("\n")
+    assert_includes smoke_source, 'gem install --local'
+    assert_includes smoke_source, 'require "dry/validation/rust"'
+    assert_includes smoke_source, 'result.success?'
   end
 
   def test_release_workflow_verifies_tag_or_manual_release_tag_then_uses_trusted_publishing
@@ -103,16 +186,196 @@ class CiWorkflowsTest < Minitest::Test
     assert_equal '1', job.fetch('steps').last.fetch('env').fetch('MEMORY_REGRESSION')
   end
 
+  def test_ci_validates_source_fallback_on_supported_hosted_runners
+    workflow = workflows.fetch(File.join(WORKFLOW_DIR, 'ci.yml'))
+    job = workflow.fetch('jobs').fetch('source-fallback')
+    source = job.fetch('steps').map { |step| step['run'].to_s }.join("\n")
+
+    assert_equal %w[ubuntu-latest macos-latest windows-latest], job.fetch('strategy').fetch('matrix').fetch('os')
+    assert_equal "${{ runner.os == 'Windows' && '1.75.0-x86_64-pc-windows-gnu' || '1.75.0' }}",
+                 job.fetch('steps').find { |step| step['name'] == 'Setup Rust toolchain' }.fetch('with').fetch('toolchain')
+    assert_includes source, "gem install rb_sys --version '~> 0.9' --no-document"
+    assert_includes source, 'ridk exec pacman -Sy --noconfirm --needed mingw-w64-ucrt-x86_64-clang'
+    assert_includes source, 'LIBCLANG_PATH=$env:RI_DEVKIT\\ucrt64\\bin'
+    assert_includes source, 'RUSTUP_TOOLCHAIN=1.75.0-x86_64-pc-windows-gnu'
+    refute_includes source, 'choco install llvm'
+    assert_includes source, 'gem build dry-validation-rust.gemspec'
+    assert_includes source, 'gem install --local dry-validation-rust-*.gem --platform ruby'
+    assert_includes source, 'require "dry/validation/rust"'
+  end
+
+  def test_ci_generates_and_uploads_ruby_coverage
+    workflow = workflows.fetch(File.join(WORKFLOW_DIR, 'ci.yml'))
+    job = workflow.fetch('jobs').fetch('ruby-coverage')
+    steps = job.fetch('steps')
+    upload = steps.find { |step| step['name'] == 'Upload Ruby coverage to Codecov' }
+
+    assert_equal 'ubuntu-latest', job.fetch('runs-on')
+    assert_includes steps.map { |step| step['run'].to_s }, 'bundle exec rake test'
+    assert_equal 'codecov/codecov-action@v4', upload.fetch('uses')
+    assert_equal './coverage/lcov.info', upload.fetch('with').fetch('files')
+    assert_equal 'ruby', upload.fetch('with').fetch('flags')
+    assert_equal File.join(PROJECT_ROOT, 'coverage', 'lcov.info'),
+                 SimpleCov::Formatter::LcovFormatter.config.single_report_path
+
+    codecov = YAML.safe_load_file(File.join(PROJECT_ROOT, 'codecov.yml'))
+    ruby_status = codecov.fetch('coverage').fetch('status').fetch('project').fetch('ruby')
+    assert_equal '70%', ruby_status.fetch('target')
+    assert_equal '2%', ruby_status.fetch('threshold')
+    assert_equal ['ruby'], ruby_status.fetch('flags')
+  end
+
+  def test_ruby_integration_cache_is_scoped_to_runner_architecture
+    workflow = workflows.fetch(File.join(WORKFLOW_DIR, 'ci.yml'))
+    setup_rust = workflow.fetch('jobs').fetch('ruby-integration').fetch('steps')
+                         .find { |step| step['name'] == 'Setup Rust toolchain' }
+
+    assert_equal 'ruby-native-${{ runner.arch }}-v2', setup_rust.fetch('with').fetch('cache-key')
+  end
+
+  def test_ruby_integration_uses_the_generated_support_matrix
+    workflow = workflows.fetch(File.join(WORKFLOW_DIR, 'ci.yml'))
+    job = workflow.fetch('jobs').fetch('ruby-integration')
+    matrix = job.fetch('strategy').fetch('matrix')
+
+    assert_equal [
+      { 'platform' => 'x86_64-linux', 'os' => 'ubuntu-latest', 'ruby' => '3.3', 'rust' => '1.75.0' },
+      { 'platform' => 'x86_64-linux', 'os' => 'ubuntu-latest', 'ruby' => '3.3', 'rust' => 'stable' },
+      { 'platform' => 'x86_64-linux', 'os' => 'ubuntu-latest', 'ruby' => '3.4', 'rust' => '1.75.0' },
+      { 'platform' => 'x86_64-linux', 'os' => 'ubuntu-latest', 'ruby' => '3.4', 'rust' => 'stable' },
+      { 'platform' => 'x86_64-linux', 'os' => 'ubuntu-latest', 'ruby' => '3.5', 'rust' => '1.75.0' },
+      { 'platform' => 'x86_64-linux', 'os' => 'ubuntu-latest', 'ruby' => '3.5', 'rust' => 'stable' },
+      { 'platform' => 'arm64-darwin', 'os' => 'macos-14', 'ruby' => '3.3', 'rust' => 'stable' },
+      { 'platform' => 'arm64-darwin', 'os' => 'macos-14', 'ruby' => '3.4', 'rust' => 'stable' }
+    ], matrix.fetch('include')
+    assert_equal({ 'contents' => 'read' }, job.fetch('permissions'))
+    ruby_setup = job.fetch('steps').find { |step| step['name'] == 'Setup Ruby and Bundler cache' }
+    assert_equal 'default', ruby_setup.fetch('with').fetch('bundler')
+  end
+
+  def test_ruby_integration_uses_the_generated_rust_toolchain
+    workflow = workflows.fetch(File.join(WORKFLOW_DIR, 'ci.yml'))
+    job = workflow.fetch('jobs').fetch('ruby-integration')
+    steps = job.fetch('steps')
+    setup_rust = steps.find { |step| step['name'] == 'Setup Rust toolchain' }
+    assert_equal '${{ matrix.rust }}', setup_rust.fetch('with').fetch('toolchain')
+  end
+
+  def test_ruby_head_integration_remains_allowed_to_fail_and_reports_failures
+    workflow = workflows.fetch(File.join(WORKFLOW_DIR, 'ci.yml'))
+    job = workflow.fetch('jobs').fetch('ruby-head-integration')
+    steps = job.fetch('steps')
+    notification = steps.find { |step| step['name'] == 'Create or update Ruby head failure issue' }
+    ruby_setup = steps.find { |step| step['name'] == 'Setup Ruby and Bundler cache' }
+    rust_setup = steps.find { |step| step['name'] == 'Setup Rust toolchain' }
+    magnus = steps.find { |step| step['name'] == 'Use Magnus with Ruby head typed-data support' }
+
+    assert_equal %w[ubuntu-latest macos-latest], job.fetch('strategy').fetch('matrix').fetch('os')
+    assert_equal true, job.fetch('continue-on-error')
+    assert_equal({ 'contents' => 'read', 'issues' => 'write' }, job.fetch('permissions'))
+    assert_equal 'head', ruby_setup.fetch('with').fetch('ruby-version')
+    assert_equal 'latest', ruby_setup.fetch('with').fetch('bundler')
+    assert_equal '4', ruby_setup.fetch('env').fetch('BUNDLER_VERSION')
+    assert_equal 'stable', rust_setup.fetch('with').fetch('toolchain')
+    assert_includes magnus.fetch('run'), '6d6024c8096c4f8c5288a81a30b7313feed099e6'
+    assert_equal 'failure()', notification.fetch('if')
+    assert_equal true, notification.fetch('continue-on-error')
+    assert_equal 'actions/github-script@v7', notification.fetch('uses')
+    assert_includes notification.fetch('with').fetch('script'), 'github.rest.issues.create'
+  end
+
+  def test_ci_exercises_runtime_dependency_boundaries
+    workflow = workflows.fetch(File.join(WORKFLOW_DIR, 'ci.yml'))
+    job = workflow.fetch('jobs').fetch('dependency-compatibility')
+    matrix = job.fetch('strategy').fetch('matrix').fetch('include')
+
+    assert_equal [
+      { 'dependency' => 'bigdecimal', 'version' => '3.1.0' },
+      { 'dependency' => 'bigdecimal', 'version' => '3.2.0' },
+      { 'dependency' => 'bigdecimal', 'version' => '4.0.0' },
+      { 'dependency' => 'rb_sys', 'version' => '0.9.100' },
+      { 'dependency' => 'rb_sys', 'version' => '0.9.128' },
+      { 'dependency' => 'rb_sys', 'version' => 'latest' }
+    ], matrix
+
+    source = job.fetch('steps').map { |step| step['run'].to_s }.join("\n")
+    assert_includes source, 'BUNDLE_GEMFILE=Gemfile.dependency-ci bundle exec rake test'
+  end
+
+  def test_compatibility_workflow_runs_blocking_differential_tests_and_uploads_results
+    workflow = workflows.fetch(File.join(WORKFLOW_DIR, 'compatibility.yml'))
+    job = workflow.fetch('jobs').fetch('differential')
+    steps = job.fetch('steps')
+    source = steps.map { |step| step['run'].to_s }.join("\n")
+    upload = steps.find { |step| step['name'] == 'Upload differential test results' }
+
+    assert workflow.fetch(true).key?('pull_request')
+    assert_equal 'ubuntu-latest', job.fetch('runs-on')
+    refute job.key?('continue-on-error')
+    assert_equal '1.85.0', steps.find { |step| step['name'] == 'Setup Rust toolchain' }.fetch('with').fetch('toolchain')
+    assert_includes source, 'bundle exec rake compile'
+    assert_includes source, 'gem install dry-validation -v 1.11.1 --no-document'
+    assert_includes source, 'bundle exec rake compatibility:differential'
+    assert_includes source, 'set -o pipefail'
+    assert_equal 'actions/upload-artifact@v7', upload.fetch('uses')
+    assert_equal 'always()', upload.fetch('if')
+    assert_equal 'tmp/compatibility/differential.log', upload.fetch('with').fetch('path')
+  end
+
   def test_ci_rejects_criterion_regressions_against_main_on_pull_requests
     workflow = workflows.fetch(File.join(WORKFLOW_DIR, 'ci.yml'))
     job = workflow.fetch('jobs').fetch('native-benchmarks')
     source = job.fetch('steps').map { |step| step['run'].to_s }.join("\n")
 
-    assert_equal 'Criterion regression gate', job.fetch('name')
+    assert_equal 'Criterion regression gate (${{ matrix.bench }})', job.fetch('name')
     refute job.key?('continue-on-error')
     assert_includes source, 'git show FETCH_HEAD:benchmark/baseline.json'
     assert_includes source, 'No Criterion baseline yet'
     assert_includes source, 'script/compare-criterion-baselines "$RUNNER_TEMP/criterion-baseline.json" "$RUNNER_TEMP/candidate-target/criterion"'
+  end
+
+  def test_benchmark_workflow_gates_prs_and_only_publishes_from_trusted_events
+    workflow = workflows.fetch(File.join(WORKFLOW_DIR, 'benchmark-regression.yml'))
+    benchmark = workflow.fetch('jobs').fetch('benchmark')
+    benchmark_action = benchmark.fetch('steps').find { |step| step['uses'] == 'benchmark-action/github-action-benchmark@v1' }
+    publisher = workflow.fetch('jobs').fetch('publish-dashboard')
+    publish_action = publisher.fetch('steps').find { |step| step['uses'] == 'benchmark-action/github-action-benchmark@v1' }
+
+    assert workflow.fetch(true).key?('pull_request')
+    assert workflow.fetch(true).key?('workflow_dispatch')
+    assert_equal({ 'contents' => 'read' }, workflow.fetch('permissions'))
+    assert_equal({ 'contents' => 'read' }, benchmark.fetch('permissions'))
+    assert_equal({ 'contents' => 'write', 'deployments' => 'write' }, publisher.fetch('permissions'))
+    assert_equal "github.ref == 'refs/heads/main' && (github.event_name != 'workflow_dispatch' || inputs.publish_dashboard)",
+                 publisher.fetch('if').gsub(/\s+/, ' ')
+    assert_includes benchmark.fetch('steps').map { |step| step['run'].to_s },
+                    'gem install dry-validation --version 1.11.1 --no-document'
+    baseline = benchmark.fetch('steps').find { |step| step['id'] == 'benchmark-baseline' }
+    assert_includes baseline.fetch('run'), 'git ls-remote --exit-code origin refs/heads/gh-pages'
+    assert_equal "steps.benchmark-baseline.outputs.available == 'true'", benchmark_action.fetch('if')
+    assert_equal 'FORMAT=github-action-benchmark ruby -Ilib benchmark/schema_throughput.rb > benchmark_results.json',
+                 benchmark.fetch('steps').find { |step| step['name'] == 'Run schema throughput benchmark' }.fetch('run')
+    assert_equal 'customSmallerIsBetter', benchmark_action.fetch('with').fetch('tool')
+    assert_equal '105%', benchmark_action.fetch('with').fetch('fail-threshold')
+    assert_equal true, benchmark_action.fetch('with').fetch('fail-on-alert')
+    assert_equal false, benchmark_action.fetch('with').fetch('auto-push')
+    assert_equal true, publish_action.fetch('with').fetch('auto-push')
+    initialize_branch = publisher.fetch('steps').find { |step| step['name'] == 'Initialize benchmark dashboard branch' }
+    assert_includes initialize_branch.fetch('run'), 'git checkout --orphan gh-pages'
+    assert_includes initialize_branch.fetch('run'), 'git push origin gh-pages'
+    assert_equal '${{ runner.temp }}/schema-throughput-results/benchmark_results.json',
+                 publish_action.fetch('with').fetch('output-file-path')
+  end
+
+  def test_workflow_permission_values_are_static
+    workflows.each do |path, workflow|
+      permission_sets = [workflow['permissions']] + workflow.fetch('jobs').values.map { |job| job['permissions'] }
+      permission_sets.compact.each do |permissions|
+        permissions.each_value do |value|
+          refute_match(/\$\{\{/, value.to_s, path)
+        end
+      end
+    end
   end
 
   def test_manual_workflow_records_an_artifact_without_writing_to_the_repository

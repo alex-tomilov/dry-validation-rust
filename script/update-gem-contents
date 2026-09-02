@@ -1,0 +1,31 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+require 'find'
+require 'tmpdir'
+
+PROJECT_ROOT = File.expand_path('..', __dir__)
+GEMSPEC_PATH = File.join(PROJECT_ROOT, 'dry-validation-rust.gemspec')
+DEFAULT_OUTPUT_PATH = File.join(PROJECT_ROOT, 'expected_gem_contents.txt')
+
+output_path = File.expand_path(ARGV.fetch(0, DEFAULT_OUTPUT_PATH), PROJECT_ROOT)
+
+abort "Usage: #{File.basename($PROGRAM_NAME)} [output-path]" if ARGV.length > 1
+
+Dir.mktmpdir('dry-validation-rust-gem-contents') do |directory|
+  gem_path = File.join(directory, 'package.gem')
+  unpack_directory = File.join(directory, 'unpacked')
+
+  unless system('gem', 'build', GEMSPEC_PATH, '--output', gem_path, chdir: PROJECT_ROOT)
+    abort 'Failed to build source gem'
+  end
+  abort 'Failed to unpack source gem' unless system('gem', 'unpack', gem_path, '--target', unpack_directory)
+
+  package_directory = File.join(unpack_directory, File.basename(gem_path, '.gem'))
+  files = []
+  Find.find(package_directory) do |path|
+    files << path.delete_prefix("#{package_directory}/") if File.file?(path)
+  end
+
+  File.write(output_path, "#{files.sort.join("\n")}\n")
+end

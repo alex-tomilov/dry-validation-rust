@@ -27,7 +27,10 @@ A migration task should prove one realistic path end to end, not claim ecosystem
 6. Make unsupported adjacent behavior fail explicitly or remain clearly documented as unsupported.
 7. Run the same representative scenario against the source/reference behavior and dry-validation-rust.
 8. Add focused integration or differential coverage.
-9. Update existing migration/compatibility documentation only when the supported boundary changed.
+9. Update existing migration/compatibility documentation only when the
+   supported boundary changed, and add a concise entry under `Unreleased` in
+   `CHANGELOG.md` when the migration path adds or changes supported behavior.
+   Describe the proven migration path, not broader upstream parity.
 10. If Ruby source, tests, tooling, or CI configuration changed, run `bundle exec rubocop`.
 11. If the migration changes a public Ruby API or its documentation, update YARD and run `bundle exec yard --fail-on-warning`.
 
@@ -37,7 +40,8 @@ A migration task should prove one realistic path end to end, not claim ecosystem
 - Do not silently approximate dry-validation semantics.
 - Do not recreate a large unsupported upstream subsystem for one migration.
 - Do not broaden one successful scenario into a general compatibility claim.
-- If a missing capability is independently useful and substantial, stop and route it to `compatibility` or `feature-delivery` as a separate task.
+- If a missing capability is independently useful and substantial, stop and route it to
+  `compatibility` or `feature-delivery` as a separate task.
 
 ## Definition of done
 
@@ -49,4 +53,5 @@ A migration task should prove one realistic path end to end, not claim ecosystem
 
 ## Delivery
 
-Report the source scenario, required user changes, compatibility evidence, exact supported boundary, checks run, and deferred migration gaps.
+Report the source scenario, required user changes, compatibility evidence, exact supported boundary,
+checks run, and deferred migration gaps.

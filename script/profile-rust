@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+cd "$(dirname "$0")/../ext/dry_validation_rust"
+
+if [[ "$(uname -s)" == Linux ]]; then
+  if ! command -v perf >/dev/null 2>&1; then
+    printf '%s\n' "Rust flamegraph profiling requires the Linux perf command. Install your distribution's perf tools first." >&2
+    exit 1
+  fi
+
+  if ! perf stat -e cycles -- true >/dev/null 2>&1; then
+    perf_event_paranoid='unavailable'
+    if [[ -r /proc/sys/kernel/perf_event_paranoid ]]; then
+      perf_event_paranoid="$(< /proc/sys/kernel/perf_event_paranoid)"
+    fi
+
+    printf 'Rust flamegraph profiling requires access to Linux CPU performance events (kernel.perf_event_paranoid=%s).\n' "$perf_event_paranoid" >&2
+    printf 'Ask an administrator to grant CAP_PERFMON or run: sudo sysctl -w kernel.perf_event_paranoid=0\n' >&2
+    exit 1
+  fi
+fi
+
+if ! cargo flamegraph --version >/dev/null 2>&1; then
+  cargo install flamegraph --locked
+fi
+
+CARGO_PROFILE_RELEASE_DEBUG=true cargo flamegraph --bench full_schema
+
+printf 'Rust flamegraph: %s/flamegraph.svg\n' "$PWD"

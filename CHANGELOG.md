@@ -2,12 +2,83 @@
 
 ## Unreleased
 
+## 0.1.0.pre6 — 2026-09-02
+
+- Added Rails, Hanami, Roda, and Grape integration guides for the side-by-side
+  contract API.
+- Added a GitHub Discussions link for usage questions in the README.
+- Added a pull-request checklist and path-based labels for changed areas.
+- Added guided bug, feature, and performance-regression issue forms for contributors.
+- Made the CI support matrix and its published platform table YAML-backed and
+  checked for synchronization in CI.
+- Made the documented compatibility matrix YAML-backed and checked for sync in CI.
+- Added hosted Rust API reference documentation to the GitHub Pages site.
+- Added a getting-started guide for installation, first contracts, macros,
+  web integration, and native-build troubleshooting.
+- Added an mdBook documentation site with sidebar navigation, native search,
+  and GitHub Pages deployment from `main`.
+- Added a searchable YARD Ruby API reference to the GitHub Pages site.
+- Added opt-in MemoryProfiler allocation and retained-memory totals to the
+  schema-throughput JSON benchmark matrix for both engines.
+- Added a documented `script/benchmark` entrypoint for reproducible local
+  schema-throughput comparisons and JSON measurements.
+- Improved unsupported schema DSL errors with migration guidance for boolean
+  predicate composition, UUID predicates, and filtering.
+- Added a five-minute pinned-upstream differential fuzz CI job covering 1,000
+  generated schema/input pairs per run.
+- Added a blocking pull-request CI job for the pinned upstream differential
+  compatibility suite, with uploaded test logs.
+- Made publication benchmark duration and live progress visible, so long
+  full-matrix runs can be distinguished from stalled executions.
+- Added a repeatable publication benchmark runner with calibrated measurements,
+  checkpoints, environment metadata, and documented evidence guidance.
+- Added CI checks for Markdown style violations and broken documentation links.
+- Added local Ruby and Rust CPU-flamegraph scripts for diagnosing validation
+  hot paths.
+- Added a schema-throughput pull-request regression gate with a 5% p95-latency
+  threshold and a GitHub Pages benchmark dashboard refreshed from trusted runs.
+- Added Ruby line-coverage reporting and a Codecov quality gate to CI.
+- Added native Rust line-coverage reporting and a Codecov quality gate to CI.
+- Added beta Rust CI coverage and a weekly nightly Miri check for the native extension.
+- Added an allowed-to-fail Windows CI job that compiles the native extension
+  and runs the Ruby test suite with RubyInstaller's UCRT toolchain.
+- Fixed deeply nested Ruby type processing to avoid exhausting Windows' Ruby
+  VM stack during validation.
+- Added Gitleaks secret scanning to the Security workflow for pull requests,
+  protected-branch pushes, scheduled runs, and manual runs.
+- Added local release automation for version and Cargo-lockfile updates, dated
+  changelog sections, and release tags, plus pull-request changelog enforcement.
+- Added representative throughput, allocation, and native Criterion benchmark
+  coverage with regression gates where main-branch baselines are available.
+- Improved source and native-gem build reliability across supported targets,
+  including MinGW source builds and cross-compilation packaging.
+- Added release-publishing preflight, signed native-gem artifacts, and trusted
+  RubyGems publishing support.
+
+## 0.1.0.pre5 — 2026-08-18
+
 - Added pluggable schema message backends through custom `MessageBackend`
   subclasses.
 - Changed the native engine boundary to return a typed `SchemaResult` with
   `#output` and `#errors` accessors.
 - Fixed native predicate evaluation to propagate exceptions raised by Ruby
   predicate methods instead of returning validation failures.
+- Added generated predicate ownership declarations and explicit rule-context
+  visibility for the supported contract API.
+- Improved native schema, coercion, predicate, and rule-dependency execution
+  while preserving the documented compatibility subset.
+- Added Rust 1.75 MSRV verification, source-gem package auditing, and public
+  API documentation checks.
+
+## 0.1.0.pre4 — 2026-08-12
+
+- Improved native coercion and declared-key validation performance.
+- Fixed predicate-block arity validation and range-predicate message
+  interpolation.
+- Improved native structured error reporting and stability coverage for hostile
+  Ruby inputs.
+- Refined the public schema, contract, result, values, and message data types
+  without broadening the documented compatibility surface.
 
 ## 0.1.0.pre3 — 2026-08-09
 

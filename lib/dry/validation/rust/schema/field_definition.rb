@@ -35,7 +35,9 @@ module Dry
             normalized_name = name.to_s.delete_suffix('?').to_sym
             unless (NATIVE_PREDICATES | RUBY_PREDICATES).include?(normalized_name)
               raise UnsupportedFeatureError,
-                    "predicate #{normalized_name.inspect} is not supported natively; move it to a contract rule"
+                    "predicate #{normalized_name.inspect} is not supported; " \
+                    'use a supported predicate or a contract rule. ' \
+                    'See: https://github.com/alex-tomilov/dry-validation-rust/blob/main/docs/MIGRATION_RECIPES.md#uuid-and-other-dry-logic-predicates'
             end
 
             predicates << Predicate.new(name: normalized_name, argument: argument)

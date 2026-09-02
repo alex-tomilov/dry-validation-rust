@@ -1,0 +1,10 @@
+name: integer coercion
+source: |
+  Class.new(Dry::Validation::Contract) do
+    params { required(:value).value(:integer) }
+  end
+cases:
+  - name: accepts signed underscore integers
+    input: { value: "+1_024" }
+  - name: rejects decimal integer syntax
+    input: { value: "12.0" }

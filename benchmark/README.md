@@ -1,0 +1,136 @@
+# Schema throughput benchmark
+
+This directory contains the representative validation benchmark matrix used to
+compare `dry-validation-rust` with upstream `dry-validation`. Use it to explore
+a change locally or to produce machine-readable measurements. For
+publication-quality evidence, use `script/benchmark-publication` instead; its
+repeated, calibrated protocol is documented in
+[`docs/BENCHMARKING.md`](../docs/BENCHMARKING.md).
+
+## Prerequisites
+
+- Ruby 3.3 or a supported project runtime;
+- Rust and Cargo, to compile the native extension;
+- Bundler and the dependencies from `Gemfile`, including the pinned upstream
+  `dry-validation` version.
+
+From a clean checkout, install dependencies and build the extension:
+
+```bash
+bundle install
+bundle exec rake compile
+```
+
+## Run a comparison
+
+`script/benchmark` runs the harness from any current directory. With no
+environment variables it compares both engines across the full scenario matrix
+and prints a human-readable report:
+
+```bash
+bundle exec script/benchmark
+```
+
+For a quick reproducibility check that normally completes well within ten
+minutes, run one representative scenario with short showcase settings:
+
+```bash
+ENGINE=all SCENARIO=small_form N=1000 WARMUP=100 LATENCY_SAMPLES=50 \
+  IPS_WARMUP=0.2 IPS_TIME=0.5 MEMORY_PROFILE_N=100 \
+  bundle exec script/benchmark
+```
+
+Select an engine with `ENGINE=rust`, `ENGINE=upstream`, or `ENGINE=all`
+(the default). `SCENARIO` accepts one scenario name, such as `medium_form` or
+`array_of_objects`; omit it for the full matrix. Set `VALIDATE_KEYS=true` for
+the strict-key variant of a scenario.
+
+## Output formats
+
+`FORMAT=text` is the default. It reports warmed `Benchmark.ips` throughput,
+Ruby-side allocation detail from `MemoryProfiler`, and peak process RSS for
+each selected scenario. Use it for local inspection, not a public performance
+claim from a single run.
+
+`FORMAT=json` emits one stable JSON object. Its top-level fields are
+`benchmark`, `environment`, and `results`. `environment` records the Git,
+Ruby, platform, toolchain, and selected fixed-run settings. Each result records
+the engine and version, scenario, throughput per second, p50/p95/p99 latency
+in microseconds, Ruby objects allocated per call, and process-memory metrics.
+Set `MEMORY_PROFILE=true` to additionally include `MemoryProfiler` allocation
+totals and retained-memory metrics for each selected scenario and engine.
+For example:
+
+```bash
+FORMAT=json ENGINE=all SCENARIO=small_form \
+  N=10000 WARMUP=1000 LATENCY_SAMPLES=500 MEMORY_PROFILE=true MEMORY_PROFILE_N=1000 \
+  bundle exec script/benchmark > schema-throughput.json
+```
+
+The harness also supports `FORMAT=github-action-benchmark` for the CI dashboard
+payload; it is not intended as the general interchange format.
+
+`N`, `WARMUP`, and `LATENCY_SAMPLES` control the fixed measurement loop, its
+warmup, and the number of sampled latency calls. `IPS_WARMUP` and `IPS_TIME`
+affect only the text showcase. `MEMORY_PROFILE_N` controls the text showcase
+and opt-in JSON profiler call count. Keep fixed-run settings the same for both
+engines when comparing them.
+
+## Comparing with upstream
+
+Use `ENGINE=all` to run both engines against the same selected scenarios and
+settings. The default upstream baseline is `dry-validation 1.11.1`; override
+it deliberately with `UPSTREAM_VERSION` only when testing another installed
+version:
+
+```bash
+ENGINE=all UPSTREAM_VERSION=1.11.1 SCENARIO=nested_object \
+  bundle exec script/benchmark
+```
+
+Compare runs only on the same machine and power mode, with unrelated heavy
+workloads stopped. Throughput, latency, and RSS are host- and workload-specific;
+Ruby allocation counts are not total process-memory allocation. For results
+intended for the README, release notes, or external publication, use the
+calibrated repeated-run workflow in `script/benchmark-publication` rather than
+choosing a favorable interactive result.
+
+## Thread scaling
+
+`benchmark/concurrency_benchmark.rb` compares equivalent Rust-backed and
+upstream 10-field form contracts with 1, 2, and 4 Ruby threads. Each engine
+runs in its own fresh Ruby process, so loading and runtime state from the other
+engine cannot affect the measurement. Each thread performs the
+same number of valid calls; its normalized scaling value divides the concurrent
+aggregate throughput by the single-thread throughput. Run it after compiling
+the extension:
+
+```bash
+bundle exec rake compile
+bundle exec ruby -Ilib benchmark/concurrency_benchmark.rb
+```
+
+The default is 10,000 calls per thread. Set `ITERATIONS` for a shorter smoke
+run, for example `ITERATIONS=100 bundle exec ruby -Ilib
+benchmark/concurrency_benchmark.rb`.
+
+On the current implementation, neither engine should be expected to approach
+4.00x at four threads. The Rust engine reads and creates Ruby objects while
+validating, so CRuby retains the GVL; the benchmark is a regression detector
+for that boundary, not evidence of GVL release. Any future claim of parallel
+scaling requires repeated clean-host measurements and an implementation that
+can safely release the GVL.
+
+### Exploratory result (2026-08-27)
+
+Five default isolated-process runs on CRuby 3.3.7, x86_64 Linux, and a
+16-logical-CPU host gave the following normalized scaling ranges (median):
+
+| Engine   |          2 threads |          4 threads |
+| -------- | -----------------: | -----------------: |
+| Rust     | 1.00–1.07x (1.03x) | 1.00–1.09x (1.03x) |
+| Upstream | 1.00–1.08x (1.04x) | 1.01–1.12x (1.06x) |
+
+These are exploratory dirty-worktree measurements, not publication-quality
+evidence. They show no reliable multithreaded scaling and therefore do not
+support a GVL-release claim.

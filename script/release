@@ -1,0 +1,107 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+usage() {
+  echo "Usage: script/release VERSION" >&2
+  exit 64
+}
+
+[[ $# -eq 1 ]] || usage
+
+VERSION="$1"
+if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(\.pre[0-9]+)?$ ]]; then
+  echo "VERSION must be MAJOR.MINOR.PATCH or MAJOR.MINOR.PATCH.preN" >&2
+  exit 64
+fi
+
+PROJECT_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+cd "$PROJECT_ROOT"
+
+if [[ -n "$(git status --porcelain)" ]]; then
+  echo "Refusing to release from a dirty working tree" >&2
+  exit 1
+fi
+
+TAG="v${VERSION}"
+if git rev-parse -q --verify "refs/tags/${TAG}" >/dev/null; then
+  echo "Tag ${TAG} already exists" >&2
+  exit 1
+fi
+
+CARGO_VERSION="${VERSION/.pre/-pre.}"
+RELEASE_DATE="${RELEASE_DATE:-$(date -u +%F)}"
+
+ruby - "$VERSION" "$CARGO_VERSION" "$RELEASE_DATE" <<'RUBY'
+require 'tempfile'
+
+version, cargo_version, release_date = ARGV
+
+def replace_exactly_once(path, pattern, replacement)
+  source = File.read(path)
+  count = source.scan(pattern).length
+  abort "Expected exactly one version in #{path}" unless count == 1
+  updated = source.sub(pattern, replacement)
+
+  Tempfile.create([File.basename(path), '.tmp'], File.dirname(path)) do |file|
+    file.write(updated)
+    file.flush
+    file.chmod(File.stat(path).mode)
+    file.close
+    File.rename(file.path, path)
+  end
+end
+
+def replace_native_crate_version(path, cargo_version)
+  source = File.read(path)
+  package = /\[\[package\]\]\nname = "dry_validation_rust_native"\nversion = "[^"]+"/
+  count = source.scan(package).length
+  abort "Expected exactly one native crate version in #{path}" unless count == 1
+
+  updated = source.sub(package) do |entry|
+    entry.sub(/version = "[^"]+"/, "version = \"#{cargo_version}\"")
+  end
+
+  Tempfile.create([File.basename(path), '.tmp'], File.dirname(path)) do |file|
+    file.write(updated)
+    file.flush
+    file.chmod(File.stat(path).mode)
+    file.close
+    File.rename(file.path, path)
+  end
+end
+
+replace_exactly_once(
+  'lib/dry/validation/rust/version.rb',
+  /^\s*VERSION = ['"][^'"]+['"]$/,
+  "      VERSION = '#{version}'"
+)
+replace_exactly_once(
+  'ext/dry_validation_rust/Cargo.toml',
+  /^version = "[^"]+"$/,
+  "version = \"#{cargo_version}\""
+)
+replace_native_crate_version('Cargo.lock', cargo_version)
+replace_native_crate_version('ext/dry_validation_rust/Cargo.lock', cargo_version)
+
+path = 'CHANGELOG.md'
+source = File.read(path)
+release_heading = "## [#{version}] - #{release_date}"
+abort "#{path} already contains #{release_heading}" if source.include?(release_heading)
+unreleased_heading = /\A# Changelog\n\n## Unreleased\n/
+count = source.scan(unreleased_heading).length
+abort "Expected #{path} to begin with an Unreleased section" unless count == 1
+updated = source.sub(unreleased_heading, "# Changelog\n\n## Unreleased\n\n#{release_heading}\n")
+
+Tempfile.create([File.basename(path), '.tmp'], File.dirname(path)) do |file|
+  file.write(updated)
+  file.flush
+  file.chmod(File.stat(path).mode)
+  file.close
+  File.rename(file.path, path)
+end
+RUBY
+
+git add Cargo.lock ext/dry_validation_rust/Cargo.lock lib/dry/validation/rust/version.rb \
+  ext/dry_validation_rust/Cargo.toml CHANGELOG.md
+git commit -m "Release ${VERSION}"
+git tag "$TAG"

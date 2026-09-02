@@ -1,0 +1,61 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+require 'yaml'
+
+SOURCE_PATH = File.expand_path('../compatibility.yml', __dir__)
+
+def load_document
+  document = YAML.safe_load_file(SOURCE_PATH, permitted_classes: [], aliases: false)
+  raise 'compatibility.yml must be a mapping' unless document.is_a?(Hash)
+
+  title = document.fetch('title')
+  blocks = document.fetch('blocks')
+  raise 'compatibility.yml title must be a non-empty string' unless title.is_a?(String) && !title.empty?
+  raise 'compatibility.yml blocks must be an array' unless blocks.is_a?(Array)
+
+  [title, blocks]
+end
+
+def render_table(table)
+  columns = table.fetch('columns')
+  rows = table.fetch('rows')
+  unless columns.is_a?(Array) && !columns.empty? && columns.all?(String)
+    raise 'table columns must be a non-empty array of strings'
+  end
+
+  raise 'table rows must be an array' unless rows.is_a?(Array)
+
+  valid_rows = rows.all? { |row| row.is_a?(Array) && row.length == columns.length && row.all?(String) }
+  raise 'table rows must contain only string arrays matching the column count' unless valid_rows
+
+  widths = columns.each_index.map do |index|
+    ([columns[index]] + rows.map { |row| row[index] }).map(&:length).max
+  end
+  format_row = lambda do |row|
+    "| #{row.each_with_index.map { |cell, index| cell.ljust(widths[index]) }.join(' | ')} |"
+  end
+
+  [format_row.call(columns), "| #{widths.map { |width| '-' * width }.join(' | ')} |", *rows.map(&format_row)].join("\n")
+end
+
+def render_block(block)
+  raise 'each block must be a mapping with exactly one key' unless block.is_a?(Hash) && block.length == 1
+
+  if block['heading'].is_a?(String)
+    "## #{block.fetch('heading')}"
+  elsif block['markdown'].is_a?(String)
+    block.fetch('markdown')
+  elsif block['table'].is_a?(Hash)
+    render_table(block.fetch('table'))
+  else
+    raise 'block must contain heading, markdown, or table content'
+  end
+end
+
+title, blocks = load_document
+puts "# #{title}"
+puts
+puts '<!-- Generated from compatibility.yml by script/generate-compatibility-md. -->'
+puts
+puts blocks.map { |block| render_block(block) }.join("\n\n")

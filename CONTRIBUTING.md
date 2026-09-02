@@ -67,6 +67,13 @@ bundle exec rake package:audit
 ```
 
 Rust code must be formatted with `rustfmt` and pass Clippy with warnings denied.
+Consider installing a pre-commit hook so formatting issues are caught before
+pushing:
+
+```bash
+cargo install cargo-husky
+```
+
 Code must compile on the Rust 1.75 MSRV; all CI workflows use and test that
 exact toolchain.
 Runtime and FFI code must not use `unwrap`, `expect`, broad `.ok()`, or

@@ -27,7 +27,7 @@ class CriterionRegressionGateTest < Minitest::Test
     Dir.mktmpdir do |directory|
       baseline = write_baseline(directory, 100)
       candidate = write_estimate(directory, 'candidate', 'plan_compile/medium', 100)
-      _stdout, stderr, status = Open3.capture3(SCRIPT, baseline, candidate)
+      _stdout, stderr, status = ExecutableScriptTestHelper.capture(SCRIPT, baseline, candidate)
 
       refute status.success?
       assert_includes stderr, 'Benchmark sets differ'
@@ -40,7 +40,7 @@ class CriterionRegressionGateTest < Minitest::Test
     Dir.mktmpdir do |directory|
       baseline = write_baseline(directory, baseline_mean)
       candidate = write_estimate(directory, 'candidate', 'plan_compile/small', candidate_mean)
-      return Open3.capture3(SCRIPT, baseline, candidate)
+      return ExecutableScriptTestHelper.capture(SCRIPT, baseline, candidate)
     end
   end
 

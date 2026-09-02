@@ -1,0 +1,11 @@
+coverage:
+  status:
+    project:
+      rust:
+        target: 80%
+        threshold: 2%
+      ruby:
+        target: 70%
+        threshold: 2%
+        flags:
+          - ruby

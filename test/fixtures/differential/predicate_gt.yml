@@ -1,0 +1,10 @@
+name: comparison predicates
+source: |
+  Class.new(Dry::Validation::Contract) do
+    params { required(:age).value(:integer, gt?: 18) }
+  end
+cases:
+  - name: fails the greater-than boundary
+    input: { age: "18" }
+  - name: accepts a value above the boundary
+    input: { age: "19" }

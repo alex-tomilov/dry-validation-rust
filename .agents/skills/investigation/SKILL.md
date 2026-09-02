@@ -30,7 +30,8 @@ Use this skill when implementation should not begin until one uncertain question
 
 By default, do not modify production implementation files.
 
-If the investigation explicitly requires a durable characterization fixture or regression reproduction, add only the smallest test/fixture needed to preserve the discovered behavior. Do not implement the fix.
+If the investigation explicitly requires a durable characterization fixture or regression reproduction,
+add only the smallest test/fixture needed to preserve the discovered behavior. Do not implement the fix.
 
 ## Rules
 

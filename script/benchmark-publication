@@ -1,0 +1,16 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+project_root = File.expand_path('..', __dir__)
+$LOAD_PATH.unshift(File.join(project_root, 'lib'))
+
+require_relative '../benchmark/schema_throughput/publication'
+
+config = SchemaThroughput::Publication::Config.from_environment(ENV, project_root: project_root)
+runner = SchemaThroughput::Publication::Runner.new(config: config, project_root: project_root)
+json_path, markdown_path, checkpoint_path = runner.run
+
+puts 'Publication evidence written to:'
+puts "  JSON:       #{json_path}"
+puts "  Markdown:   #{markdown_path}"
+puts "  Checkpoint: #{checkpoint_path}"

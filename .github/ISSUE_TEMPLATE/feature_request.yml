@@ -6,6 +6,16 @@ labels:
   - "status:needs-design"
 assignees: []
 body:
+  - type: dropdown
+    id: request_type
+    attributes:
+      label: Request type
+      description: Tell us whether the proposal should match an upstream behavior or add a project-specific capability.
+      options:
+        - Upstream parity
+        - New feature
+    validations:
+      required: true
   - type: textarea
     id: problem
     attributes:
@@ -14,17 +24,18 @@ body:
     validations:
       required: true
   - type: textarea
-    id: proposed_behavior
+    id: proposed_api
     attributes:
-      label: Proposed behavior
+      label: Proposed API
       description: Show the intended Ruby API and result where useful.
+      render: ruby
     validations:
       required: true
   - type: textarea
     id: compatibility
     attributes:
       label: Compatibility impact
-      description: State whether this matches pinned upstream behavior, extends only the safe API, or changes existing semantics.
+      description: For upstream parity, cite the pinned versions and behavior. For a new feature, explain interaction with supported semantics.
     validations:
       required: true
   - type: textarea

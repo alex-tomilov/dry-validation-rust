@@ -17,17 +17,27 @@ class PackageMetadataTest < Minitest::Test
     refute spec.metadata.key?('funding_uri')
   end
 
+  def test_development_dependencies_include_benchmark_tools
+    dependencies = spec.dependencies.to_h { |dependency| [dependency.name, dependency.requirement.to_s] }
+
+    assert_equal '>= 0.3, < 1.0', dependencies.fetch('benchmark')
+    assert_equal '~> 2.14', dependencies.fetch('benchmark-ips')
+    assert_equal '~> 1.1', dependencies.fetch('memory_profiler')
+  end
+
+  def test_runtime_dependencies_have_explicit_compatibility_bounds
+    dependencies = spec.dependencies.to_h { |dependency| [dependency.name, dependency.requirement.to_s] }
+
+    assert_equal '>= 3.1, < 5.0', dependencies.fetch('bigdecimal')
+    assert_equal '>= 0.9.100, < 0.10', dependencies.fetch('rb_sys')
+  end
+
   def test_source_gem_manifest_keeps_runtime_and_notice_files
     required = %w[
       CHANGELOG.md
       LICENSE
       NOTICE.md
       README.md
-      docs/ARCHITECTURE.md
-      docs/COMPATIBILITY.md
-      docs/FEASIBILITY.md
-      docs/SUPPORT_MATRIX.md
-      docs/VERIFICATION.md
       dry-validation-rust.gemspec
       ext/dry_validation_rust/Cargo.lock
       ext/dry_validation_rust/Cargo.toml
@@ -47,7 +57,7 @@ class PackageMetadataTest < Minitest::Test
     forbidden_patterns = [
       %r{\Abenchmark/},
       %r{\Aexamples/},
-      %r{\Adocs/codex/},
+      %r{\A(?:\.agents|\.github|compat|docs|features|script|spec|test)/},
       %r{\Aext/dry_validation_rust/target/},
       %r{\Aext/dry_validation_rust/(?:Makefile|mkmf\.log|native\.)},
       %r{\A(?:pkg|coverage|\.bundle|\.ruby-lsp)/},
@@ -69,6 +79,13 @@ class PackageMetadataTest < Minitest::Test
     ].each do |target|
       assert_includes extension_config, target
     end
+  end
+
+  def test_extension_config_uses_gnu_rust_for_mingw_ruby
+    extension_config = File.read(File.join(PROJECT_ROOT, 'ext/dry_validation_rust/extconf.rb'))
+
+    assert_includes extension_config, "ENV['RUSTUP_TOOLCHAIN'] ||= '1.75.0-x86_64-pc-windows-gnu' if RUBY_PLATFORM.include?('mingw')"
+    assert_includes extension_config, "config.env['RUSTUP_TOOLCHAIN'] = ENV.fetch('RUSTUP_TOOLCHAIN') if ENV.key?('RUSTUP_TOOLCHAIN')"
   end
 
   private

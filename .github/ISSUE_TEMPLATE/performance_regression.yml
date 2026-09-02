@@ -1,4 +1,4 @@
-name: Performance report
+name: Performance regression
 description: Report a reproducible regression or unexpectedly expensive supported workload.
 title: "[Performance]: "
 labels:
@@ -45,16 +45,24 @@ body:
   - type: textarea
     id: command
     attributes:
-      label: Exact commands
-      description: Include environment variables and commands used for every compared engine.
+      label: Benchmark command
+      description: Include environment variables and every command used for the comparison.
       render: shell
     validations:
       required: true
   - type: textarea
-    id: raw_results
+    id: before_results
     attributes:
-      label: Raw results
-      description: Include all run results, not only averages or the fastest run.
+      label: Before numbers
+      description: Include all baseline runs, units, and summary statistics.
+      render: text
+    validations:
+      required: true
+  - type: textarea
+    id: after_results
+    attributes:
+      label: After numbers
+      description: Include all regression runs, units, and summary statistics.
       render: text
     validations:
       required: true
@@ -71,6 +79,13 @@ body:
     attributes:
       label: Semantic equivalence check
       description: Show that compared implementations return equivalent values/errors for the measured workload.
+    validations:
+      required: true
+  - type: textarea
+    id: flamegraph
+    attributes:
+      label: Flamegraph
+      description: Attach a flamegraph or link to it if available; otherwise state that none was captured.
     validations:
       required: true
   - type: textarea

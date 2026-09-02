@@ -6,6 +6,8 @@ on:
     branches:
       - main
       - develop
+  schedule:
+    - cron: "0 0 * * 0"
   workflow_dispatch:
 
 permissions:
@@ -16,8 +18,53 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  ruby-integration:
-    name: Ruby ${{ matrix.ruby }} on ${{ matrix.os }}
+  docs:
+    name: Documentation quality
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Lint Markdown
+        uses: DavidAnson/markdownlint-cli2-action@v16
+        with:
+          globs: |
+            **/*.md
+            !docs/reviews/**
+
+      - name: Check Markdown links
+        uses: lycheeverse/lychee-action@v1
+        with:
+          args: --no-progress './**/*.md'
+
+  changelog:
+    name: Changelog entry
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Require a changelog update
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PR_LABELS: ${{ join(github.event.pull_request.labels.*.name, ',') }}
+        run: |
+          if [[ ",${PR_LABELS}," == *,no-changelog,* ]]; then
+            echo "Skipping changelog check because this PR has the no-changelog label."
+            exit 0
+          fi
+
+          if git diff --quiet "${BASE_SHA}" "${HEAD_SHA}" -- CHANGELOG.md; then
+            echo "::error::Update CHANGELOG.md or apply the no-changelog label."
+            exit 1
+          fi
+
+  source-fallback:
+    name: Source fallback on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -25,17 +72,165 @@ jobs:
         os:
           - ubuntu-latest
           - macos-latest
-        ruby:
-          - "3.3"
-          - "3.4"
-          - "3.5"
+          - windows-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v7
 
       - name: Install native build prerequisites on Linux
         if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends clang libclang-dev
+        run: sudo rm -f /etc/apt/sources.list.d/*.list && sudo sed -i 's/azure.archive.ubuntu.com/archive.ubuntu.com/g' /etc/apt/apt-mirrors.txt /etc/apt/sources.list.d/ubuntu.sources /etc/apt/sources.list 2>/dev/null || true && sudo apt-get update -o Acquire::Retries=3 && sudo apt-get install -y --no-install-recommends -o Acquire::Retries=3 clang libclang-dev
+
+      - name: Install native build prerequisites on macOS
+        if: runner.os == 'macOS'
+        run: |
+          HOMEBREW_NO_AUTO_UPDATE=1 brew install llvm
+          echo "LIBCLANG_PATH=$(brew --prefix llvm)/lib" >> "$GITHUB_ENV"
+
+      - name: Setup Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3'
+
+      - name: Install native build prerequisites on Windows
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          ridk exec pacman -Sy --noconfirm --needed mingw-w64-ucrt-x86_64-clang
+          "LIBCLANG_PATH=$env:RI_DEVKIT\ucrt64\bin" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          'RUSTUP_TOOLCHAIN=1.75.0-x86_64-pc-windows-gnu' | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Setup Rust toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: ${{ runner.os == 'Windows' && '1.75.0-x86_64-pc-windows-gnu' || '1.75.0' }}
+          cache-workspaces: ext/dry_validation_rust -> target
+
+      - name: Install extension build dependency
+        run: gem install rb_sys --version '~> 0.9' --no-document
+
+      - name: Build source gem
+        run: gem build dry-validation-rust.gemspec
+
+      - name: Install source gem
+        shell: bash
+        run: gem install --local dry-validation-rust-*.gem --platform ruby --no-document
+
+      - name: Require installed source gem
+        run: ruby -e 'require "dry/validation/rust"; puts "OK"'
+
+  ruby-lint:
+    name: Ruby static analysis
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Ruby and Bundler cache
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.3"
+          bundler-cache: true
+
+      - name: RuboCop
+        run: bundle exec rubocop
+
+      - name: Verify generated predicate sources
+        run: bundle exec rake generate:predicates:check
+
+      - name: Verify generated compatibility matrix
+        run: ruby script/generate-compatibility-md | diff -u docs/COMPATIBILITY.md -
+
+      - name: Verify generated support matrix
+        run: ruby script/generate-ci-matrix --check
+
+      - name: Check YARD documentation
+        run: bundle exec yard --fail-on-warning
+
+  ruby-coverage:
+    name: Ruby coverage
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Install native build prerequisites
+        run: sudo rm -f /etc/apt/sources.list.d/*.list && sudo sed -i 's/azure.archive.ubuntu.com/archive.ubuntu.com/g' /etc/apt/apt-mirrors.txt /etc/apt/sources.list.d/ubuntu.sources /etc/apt/sources.list 2>/dev/null || true && sudo apt-get update -o Acquire::Retries=3 && sudo apt-get install -y --no-install-recommends -o Acquire::Retries=3 clang libclang-dev
+
+      - name: Setup Ruby and Bundler cache
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.3"
+          bundler-cache: true
+
+      - name: Setup Rust toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: 1.75.0
+          cache-workspaces: ext/dry_validation_rust -> target
+
+      - name: Compile native extension
+        run: bundle exec rake compile
+
+      - name: Generate Ruby coverage report
+        run: bundle exec rake test
+
+      - name: Upload Ruby coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          files: ./coverage/lcov.info
+          flags: ruby
+
+  ruby-integration:
+    name: Ruby ${{ matrix.ruby }} on ${{ matrix.platform }}
+    runs-on: ${{ matrix.os }}
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      # BEGIN GENERATED SUPPORT MATRIX
+      matrix:
+        include:
+        - platform: x86_64-linux
+          os: ubuntu-latest
+          ruby: '3.3'
+          rust: 1.75.0
+        - platform: x86_64-linux
+          os: ubuntu-latest
+          ruby: '3.3'
+          rust: stable
+        - platform: x86_64-linux
+          os: ubuntu-latest
+          ruby: '3.4'
+          rust: 1.75.0
+        - platform: x86_64-linux
+          os: ubuntu-latest
+          ruby: '3.4'
+          rust: stable
+        - platform: x86_64-linux
+          os: ubuntu-latest
+          ruby: '3.5'
+          rust: 1.75.0
+        - platform: x86_64-linux
+          os: ubuntu-latest
+          ruby: '3.5'
+          rust: stable
+        - platform: arm64-darwin
+          os: macos-14
+          ruby: '3.3'
+          rust: stable
+        - platform: arm64-darwin
+          os: macos-14
+          ruby: '3.4'
+          rust: stable
+      # END GENERATED SUPPORT MATRIX
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Install native build prerequisites on Linux
+        if: runner.os == 'Linux'
+        run: sudo rm -f /etc/apt/sources.list.d/*.list && sudo sed -i 's/azure.archive.ubuntu.com/archive.ubuntu.com/g' /etc/apt/apt-mirrors.txt /etc/apt/sources.list.d/ubuntu.sources /etc/apt/sources.list 2>/dev/null || true && sudo apt-get update -o Acquire::Retries=3 && sudo apt-get install -y --no-install-recommends -o Acquire::Retries=3 clang libclang-dev
 
       - name: Install native build prerequisites on macOS
         if: runner.os == 'macOS'
@@ -45,7 +240,212 @@ jobs:
         uses: ruby/setup-ruby@v1
         with:
           ruby-version: ${{ matrix.ruby }}
+          bundler: default
           bundler-cache: true
+
+      - name: Setup Rust toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: ${{ matrix.rust }}
+          cache-workspaces: ext/dry_validation_rust -> target
+          cache-key: ruby-native-${{ runner.arch }}-v2
+
+      - name: Compile native extension
+        run: bundle exec rake compile
+
+      - name: Run Ruby tests with warnings
+        run: bundle exec rake test
+
+  ruby-head-integration:
+    name: Ruby head on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    continue-on-error: true
+    permissions:
+      contents: read
+      issues: write
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-latest
+          - macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Install native build prerequisites on Linux
+        if: runner.os == 'Linux'
+        run: sudo rm -f /etc/apt/sources.list.d/*.list && sudo sed -i 's/azure.archive.ubuntu.com/archive.ubuntu.com/g' /etc/apt/apt-mirrors.txt /etc/apt/sources.list.d/ubuntu.sources /etc/apt/sources.list 2>/dev/null || true && sudo apt-get update -o Acquire::Retries=3 && sudo apt-get install -y --no-install-recommends -o Acquire::Retries=3 clang libclang-dev
+
+      - name: Install native build prerequisites on macOS
+        if: runner.os == 'macOS'
+        run: HOMEBREW_NO_AUTO_UPDATE=1 brew install llvm
+
+      - name: Setup Ruby and Bundler cache
+        env:
+          BUNDLER_VERSION: '4'
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: head
+          bundler: latest
+          bundler-cache: true
+
+      - name: Setup Rust toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: stable
+          cache-workspaces: ext/dry_validation_rust -> target
+          cache-key: ruby-native-${{ runner.arch }}-v2
+
+      - name: Use Magnus with Ruby head typed-data support
+        run: |
+          ruby -i -pe 'gsub(/version = "~0.8.2"/, "git = \"https://github.com/matsadler/magnus.git\", rev = \"6d6024c8096c4f8c5288a81a30b7313feed099e6\"")' ext/dry_validation_rust/Cargo.toml
+          cargo update --manifest-path ext/dry_validation_rust/Cargo.toml -p magnus
+
+      - name: Compile native extension
+        run: bundle exec rake compile
+
+      - name: Run Ruby tests with warnings
+        run: bundle exec rake test
+
+      - name: Create or update Ruby head failure issue
+        if: failure()
+        continue-on-error: true
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const title = 'CI: Ruby head integration failure';
+            const marker = '<!-- ruby-head-integration-failure -->';
+            const body = `${marker}\n\nRuby head integration failed on ${process.env.RUNNER_OS}.\n\nRun: ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const { data: issues } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              per_page: 100
+            });
+            const existing = issues.find((issue) => issue.title === title && issue.body?.includes(marker));
+
+            if (existing) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: existing.number,
+                body
+              });
+            } else {
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title,
+                body
+              });
+            }
+
+  windows:
+    name: Windows source build and tests
+    runs-on: windows-latest
+    continue-on-error: true
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Ruby and Bundler cache
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.3"
+          bundler-cache: true
+
+      - name: Install native build prerequisites
+        shell: pwsh
+        run: |
+          ridk exec pacman -Sy --noconfirm --needed mingw-w64-ucrt-x86_64-clang
+          "LIBCLANG_PATH=$env:RI_DEVKIT\ucrt64\bin" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          'RUSTUP_TOOLCHAIN=1.75.0-x86_64-pc-windows-gnu' | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Setup Rust toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: 1.75.0-x86_64-pc-windows-gnu
+          cache-workspaces: ext/dry_validation_rust -> target
+
+      - name: Compile native extension
+        env:
+          RB_SYS_CARGO_PROFILE: dev
+        run: bundle exec rake compile
+
+      - name: Run Ruby tests with warnings
+        run: bundle exec rake test
+
+  dependency-compatibility:
+    name: ${{ matrix.dependency }} ${{ matrix.version }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - dependency: bigdecimal
+            version: "3.1.0"
+          - dependency: bigdecimal
+            version: "3.2.0"
+          - dependency: bigdecimal
+            version: "4.0.0"
+          - dependency: rb_sys
+            version: "0.9.100"
+          - dependency: rb_sys
+            version: "0.9.128"
+          - dependency: rb_sys
+            version: "latest"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Install native build prerequisites
+        run: sudo rm -f /etc/apt/sources.list.d/*.list && sudo sed -i 's/azure.archive.ubuntu.com/archive.ubuntu.com/g' /etc/apt/apt-mirrors.txt /etc/apt/sources.list.d/ubuntu.sources /etc/apt/sources.list 2>/dev/null || true && sudo apt-get update -o Acquire::Retries=3 && sudo apt-get install -y --no-install-recommends -o Acquire::Retries=3 clang libclang-dev
+
+      - name: Setup Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.3"
+
+      - name: Setup Rust toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: 1.75.0
+          cache-workspaces: ext/dry_validation_rust -> target
+
+      - name: Test selected dependency version
+        env:
+          DEPENDENCY: ${{ matrix.dependency }}
+          DEPENDENCY_VERSION: ${{ matrix.version }}
+          BUNDLE_PATH: ${{ runner.temp }}/dependency-bundle
+        run: |
+          cp Gemfile Gemfile.dependency-ci
+          trap 'rm -f Gemfile.dependency-ci Gemfile.dependency-ci.lock' EXIT
+          if [ "$DEPENDENCY_VERSION" = "latest" ]; then
+            printf "\ngem '%s', '>= 0.9.100', '< 0.10'\n" "$DEPENDENCY" >> Gemfile.dependency-ci
+          else
+            printf "\ngem '%s', '%s'\n" "$DEPENDENCY" "$DEPENDENCY_VERSION" >> Gemfile.dependency-ci
+          fi
+          BUNDLE_GEMFILE=Gemfile.dependency-ci bundle install
+          BUNDLE_GEMFILE=Gemfile.dependency-ci bundle exec rake test
+
+  rust-lint:
+    name: Rust static analysis
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Install native build prerequisites
+        run: sudo rm -f /etc/apt/sources.list.d/*.list && sudo sed -i 's/azure.archive.ubuntu.com/archive.ubuntu.com/g' /etc/apt/apt-mirrors.txt /etc/apt/sources.list.d/ubuntu.sources /etc/apt/sources.list 2>/dev/null || true && sudo apt-get update -o Acquire::Retries=3 && sudo apt-get install -y --no-install-recommends -o Acquire::Retries=3 clang libclang-dev
+
+      - name: Setup Ruby for rb-sys
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.3"
+
+      - name: Expose Ruby shared library
+        run: echo "LD_LIBRARY_PATH=$(ruby -rrbconfig -e 'print RbConfig::CONFIG.fetch(%q[libdir])')${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" >> "$GITHUB_ENV"
 
       - name: Setup Rust toolchain
         uses: actions-rust-lang/setup-rust-toolchain@v1
@@ -54,39 +454,65 @@ jobs:
           components: rustfmt, clippy
           cache-workspaces: ext/dry_validation_rust -> target
 
-      - name: RuboCop
-        run: bundle exec rubocop
+      - name: Check Rust formatting
+        run: cargo fmt --check --manifest-path ext/dry_validation_rust/Cargo.toml
 
-      - name: Verify generated predicate sources
-        run: bundle exec rake generate:predicates:check
+      - name: Run Clippy
+        run: cargo clippy --manifest-path ext/dry_validation_rust/Cargo.toml --all-targets --all-features -- -D warnings
 
-      - name: Check YARD documentation
-        run: bundle exec yard --fail-on-warning
+      - name: Check Rust lockfile build
+        run: cargo check --locked --manifest-path ext/dry_validation_rust/Cargo.toml
 
-      - name: Compile native extension
-        run: bundle exec rake compile
+      - name: Check Rust package manifest
+        run: cargo package --list --manifest-path ext/dry_validation_rust/Cargo.toml
 
-      - name: Run Ruby tests with warnings
-        run: bundle exec rake test
+  clippy-pedantic:
+    name: Clippy pedantic audit
+    if: github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
 
-      - name: Audit source package and clean install
-        run: bundle exec rake package:audit
+      - name: Install native build prerequisites
+        run: sudo rm -f /etc/apt/sources.list.d/*.list && sudo sed -i 's/azure.archive.ubuntu.com/archive.ubuntu.com/g' /etc/apt/apt-mirrors.txt /etc/apt/sources.list.d/ubuntu.sources /etc/apt/sources.list 2>/dev/null || true && sudo apt-get update -o Acquire::Retries=3 && sudo apt-get install -y --no-install-recommends -o Acquire::Retries=3 clang libclang-dev
+
+      - name: Setup Ruby for rb-sys
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.3"
+
+      - name: Expose Ruby shared library
+        run: echo "LD_LIBRARY_PATH=$(ruby -rrbconfig -e 'print RbConfig::CONFIG.fetch(%q[libdir])')${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" >> "$GITHUB_ENV"
+
+      - name: Setup stable Rust toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: stable
+          components: clippy
+          cache-workspaces: ext/dry_validation_rust -> target
+
+      - name: Run Clippy pedantic audit
+        run: cargo clippy --manifest-path ext/dry_validation_rust/Cargo.toml --all-targets --all-features -- -W clippy::pedantic
 
   rust-quality:
     name: Rust quality on ${{ matrix.rust }}
     runs-on: ubuntu-latest
+    continue-on-error: ${{ matrix.rust == 'beta' }}
     strategy:
       fail-fast: false
       matrix:
         rust:
           - 1.75.0
           - stable
+          - beta
     steps:
       - name: Checkout
         uses: actions/checkout@v7
 
       - name: Install native build prerequisites
-        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends clang libclang-dev
+        run: sudo rm -f /etc/apt/sources.list.d/*.list && sudo sed -i 's/azure.archive.ubuntu.com/archive.ubuntu.com/g' /etc/apt/apt-mirrors.txt /etc/apt/sources.list.d/ubuntu.sources /etc/apt/sources.list 2>/dev/null || true && sudo apt-get update -o Acquire::Retries=3 && sudo apt-get install -y --no-install-recommends -o Acquire::Retries=3 clang libclang-dev
 
       - name: Setup Ruby for rb-sys
         uses: ruby/setup-ruby@v1
@@ -100,33 +526,92 @@ jobs:
         uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
           toolchain: ${{ matrix.rust }}
-          components: rustfmt, clippy
           cache-workspaces: ext/dry_validation_rust -> target
-
-      - name: Check Rust formatting
-        run: cargo fmt --check --manifest-path ext/dry_validation_rust/Cargo.toml
 
       - name: Run Rust tests
         run: cargo test --locked --manifest-path ext/dry_validation_rust/Cargo.toml
 
-      - name: Run Clippy
-        run: cargo clippy --manifest-path ext/dry_validation_rust/Cargo.toml --all-targets --all-features -- -D warnings
-
-      - name: Check Rust lockfile build
-        run: cargo check --locked --manifest-path ext/dry_validation_rust/Cargo.toml
-
-      - name: Check Rust package manifest
-        run: cargo package --list --manifest-path ext/dry_validation_rust/Cargo.toml
-
-  native-benchmarks:
-    name: Criterion regression gate
+  rust-coverage:
+    name: Rust coverage
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v7
 
       - name: Install native build prerequisites
-        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends clang libclang-dev
+        run: sudo rm -f /etc/apt/sources.list.d/*.list && sudo sed -i 's/azure.archive.ubuntu.com/archive.ubuntu.com/g' /etc/apt/apt-mirrors.txt /etc/apt/sources.list.d/ubuntu.sources /etc/apt/sources.list 2>/dev/null || true && sudo apt-get update -o Acquire::Retries=3 && sudo apt-get install -y --no-install-recommends -o Acquire::Retries=3 clang libclang-dev
+
+      - name: Setup Ruby for rb-sys
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.3"
+
+      - name: Expose Ruby shared library
+        run: echo "LD_LIBRARY_PATH=$(ruby -rrbconfig -e 'print RbConfig::CONFIG.fetch(%q[libdir])')${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" >> "$GITHUB_ENV"
+
+      - name: Setup Rust toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: stable
+          cache-workspaces: ext/dry_validation_rust -> target
+
+      - name: Install cargo-tarpaulin
+        run: cargo install cargo-tarpaulin --locked
+
+      - name: Generate Rust coverage report
+        run: cargo tarpaulin --manifest-path ext/dry_validation_rust/Cargo.toml --out Lcov
+
+      - name: Upload Rust coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          files: ./ext/dry_validation_rust/lcov.info
+          flags: rust
+
+  rust-nightly:
+    name: Rust nightly Miri
+    if: github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Install native build prerequisites
+        run: sudo rm -f /etc/apt/sources.list.d/*.list && sudo sed -i 's/azure.archive.ubuntu.com/archive.ubuntu.com/g' /etc/apt/apt-mirrors.txt /etc/apt/sources.list.d/ubuntu.sources /etc/apt/sources.list 2>/dev/null || true && sudo apt-get update -o Acquire::Retries=3 && sudo apt-get install -y --no-install-recommends -o Acquire::Retries=3 clang libclang-dev
+
+      - name: Setup Ruby for rb-sys
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.3"
+
+      - name: Expose Ruby shared library
+        run: echo "LD_LIBRARY_PATH=$(ruby -rrbconfig -e 'print RbConfig::CONFIG.fetch(%q[libdir])')${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" >> "$GITHUB_ENV"
+
+      - name: Setup nightly Rust toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: nightly
+          components: miri
+          cache-workspaces: ext/dry_validation_rust -> target
+
+      - name: Run Miri
+        run: cargo +nightly miri test --locked --manifest-path ext/dry_validation_rust/Cargo.toml
+
+  native-benchmarks:
+    name: Criterion regression gate (${{ matrix.bench }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        bench:
+          - plan_compile
+          - coercion
+          - predicates
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Install native build prerequisites
+        run: sudo rm -f /etc/apt/sources.list.d/*.list && sudo sed -i 's/azure.archive.ubuntu.com/archive.ubuntu.com/g' /etc/apt/apt-mirrors.txt /etc/apt/sources.list.d/ubuntu.sources /etc/apt/sources.list 2>/dev/null || true && sudo apt-get update -o Acquire::Retries=3 && sudo apt-get install -y --no-install-recommends -o Acquire::Retries=3 clang libclang-dev
 
       - name: Setup Ruby for rb-sys
         uses: ruby/setup-ruby@v1
@@ -161,7 +646,7 @@ jobs:
       - name: Benchmark candidate
         env:
           CARGO_TARGET_DIR: ${{ runner.temp }}/candidate-target
-        run: cargo bench --locked --manifest-path ext/dry_validation_rust/Cargo.toml --bench plan_compile --bench coercion --bench predicates -- --profile-time 2 --sample-size 10
+        run: cargo bench --locked --manifest-path ext/dry_validation_rust/Cargo.toml --bench ${{ matrix.bench }} -- --profile-time 2 --sample-size 10
 
       - name: Reject Criterion regressions above five percent
         if: github.event_name == 'pull_request' && steps.criterion-baseline.outputs.available == 'true'
@@ -171,7 +656,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: native-benchmarks
+          name: native-benchmarks-${{ matrix.bench }}
           path: ${{ runner.temp }}/candidate-target/criterion
           if-no-files-found: warn
           retention-days: 30
@@ -184,7 +669,7 @@ jobs:
         uses: actions/checkout@v7
 
       - name: Install native build prerequisites
-        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends clang libclang-dev
+        run: sudo rm -f /etc/apt/sources.list.d/*.list && sudo sed -i 's/azure.archive.ubuntu.com/archive.ubuntu.com/g' /etc/apt/apt-mirrors.txt /etc/apt/sources.list.d/ubuntu.sources /etc/apt/sources.list 2>/dev/null || true && sudo apt-get update -o Acquire::Retries=3 && sudo apt-get install -y --no-install-recommends -o Acquire::Retries=3 clang libclang-dev
 
       - name: Setup Ruby and Bundler cache
         uses: ruby/setup-ruby@v1
@@ -225,7 +710,7 @@ jobs:
         uses: actions/checkout@v7
 
       - name: Install native build prerequisites
-        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends clang libclang-dev
+        run: sudo rm -f /etc/apt/sources.list.d/*.list && sudo sed -i 's/azure.archive.ubuntu.com/archive.ubuntu.com/g' /etc/apt/apt-mirrors.txt /etc/apt/sources.list.d/ubuntu.sources /etc/apt/sources.list 2>/dev/null || true && sudo apt-get update -o Acquire::Retries=3 && sudo apt-get install -y --no-install-recommends -o Acquire::Retries=3 clang libclang-dev
 
       - name: Setup Ruby and Bundler cache
         uses: ruby/setup-ruby@v1

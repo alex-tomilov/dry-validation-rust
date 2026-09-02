@@ -797,14 +797,18 @@ class SchemaTest < Minitest::Test
     assert_equal 'custom dry-types array members are not supported by the Ruby fallback yet', error.message
   end
 
-  def test_predicate_composition_blocks_reject_non_predicate_expressions_explicitly
+  def test_predicate_composition_blocks_reject_boolean_ast_expressions_explicitly
     error = assert_raises(Dry::Validation::Rust::UnsupportedFeatureError) do
       build_contract do
-        params { required(:age).value(:integer) { required(:child) } }
+        params { required(:age).value(:integer) { gt?(18) & lt?(65) } }
       end
     end
 
-    assert_equal 'unsupported predicate composition expression: :required', error.message
+    assert_equal(
+      'boolean predicate AST composition is not supported; use sequential predicates. ' \
+      'See: https://github.com/alex-tomilov/dry-validation-rust/blob/main/docs/MIGRATION_RECIPES.md#boolean-predicate-composition',
+      error.message
+    )
   end
 
   def test_value_hash_blocks_continue_to_define_nested_fields
@@ -903,7 +907,23 @@ class SchemaTest < Minitest::Test
       end
     end
 
-    assert_equal 'predicate :unknown is not supported natively; move it to a contract rule', error.message
+    assert_equal(
+      'predicate :unknown is not supported; use a supported predicate or a contract rule. ' \
+      'See: https://github.com/alex-tomilov/dry-validation-rust/blob/main/docs/MIGRATION_RECIPES.md#uuid-and-other-dry-logic-predicates',
+      error.message
+    )
+  end
+
+  def test_filtering_dsl_fails_with_migration_guidance
+    error = assert_raises(Dry::Validation::Rust::UnsupportedFeatureError) do
+      build_contract { params { filter(:string) } }
+    end
+
+    assert_equal(
+      'the schema filtering DSL is not supported; filter result.to_h explicitly. ' \
+      'See: https://github.com/alex-tomilov/dry-validation-rust/blob/main/docs/MIGRATION_RECIPES.md#schema-filtering-dsl',
+      error.message
+    )
   end
 
   def test_filled_failure_skips_native_predicates
