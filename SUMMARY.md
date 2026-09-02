@@ -14,7 +14,7 @@
 
 ## Reference
 
-- [Ruby API reference](https://alex-tomilov.github.io/dry-validation-rust/yard/)
+- [Ruby API reference](docs/ruby-api-reference.md)
 - [Architecture](docs/ARCHITECTURE.md)
 - [API boundary](docs/API_BOUNDARY.md)
 - [Benchmarking](docs/BENCHMARKING.md)

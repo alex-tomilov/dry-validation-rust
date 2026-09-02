@@ -77,6 +77,8 @@ class CiWorkflowsTest < Minitest::Test
     assert_equal 'actions/deploy-pages@v4', deploy.fetch('steps').first.fetch('uses')
     assert_equal '.', File.read(File.join(PROJECT_ROOT, 'book.toml'))[/^src = "(.+)"$/, 1]
     assert_equal true, File.read(File.join(PROJECT_ROOT, 'book.toml')).include?("[output.html.search]\nenable = true")
+    assert_includes File.read(File.join(PROJECT_ROOT, 'SUMMARY.md')),
+                    '[Ruby API reference](docs/ruby-api-reference.md)'
   end
 
   def test_ci_requires_changelog_updates_unless_the_pull_request_is_labeled
