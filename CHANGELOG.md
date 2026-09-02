@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.1.0.pre6 — 2026-09-02
+
 - Added Rails, Hanami, Roda, and Grape integration guides for the side-by-side
   contract API.
 - Added a GitHub Discussions link for usage questions in the README.
