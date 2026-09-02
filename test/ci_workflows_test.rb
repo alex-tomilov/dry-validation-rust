@@ -363,6 +363,7 @@ class CiWorkflowsTest < Minitest::Test
     initialize_branch = publisher.fetch('steps').find { |step| step['name'] == 'Initialize benchmark dashboard branch' }
     assert_includes initialize_branch.fetch('run'), 'git checkout --orphan gh-pages'
     assert_includes initialize_branch.fetch('run'), 'git push origin gh-pages'
+    assert_includes initialize_branch.fetch('run'), 'git checkout --detach "$GITHUB_SHA"'
     assert_equal '${{ runner.temp }}/schema-throughput-results/benchmark_results.json',
                  publish_action.fetch('with').fetch('output-file-path')
   end

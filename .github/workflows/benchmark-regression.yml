@@ -113,6 +113,7 @@ jobs:
             git -c user.name=github-actions[bot] -c user.email=41898282+github-actions[bot]@users.noreply.github.com commit -m 'chore: initialize benchmark dashboard'
             git push origin gh-pages
           fi
+          git checkout --detach "$GITHUB_SHA"
 
       - name: Update benchmark dashboard
         uses: benchmark-action/github-action-benchmark@v1
