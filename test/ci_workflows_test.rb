@@ -345,6 +345,11 @@ class CiWorkflowsTest < Minitest::Test
 
     assert workflow.fetch(true).key?('pull_request')
     assert workflow.fetch(true).key?('workflow_dispatch')
+    benchmark_inputs = workflow.fetch(true).fetch('pull_request').fetch('paths')
+    assert_equal benchmark_inputs, workflow.fetch(true).fetch('push').fetch('paths')
+    assert_includes benchmark_inputs, 'lib/**'
+    assert_includes benchmark_inputs, 'ext/dry_validation_rust/src/**'
+    refute_includes benchmark_inputs, 'ext/dry_validation_rust/extconf.rb'
     assert_equal({ 'contents' => 'read' }, workflow.fetch('permissions'))
     assert_equal({ 'contents' => 'read' }, benchmark.fetch('permissions'))
     assert_equal({ 'contents' => 'write', 'deployments' => 'write' }, publisher.fetch('permissions'))

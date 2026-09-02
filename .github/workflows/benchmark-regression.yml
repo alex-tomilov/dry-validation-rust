@@ -2,10 +2,32 @@ name: Benchmark Regression
 
 on:
   pull_request:
+    paths:
+      - '.github/workflows/benchmark-regression.yml'
+      - 'benchmark/**'
+      - 'ext/dry_validation_rust/Cargo.lock'
+      - 'ext/dry_validation_rust/Cargo.toml'
+      - 'ext/dry_validation_rust/src/**'
+      - 'Gemfile'
+      - 'Gemfile.lock'
+      - 'dry-validation-rust.gemspec'
+      - 'lib/**'
+      - 'rust-toolchain.toml'
   push:
     branches:
       - main
       - develop
+    paths:
+      - '.github/workflows/benchmark-regression.yml'
+      - 'benchmark/**'
+      - 'ext/dry_validation_rust/Cargo.lock'
+      - 'ext/dry_validation_rust/Cargo.toml'
+      - 'ext/dry_validation_rust/src/**'
+      - 'Gemfile'
+      - 'Gemfile.lock'
+      - 'dry-validation-rust.gemspec'
+      - 'lib/**'
+      - 'rust-toolchain.toml'
   workflow_dispatch:
     inputs:
       publish_dashboard:
