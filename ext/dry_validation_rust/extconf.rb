@@ -14,7 +14,14 @@ rescue LoadError
   end
 end
 
-ENV['RUSTUP_TOOLCHAIN'] ||= '1.75.0-x86_64-pc-windows-gnu' if RUBY_PLATFORM.include?('mingw')
+# rb-sys-dock runs a MinGW Ruby inside a Linux container. Its Cargo binary must
+# remain a Linux-host toolchain and cross-compile through CARGO_BUILD_TARGET.
+if ENV.key?('RB_SYS_DOCK_TMPDIR')
+  rustup_toolchain = '1.75.0-x86_64-unknown-linux-gnu'
+elsif RUBY_PLATFORM.include?('mingw')
+  ENV['RUSTUP_TOOLCHAIN'] ||= '1.75.0-x86_64-pc-windows-gnu'
+  rustup_toolchain = ENV.fetch('RUSTUP_TOOLCHAIN')
+end
 
 create_rust_makefile('dry_validation_rust/native') do |config|
   config.profile = ENV.fetch('RB_SYS_CARGO_PROFILE', 'release').to_sym
@@ -22,7 +29,7 @@ create_rust_makefile('dry_validation_rust/native') do |config|
   config.env = {
     'BINDGEN_EXTRA_CLANG_ARGS' => '-include stdbool.h'
   }
-  config.env['RUSTUP_TOOLCHAIN'] = ENV.fetch('RUSTUP_TOOLCHAIN') if ENV.key?('RUSTUP_TOOLCHAIN')
+  config.env['RUSTUP_TOOLCHAIN'] = rustup_toolchain if defined?(rustup_toolchain)
   config.extra_rustup_targets = %w[
     aarch64-unknown-linux-gnu
     x86_64-apple-darwin
