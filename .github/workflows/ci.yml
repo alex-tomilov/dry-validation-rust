@@ -191,38 +191,38 @@ jobs:
       # BEGIN GENERATED SUPPORT MATRIX
       matrix:
         include:
-          - platform: x86_64-linux
-            os: ubuntu-latest
-            ruby: "3.3"
-            rust: 1.75.0
-          - platform: x86_64-linux
-            os: ubuntu-latest
-            ruby: "3.3"
-            rust: stable
-          - platform: x86_64-linux
-            os: ubuntu-latest
-            ruby: "3.4"
-            rust: 1.75.0
-          - platform: x86_64-linux
-            os: ubuntu-latest
-            ruby: "3.4"
-            rust: stable
-          - platform: x86_64-linux
-            os: ubuntu-latest
-            ruby: "3.5"
-            rust: 1.75.0
-          - platform: x86_64-linux
-            os: ubuntu-latest
-            ruby: "3.5"
-            rust: stable
-          - platform: arm64-darwin
-            os: macos-14
-            ruby: "3.3"
-            rust: stable
-          - platform: arm64-darwin
-            os: macos-14
-            ruby: "3.4"
-            rust: stable
+        - platform: x86_64-linux
+          os: ubuntu-latest
+          ruby: '3.3'
+          rust: 1.75.0
+        - platform: x86_64-linux
+          os: ubuntu-latest
+          ruby: '3.3'
+          rust: stable
+        - platform: x86_64-linux
+          os: ubuntu-latest
+          ruby: '3.4'
+          rust: 1.75.0
+        - platform: x86_64-linux
+          os: ubuntu-latest
+          ruby: '3.4'
+          rust: stable
+        - platform: x86_64-linux
+          os: ubuntu-latest
+          ruby: '3.5'
+          rust: 1.75.0
+        - platform: x86_64-linux
+          os: ubuntu-latest
+          ruby: '3.5'
+          rust: stable
+        - platform: arm64-darwin
+          os: macos-14
+          ruby: '3.3'
+          rust: stable
+        - platform: arm64-darwin
+          os: macos-14
+          ruby: '3.4'
+          rust: stable
       # END GENERATED SUPPORT MATRIX
     steps:
       - name: Checkout
