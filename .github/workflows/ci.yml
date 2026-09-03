@@ -90,7 +90,7 @@ jobs:
       - name: Setup Ruby
         uses: ruby/setup-ruby@v1
         with:
-          ruby-version: '3.3'
+          ruby-version: "3.3"
 
       - name: Install native build prerequisites on Windows
         if: runner.os == 'Windows'
@@ -191,38 +191,38 @@ jobs:
       # BEGIN GENERATED SUPPORT MATRIX
       matrix:
         include:
-        - platform: x86_64-linux
-          os: ubuntu-latest
-          ruby: '3.3'
-          rust: 1.75.0
-        - platform: x86_64-linux
-          os: ubuntu-latest
-          ruby: '3.3'
-          rust: stable
-        - platform: x86_64-linux
-          os: ubuntu-latest
-          ruby: '3.4'
-          rust: 1.75.0
-        - platform: x86_64-linux
-          os: ubuntu-latest
-          ruby: '3.4'
-          rust: stable
-        - platform: x86_64-linux
-          os: ubuntu-latest
-          ruby: '3.5'
-          rust: 1.75.0
-        - platform: x86_64-linux
-          os: ubuntu-latest
-          ruby: '3.5'
-          rust: stable
-        - platform: arm64-darwin
-          os: macos-14
-          ruby: '3.3'
-          rust: stable
-        - platform: arm64-darwin
-          os: macos-14
-          ruby: '3.4'
-          rust: stable
+          - platform: x86_64-linux
+            os: ubuntu-latest
+            ruby: "3.3"
+            rust: 1.75.0
+          - platform: x86_64-linux
+            os: ubuntu-latest
+            ruby: "3.3"
+            rust: stable
+          - platform: x86_64-linux
+            os: ubuntu-latest
+            ruby: "3.4"
+            rust: 1.75.0
+          - platform: x86_64-linux
+            os: ubuntu-latest
+            ruby: "3.4"
+            rust: stable
+          - platform: x86_64-linux
+            os: ubuntu-latest
+            ruby: "3.5"
+            rust: 1.75.0
+          - platform: x86_64-linux
+            os: ubuntu-latest
+            ruby: "3.5"
+            rust: stable
+          - platform: arm64-darwin
+            os: macos-14
+            ruby: "3.3"
+            rust: stable
+          - platform: arm64-darwin
+            os: macos-14
+            ruby: "3.4"
+            rust: stable
       # END GENERATED SUPPORT MATRIX
     steps:
       - name: Checkout
@@ -283,7 +283,7 @@ jobs:
 
       - name: Setup Ruby and Bundler cache
         env:
-          BUNDLER_VERSION: '4'
+          BUNDLER_VERSION: "4"
         uses: ruby/setup-ruby@v1
         with:
           ruby-version: head
@@ -374,7 +374,7 @@ jobs:
         run: bundle exec rake compile
 
       - name: Run Ruby tests with warnings
-        run: bundle exec rake test
+        run: bundle exec rake test TESTOPTS="--verbose"
 
   dependency-compatibility:
     name: ${{ matrix.dependency }} ${{ matrix.version }}

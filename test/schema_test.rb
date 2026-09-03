@@ -304,6 +304,21 @@ class SchemaTest < Minitest::Test
     assert_equal({ age: 42, ratio: 1.5, enabled: false, role: :admin, nickname: nil }, result.to_h)
   end
 
+  def test_native_engine_reuses_interned_symbols_for_nested_symbol_and_string_keys
+    contract = build_contract do
+      params do
+        required(:profile).hash do
+          required(:name).value(:string)
+        end
+      end
+    end.new
+
+    3.times { GC.start }
+
+    assert_equal({ profile: { name: 'Ada' } }, contract.call(profile: { name: 'Ada' }).to_h)
+    assert_equal({ profile: { name: 'Ada' } }, contract.call('profile' => { 'name' => 'Ada' }).to_h)
+  end
+
   def test_params_integer_coercion_preserves_ruby_syntax_and_bignum_fallbacks
     contract = build_contract do
       params { required(:value).value(:integer) }
