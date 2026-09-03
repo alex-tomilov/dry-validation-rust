@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use magnus::{
     gc::Marker, prelude::*, r_hash::ForEach, typed_data::Obj, DataTypeFunctions, Error, RArray,
-    RHash, Ruby, TypedData, Value,
+    RHash, RString, Ruby, Symbol, TypedData, Value,
 };
 
 use crate::{
@@ -157,7 +157,9 @@ fn report_unexpected_keys(
     }
 
     input.foreach(|key: Value, _: Value| {
-        let key_name: String = key.funcall("to_s", ())?;
+        let Some(key_name) = native_key_name(key)? else {
+            return Ok(ForEach::Continue);
+        };
         if declared_keys
             .binary_search_by(|candidate| candidate.as_ref().cmp(key_name.as_str()))
             .is_err()
@@ -170,6 +172,19 @@ fn report_unexpected_keys(
         }
         Ok(ForEach::Continue)
     })
+}
+
+/// Converts supported hash-key types without dispatching Ruby methods.
+///
+/// Schema declarations name fields with symbols or strings. Other key types
+/// are outside that contract, so strict-key reporting ignores them rather than
+/// invoking a potentially user-defined `#to_s` method.
+fn native_key_name(key: Value) -> Result<Option<String>, Error> {
+    if let Some(symbol) = Symbol::from_value(key) {
+        return symbol.name().map(|name| Some(name.into_owned()));
+    }
+
+    RString::from_value(key).map(RString::to_string).transpose()
 }
 
 fn process_field(

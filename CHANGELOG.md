@@ -6,6 +6,8 @@
   declared-key lookups.
 - Improved native validation performance by pre-interning compiled field-key
   symbols for repeated hash lookups and output construction.
+- Improved strict unknown-key validation by inspecting Symbol and String keys
+  natively, without dispatching Ruby `#to_s`.
 - Changed native validation errors to retain structured failure kinds and
   materialize Ruby error messages only when constructing the result.
 

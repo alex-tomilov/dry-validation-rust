@@ -443,6 +443,31 @@ class SchemaTest < Minitest::Test
     assert_equal({ name: 'Jane' }, result.to_h)
   end
 
+  def test_validate_keys_uses_native_symbol_and_string_key_introspection
+    explosive_key = Class.new do
+      def to_s
+        raise 'unexpected key checking must not dispatch #to_s'
+      end
+    end.new
+    contract = build_contract do
+      config.validate_keys = true
+      params { required(:name).value(:string) }
+    end
+
+    result = contract.new.call(
+      name: 'Jane',
+      unexpected_symbol: true,
+      'unexpected_string' => true,
+      explosive_key => true
+    )
+
+    assert_equal({ name: 'Jane' }, result.to_h)
+    assert_equal(
+      { unexpected_symbol: ['is not allowed'], unexpected_string: ['is not allowed'] },
+      result.errors.to_h
+    )
+  end
+
   def test_schema_mode_requires_symbol_keys_at_each_nested_level
     contract = build_contract do
       schema do
