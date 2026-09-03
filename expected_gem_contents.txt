@@ -39,6 +39,7 @@ ext/dry_validation_rust/fuzz/Cargo.toml
 ext/dry_validation_rust/fuzz/corpus/parse_plan/basic_params.json
 ext/dry_validation_rust/fuzz/fuzz_targets/parse_plan.rs
 ext/dry_validation_rust/src/coercion.rs
+ext/dry_validation_rust/src/compiled.rs
 ext/dry_validation_rust/src/engine.rs
 ext/dry_validation_rust/src/error.rs
 ext/dry_validation_rust/src/extract_primitive.rs

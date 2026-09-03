@@ -7,16 +7,15 @@ use magnus::{
 
 use crate::{
     coercion::{coerce, empty_value, null_if_empty_nullable_param, type_matches},
-    error::{type_message, NativeError, PathPart},
-    plan::{parse_plan, FieldPlan, Mode, SchemaPlan},
+    compiled::{compile_fields, NativeValidator, ValidatorOptions},
+    error::{NativeError, PathPart},
+    plan::{parse_plan, Mode},
     predicates::apply_predicates,
     ruby_bridge::RuntimeClasses,
     SchemaResult,
 };
 
 const MAX_TRAVERSAL_DEPTH: u16 = 128;
-const DEPTH_ERROR_CODE: &str = "depth";
-const DEPTH_ERROR_TEXT: &str = "schema nesting depth exceeds limit (128)";
 
 #[derive(TypedData)]
 #[magnus(
@@ -26,8 +25,10 @@ const DEPTH_ERROR_TEXT: &str = "schema nesting depth exceeds limit (128)";
     size
 )]
 pub(crate) struct Engine {
-    plan: SchemaPlan,
+    validators: Vec<NativeValidator>,
     classes: RuntimeClasses,
+    mode: Mode,
+    validate_keys: bool,
     plan_bytes: usize,
     field_count: usize,
 }
@@ -55,10 +56,15 @@ impl Engine {
     pub(crate) fn new(ruby: &Ruby, json: String) -> Result<Self, Error> {
         let plan = parse_plan(ruby, &json)?;
         let classes = RuntimeClasses::new(ruby, &plan)?;
-        let field_count = count_fields(&plan.fields);
+        let mode = plan.mode;
+        let validate_keys = plan.validate_keys;
+        let validators = compile_fields(plan.fields);
+        let field_count = validators.iter().map(NativeValidator::count_fields).sum();
         Ok(Self {
-            plan,
+            validators,
             classes,
+            mode,
+            validate_keys,
             plan_bytes: json.len(),
             field_count,
         })
@@ -71,15 +77,15 @@ impl Engine {
             let mut traversal = Traversal {
                 ruby: &ruby,
                 classes: &self.classes,
-                mode: self.plan.mode,
-                validate_keys: self.plan.validate_keys,
+                mode: self.mode,
+                validate_keys: self.validate_keys,
                 errors: &mut errors,
             };
-            process_hash(&mut traversal, &self.plan.fields, input, &mut Vec::new(), 0)?
+            process_hash(&mut traversal, &self.validators, input, &mut Vec::new(), 0)?
         };
         let ruby_errors = ruby.ary_new();
         for error in errors {
-            let ruby_error = ruby.hash_new();
+            let ruby_error = error.to_ruby_message(&ruby)?;
             let path = ruby.ary_new_capa(error.path.len());
             for part in error.path {
                 match part {
@@ -88,8 +94,6 @@ impl Engine {
                 }
             }
             ruby_error.aset(ruby.to_symbol("path"), path)?;
-            ruby_error.aset(ruby.to_symbol("code"), ruby.to_symbol(error.code.as_ref()))?;
-            ruby_error.aset(ruby.to_symbol("text"), ruby.str_new(error.text.as_ref()))?;
             ruby_errors.push(ruby_error)?;
         }
         Ok(ruby.obj_wrap(SchemaResult {
@@ -107,22 +111,9 @@ impl Engine {
     }
 }
 
-fn count_fields(fields: &[FieldPlan]) -> usize {
-    fields
-        .iter()
-        .map(|field| {
-            1 + count_fields(&field.children)
-                + field
-                    .member
-                    .as_ref()
-                    .map_or(0, |member| count_fields(&member.children))
-        })
-        .sum()
-}
-
 fn process_hash(
     traversal: &mut Traversal<'_>,
-    fields: &[FieldPlan],
+    fields: &[NativeValidator],
     input: RHash,
     path: &mut Vec<PathPart>,
     depth: u16,
@@ -140,7 +131,7 @@ fn process_hash(
 
 fn report_unexpected_keys(
     traversal: &mut Traversal<'_>,
-    fields: &[FieldPlan],
+    fields: &[NativeValidator],
     input: RHash,
     path: &[PathPart],
 ) -> Result<(), Error> {
@@ -150,19 +141,17 @@ fn report_unexpected_keys(
 
     let declared: HashSet<&str> = fields
         .iter()
-        .map(|field| field.name.as_deref().unwrap_or_default())
+        .map(|field| field.options().name.as_deref().unwrap_or_default())
         .collect();
 
     input.foreach(|key: Value, _: Value| {
         let key_name: String = key.funcall("to_s", ())?;
         if !declared.contains(key_name.as_str()) {
             let mut error_path = path.to_vec();
-            error_path.push(PathPart::Key(key_name));
-            traversal.errors.push(NativeError::new(
-                &error_path,
-                "unexpected_key",
-                "is not allowed",
-            ));
+            error_path.push(PathPart::Key(key_name.clone()));
+            traversal
+                .errors
+                .push(NativeError::unexpected_key(&error_path, key_name));
         }
         Ok(ForEach::Continue)
     })
@@ -171,18 +160,19 @@ fn report_unexpected_keys(
 fn process_field(
     traversal: &mut Traversal<'_>,
     output: &RHash,
-    field: &FieldPlan,
+    field: &NativeValidator,
     input: RHash,
     path: &mut Vec<PathPart>,
     depth: u16,
 ) -> Result<(), Error> {
-    let name = field.name.as_deref().unwrap_or_default();
+    let options = field.options();
+    let name = options.name.as_deref().unwrap_or_default();
     path.push(PathPart::Key(name.to_owned()));
     let result = match resolve_field_input(input, traversal.ruby, traversal.mode, name) {
         Some(raw) => process_value(traversal, field, raw, path, depth)
             .and_then(|processed| output.aset(traversal.ruby.to_symbol(name), processed)),
         None => {
-            report_missing_field(traversal, field, path);
+            report_missing_field(traversal, options, path);
             Ok(())
         }
     };
@@ -200,17 +190,19 @@ fn resolve_field_input(input: RHash, ruby: &Ruby, mode: Mode, name: &str) -> Opt
     })
 }
 
-fn report_missing_field(traversal: &mut Traversal<'_>, field: &FieldPlan, path: &[PathPart]) {
-    if field.required {
-        traversal
-            .errors
-            .push(NativeError::new(path, "key", "is missing"));
+fn report_missing_field(
+    traversal: &mut Traversal<'_>,
+    options: &ValidatorOptions,
+    path: &[PathPart],
+) {
+    if options.required {
+        traversal.errors.push(NativeError::missing(path));
     }
 }
 
 fn process_value(
     traversal: &mut Traversal<'_>,
-    field: &FieldPlan,
+    field: &NativeValidator,
     raw: Value,
     path: &mut Vec<PathPart>,
     depth: u16,
@@ -218,20 +210,21 @@ fn process_value(
     if !within_depth_limit(depth, path, traversal.errors) {
         return Ok(raw);
     }
-    if validate_nil_value(traversal, field, raw, path) {
+    let options = field.options();
+    if validate_nil_value(traversal, options, raw, path) {
         return Ok(raw);
     }
     if let Some(nil) =
-        null_if_empty_nullable_param(traversal.ruby, traversal.mode, field.nullable, raw)
+        null_if_empty_nullable_param(traversal.ruby, traversal.mode, options.nullable, raw)
     {
         return Ok(nil);
     }
 
-    let coerced = match coerce_and_validate_type(traversal, field, raw, path)? {
+    let coerced = match coerce_and_validate_type(traversal, options, raw, path)? {
         TypeValidation::Valid(value) => value,
         TypeValidation::Invalid(value) => return Ok(value),
     };
-    let filled_error = report_filled_error(traversal, field, coerced, path);
+    let filled_error = report_filled_error(traversal, options, coerced, path);
     let value = process_children(traversal, field, coerced, path, depth)?;
     if !filled_error {
         apply_field_predicates(traversal, field, value, path)?;
@@ -241,7 +234,7 @@ fn process_value(
 
 fn validate_nil_value(
     traversal: &mut Traversal<'_>,
-    field: &FieldPlan,
+    options: &ValidatorOptions,
     raw: Value,
     path: &[PathPart],
 ) -> bool {
@@ -249,23 +242,30 @@ fn validate_nil_value(
         return false;
     }
 
-    if field.filled
-        && (traversal.mode == Mode::Params || field.kind == "nil" || field.kind == "any")
+    if options.filled
+        && (traversal.mode == Mode::Params
+            || matches!(
+                options.kind,
+                crate::compiled::TypeKind::Nil | crate::compiled::TypeKind::Any
+            ))
+    {
+        traversal.errors.push(NativeError::filled(path));
+    } else if !options.nullable
+        && !matches!(
+            options.kind,
+            crate::compiled::TypeKind::Nil | crate::compiled::TypeKind::Any
+        )
     {
         traversal
             .errors
-            .push(NativeError::new(path, "filled", "must be filled"));
-    } else if !field.nullable && field.kind != "nil" && field.kind != "any" {
-        traversal
-            .errors
-            .push(NativeError::new(path, "type", type_message(&field.kind)));
+            .push(NativeError::type_mismatch(path, options.kind.clone()));
     }
     true
 }
 
 fn coerce_and_validate_type(
     traversal: &mut Traversal<'_>,
-    field: &FieldPlan,
+    options: &ValidatorOptions,
     raw: Value,
     path: &[PathPart],
 ) -> Result<TypeValidation, Error> {
@@ -273,66 +273,76 @@ fn coerce_and_validate_type(
         traversal.ruby,
         traversal.classes,
         traversal.mode,
-        &field.kind,
+        &options.kind,
         raw,
     )?
     else {
         traversal
             .errors
-            .push(NativeError::new(path, "type", type_message(&field.kind)));
+            .push(NativeError::type_mismatch(path, options.kind.clone()));
         return Ok(TypeValidation::Invalid(raw));
     };
 
-    if type_matches(traversal.ruby, traversal.classes, &field.kind, coerced) {
+    if type_matches(traversal.ruby, traversal.classes, &options.kind, coerced) {
         Ok(TypeValidation::Valid(coerced))
     } else {
         traversal
             .errors
-            .push(NativeError::new(path, "type", type_message(&field.kind)));
+            .push(NativeError::type_mismatch(path, options.kind.clone()));
         Ok(TypeValidation::Invalid(coerced))
     }
 }
 
 fn report_filled_error(
     traversal: &mut Traversal<'_>,
-    field: &FieldPlan,
+    options: &ValidatorOptions,
     value: Value,
     path: &[PathPart],
 ) -> bool {
-    let filled_error = field.filled && empty_value(value);
+    let filled_error = options.filled && empty_value(value);
     if filled_error {
-        traversal
-            .errors
-            .push(NativeError::new(path, "filled", "must be filled"));
+        traversal.errors.push(NativeError::filled(path));
     }
     filled_error
 }
 
 fn process_children(
     traversal: &mut Traversal<'_>,
-    field: &FieldPlan,
+    field: &NativeValidator,
     value: Value,
     path: &mut Vec<PathPart>,
     depth: u16,
 ) -> Result<Value, Error> {
-    if field.kind == "hash" && !field.children.is_empty() {
-        if let Some(hash) = RHash::from_value(value) {
-            return Ok(process_hash(traversal, &field.children, hash, path, depth + 1)?.as_value());
+    match field {
+        NativeValidator::Hash(validator) if !validator.fields.is_empty() => {
+            if let Some(hash) = RHash::from_value(value) {
+                return Ok(
+                    process_hash(traversal, &validator.fields, hash, path, depth + 1)?.as_value(),
+                );
+            }
         }
-    } else if field.kind == "array" {
-        return process_array_members(traversal, field, value, path, depth);
+        NativeValidator::Array(validator) => {
+            return process_array_members(
+                traversal,
+                validator.member.as_deref(),
+                value,
+                path,
+                depth,
+            );
+        }
+        _ => {}
     }
     Ok(value)
 }
 
 fn process_array_members(
     traversal: &mut Traversal<'_>,
-    field: &FieldPlan,
+    member: Option<&NativeValidator>,
     value: Value,
     path: &mut Vec<PathPart>,
     depth: u16,
 ) -> Result<Value, Error> {
-    let (Some(member), Some(array)) = (field.member.as_ref(), RArray::from_value(value)) else {
+    let (Some(member), Some(array)) = (member, RArray::from_value(value)) else {
         return Ok(value);
     };
 
@@ -348,11 +358,17 @@ fn process_array_members(
 
 fn apply_field_predicates(
     traversal: &mut Traversal<'_>,
-    field: &FieldPlan,
+    field: &NativeValidator,
     value: Value,
     path: &[PathPart],
 ) -> Result<(), Error> {
-    apply_predicates(traversal.ruby, field, value, path, traversal.errors)
+    apply_predicates(
+        traversal.ruby,
+        &field.options().predicates,
+        value,
+        path,
+        traversal.errors,
+    )
 }
 
 fn within_depth_limit(depth: u16, path: &[PathPart], errors: &mut Vec<NativeError>) -> bool {
@@ -360,7 +376,7 @@ fn within_depth_limit(depth: u16, path: &[PathPart], errors: &mut Vec<NativeErro
         return true;
     }
 
-    errors.push(NativeError::new(path, DEPTH_ERROR_CODE, DEPTH_ERROR_TEXT));
+    errors.push(NativeError::depth_exceeded(path));
     false
 }
 
@@ -378,11 +394,16 @@ mod tests {
             "children": [], "predicates": []
           }]
         }"#;
-        let plan: SchemaPlan = serde_json::from_str(json).expect("valid plan");
-        let field_count = count_fields(&plan.fields);
+        let plan = crate::plan::deserialize_plan(json).expect("valid plan");
+        let mode = plan.mode;
+        let validate_keys = plan.validate_keys;
+        let validators = compile_fields(plan.fields);
+        let field_count = validators.iter().map(NativeValidator::count_fields).sum();
         let engine = Engine {
-            plan,
+            validators,
             classes: RuntimeClasses::default(),
+            mode,
+            validate_keys,
             plan_bytes: json.len(),
             field_count,
         };
@@ -410,7 +431,9 @@ mod tests {
         traverse_nested_structure(0, &mut Vec::new(), &mut errors);
 
         assert_eq!(errors.len(), 1);
-        assert_eq!(errors[0].code, DEPTH_ERROR_CODE);
-        assert_eq!(errors[0].text, "schema nesting depth exceeds limit (128)");
+        assert!(matches!(
+            errors[0].kind,
+            crate::error::ErrorKind::DepthExceeded
+        ));
     }
 }

@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Changed native validation errors to retain structured failure kinds and
+  materialize Ruby error messages only when constructing the result.
+
 ## 0.1.0.pre6 — 2026-09-02
 
 - Added Rails, Hanami, Roda, and Grape integration guides for the side-by-side
