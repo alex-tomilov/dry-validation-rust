@@ -16,7 +16,9 @@ end
 
 # rb-sys-dock runs a MinGW Ruby inside a Linux container. Its Cargo binary must
 # remain a Linux-host toolchain and cross-compile through CARGO_BUILD_TARGET.
-if ENV.key?('RB_SYS_DOCK_TMPDIR')
+# The container's privilege wrapper strips RB_SYS_DOCK_TMPDIR, but preserves
+# the requested target as RUBY_TARGET.
+if ENV['RUBY_TARGET'] == 'x64-mingw-ucrt'
   rustup_toolchain = '1.75.0-x86_64-unknown-linux-gnu'
 elsif RUBY_PLATFORM.include?('mingw')
   ENV['RUSTUP_TOOLCHAIN'] ||= '1.75.0-x86_64-pc-windows-gnu'
