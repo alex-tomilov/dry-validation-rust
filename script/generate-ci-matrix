@@ -58,7 +58,14 @@ def ci_matrix(platforms)
     end
   end
 
-  YAML.dump('matrix' => { 'include' => rows }).delete_prefix("---\n")
+  lines = ['matrix:', '  include:']
+  rows.each do |row|
+    lines << "    - platform: #{row.fetch('platform')}"
+    lines << "      os: #{row.fetch('os')}"
+    lines << "      ruby: #{row.fetch('ruby').dump}"
+    lines << "      rust: #{row.fetch('rust')}"
+  end
+  lines.join("\n") << "\n"
 end
 
 def support_table(platforms)

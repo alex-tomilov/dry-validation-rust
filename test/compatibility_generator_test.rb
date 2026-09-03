@@ -26,5 +26,6 @@ class CompatibilityGeneratorTest < Minitest::Test
 
     assert_predicate status, :success?, stderr
     assert_equal File.read(File.join(PROJECT_ROOT, '.github/workflows/ci.yml')), stdout
+    assert_includes stdout, "        include:\n          - platform: x86_64-linux\n            os: ubuntu-latest\n            ruby: \"3.3\""
   end
 end
