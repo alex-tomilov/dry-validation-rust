@@ -93,7 +93,9 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           alert-threshold: 105%
           fail-threshold: 105%
-          fail-on-alert: true
+          # GitHub-hosted runners do not provide stable enough p95 samples for
+          # a required check. Keep alerts visible without blocking the PR.
+          fail-on-alert: false
           auto-push: false
 
       - name: Upload benchmark results for trusted dashboard publishing
@@ -144,5 +146,6 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           alert-threshold: 105%
           fail-threshold: 105%
-          fail-on-alert: true
+          # Keep publishing the trusted history even when a noisy sample alerts.
+          fail-on-alert: false
           auto-push: true

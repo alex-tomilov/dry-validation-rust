@@ -336,7 +336,7 @@ class CiWorkflowsTest < Minitest::Test
     assert_includes source, 'script/compare-criterion-baselines "$RUNNER_TEMP/criterion-baseline.json" "$RUNNER_TEMP/candidate-target/criterion"'
   end
 
-  def test_benchmark_workflow_gates_prs_and_only_publishes_from_trusted_events
+  def test_benchmark_workflow_reports_alerts_and_only_publishes_from_trusted_events
     workflow = workflows.fetch(File.join(WORKFLOW_DIR, 'benchmark-regression.yml'))
     benchmark = workflow.fetch('jobs').fetch('benchmark')
     benchmark_action = benchmark.fetch('steps').find { |step| step['uses'] == 'benchmark-action/github-action-benchmark@v1' }
@@ -365,9 +365,10 @@ class CiWorkflowsTest < Minitest::Test
                  benchmark.fetch('steps').find { |step| step['name'] == 'Run schema throughput benchmark' }.fetch('run')
     assert_equal 'customSmallerIsBetter', benchmark_action.fetch('with').fetch('tool')
     assert_equal '105%', benchmark_action.fetch('with').fetch('fail-threshold')
-    assert_equal true, benchmark_action.fetch('with').fetch('fail-on-alert')
+    assert_equal false, benchmark_action.fetch('with').fetch('fail-on-alert')
     assert_equal false, benchmark_action.fetch('with').fetch('auto-push')
     assert_equal true, publish_action.fetch('with').fetch('auto-push')
+    assert_equal false, publish_action.fetch('with').fetch('fail-on-alert')
     initialize_branch = publisher.fetch('steps').find { |step| step['name'] == 'Initialize benchmark dashboard branch' }
     assert_includes initialize_branch.fetch('run'), 'git checkout --orphan gh-pages'
     assert_includes initialize_branch.fetch('run'), 'git push origin gh-pages'
