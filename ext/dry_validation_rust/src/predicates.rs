@@ -10,12 +10,12 @@ use crate::{
 
 pub(crate) fn apply_predicates(
     ruby: &Ruby,
-    field: &crate::plan::FieldPlan,
+    predicates: &[PredicatePlan],
     value: Value,
     path: &[PathPart],
     errors: &mut Vec<NativeError>,
 ) -> Result<(), Error> {
-    for predicate in &field.predicates {
+    for predicate in predicates {
         let valid = match predicate.op {
             PredicateOp::Gt | PredicateOp::Gteq | PredicateOp::Lt | PredicateOp::Lteq => {
                 comparison_predicate_valid(predicate.op, value, &predicate.argument).map_or_else(
@@ -47,11 +47,7 @@ pub(crate) fn apply_predicates(
             PredicateOp::Unsupported => true,
         };
         if !valid {
-            errors.push(NativeError::new(
-                path,
-                predicate.name.clone(),
-                predicate_message(predicate),
-            ));
+            errors.push(NativeError::predicate_failed(path, predicate.clone()));
         }
     }
     Ok(())
@@ -140,7 +136,7 @@ fn predicate_scalar(ruby: &Ruby, argument: &PredicateArg) -> Option<Value> {
     }
 }
 
-fn predicate_message(predicate: &PredicatePlan) -> String {
+pub(crate) fn predicate_message(predicate: &PredicatePlan) -> String {
     let argument = predicate_argument_text(&predicate.argument);
     match predicate.op {
         PredicateOp::Gt => format!("must be greater than {argument}"),
@@ -230,10 +226,11 @@ pub(crate) mod tests {
             }],
         };
 
-        let odd_result = apply_predicates(ruby, &odd_field, odd_error, &[], &mut Vec::new());
+        let odd_result =
+            apply_predicates(ruby, &odd_field.predicates, odd_error, &[], &mut Vec::new());
         let comparison_result = apply_predicates(
             ruby,
-            &comparison_field,
+            &comparison_field.predicates,
             comparison_error,
             &[],
             &mut Vec::new(),
@@ -321,7 +318,13 @@ pub(crate) mod tests {
                 predicate(PredicateOp::MaxSize, PredicateArg::Int(1)),
             ),
         ] {
-            apply_predicates(ruby, &field_with(predicate), value, &[], &mut errors)?;
+            apply_predicates(
+                ruby,
+                &field_with(predicate).predicates,
+                value,
+                &[],
+                &mut errors,
+            )?;
         }
         assert!(errors.is_empty());
         Ok(())

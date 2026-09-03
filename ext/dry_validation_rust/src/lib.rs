@@ -4,6 +4,7 @@ use magnus::{
 };
 
 mod coercion;
+mod compiled;
 mod engine;
 mod error;
 mod extract_primitive;
@@ -51,7 +52,14 @@ pub mod benchmark {
 
         pub fn coerce(&self, ruby: &Ruby, kind: &str, source: &str) -> Result<(), Error> {
             let value = ruby.str_new(source).as_value();
-            coerce(ruby, &self.classes, Mode::Params, kind, value).map(|_| ())
+            coerce(
+                ruby,
+                &self.classes,
+                Mode::Params,
+                &crate::compiled::TypeKind::compile(kind.to_owned()),
+                value,
+            )
+            .map(|_| ())
         }
     }
 
@@ -136,7 +144,7 @@ pub mod benchmark {
             let mut errors = Vec::new();
             apply_predicates(
                 ruby,
-                &self.fields[predicate_case.index()],
+                &self.fields[predicate_case.index()].predicates,
                 value,
                 &[],
                 &mut errors,

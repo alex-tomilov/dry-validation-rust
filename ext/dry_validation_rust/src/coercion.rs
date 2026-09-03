@@ -1,4 +1,4 @@
-use crate::{plan::Mode, ruby_bridge::RuntimeClasses};
+use crate::{compiled::TypeKind, plan::Mode, ruby_bridge::RuntimeClasses};
 use bigdecimal::BigDecimal;
 use chrono::{DateTime, Datelike, FixedOffset, NaiveDate, NaiveDateTime, TimeZone, Timelike};
 use magnus::{
@@ -11,7 +11,7 @@ pub(crate) fn coerce(
     ruby: &Ruby,
     classes: &RuntimeClasses,
     mode: Mode,
-    kind: &str,
+    kind: &TypeKind,
     value: Value,
 ) -> Result<Option<Value>, magnus::Error> {
     if type_matches(ruby, classes, kind, value) {
@@ -31,52 +31,52 @@ pub(crate) fn coerce(
         // Signed 64-bit literals, including Ruby's common underscore and base
         // forms, avoid a Ruby callback. Delegate Bignums and unusual syntax so
         // Ruby retains its arbitrary-precision semantics.
-        "integer" => fast_integer(ruby, &source).or_else(|| {
+        TypeKind::Integer => fast_integer(ruby, &source).or_else(|| {
             ruby.module_kernel()
                 .funcall::<_, _, Value>("Integer", (source.as_str(), 10))
                 .ok()
         }),
-        "float" if non_finite_literal(&source) => None,
+        TypeKind::Float if non_finite_literal(&source) => None,
         // Finite decimal literals (including scientific notation) avoid a
         // Ruby callback. Delegate every other spelling so Ruby retains its
         // syntax and non-finite result semantics.
-        "float" => fast_float(&source)
+        TypeKind::Float => fast_float(&source)
             .map(|value| ruby.float_from_f64(value).as_value())
             .or_else(|| {
                 ruby.module_kernel()
                     .funcall::<_, _, Value>("Float", (source.as_str(),))
                     .ok()
             }),
-        "bool" | "true" | "false" => params_boolean(&source).map(|value| {
+        TypeKind::Bool | TypeKind::True | TypeKind::False => params_boolean(&source).map(|value| {
             if value {
                 ruby.qtrue().as_value()
             } else {
                 ruby.qfalse().as_value()
             }
         }),
-        "symbol" => Some(ruby.to_symbol(&source).as_value()),
-        "date" => fast_date(ruby, classes, &source).or_else(|| {
+        TypeKind::Symbol => Some(ruby.to_symbol(&source).as_value()),
+        TypeKind::Date => fast_date(ruby, classes, &source).or_else(|| {
             classes
                 .date(ruby)
                 .expect("Date class is loaded for date fields")
                 .funcall::<_, _, Value>("iso8601", (source.as_str(),))
                 .ok()
         }),
-        "date_time" => fast_date_time(ruby, classes, &source).or_else(|| {
+        TypeKind::DateTime => fast_date_time(ruby, classes, &source).or_else(|| {
             classes
                 .date_time(ruby)
                 .expect("DateTime class is loaded for date_time fields")
                 .funcall::<_, _, Value>("iso8601", (source.as_str(),))
                 .ok()
         }),
-        "time" => fast_time(ruby, classes, &source).or_else(|| {
+        TypeKind::Time => fast_time(ruby, classes, &source).or_else(|| {
             classes
                 .time(ruby)
                 .expect("Time class is loaded for time fields")
                 .funcall::<_, _, Value>("parse", (source.as_str(),))
                 .ok()
         }),
-        "decimal" => fast_decimal(ruby, &source).or_else(|| {
+        TypeKind::Decimal => fast_decimal(ruby, &source).or_else(|| {
             ruby.module_kernel()
                 .funcall::<_, _, Value>("BigDecimal", (source.as_str(),))
                 .ok()
@@ -323,25 +323,25 @@ fn non_finite_literal(source: &str) -> bool {
 pub(crate) fn type_matches(
     ruby: &Ruby,
     classes: &RuntimeClasses,
-    kind: &str,
+    kind: &TypeKind,
     value: Value,
 ) -> bool {
     match kind {
-        "any" => true,
-        "nil" => value.is_nil(),
-        "bool" => Qtrue::from_value(value).is_some() || Qfalse::from_value(value).is_some(),
-        "true" => Qtrue::from_value(value).is_some(),
-        "false" => Qfalse::from_value(value).is_some(),
-        "integer" => Integer::from_value(value).is_some(),
-        "float" => Float::from_value(value).is_some(),
-        "decimal" => classes
+        TypeKind::Any => true,
+        TypeKind::Nil => value.is_nil(),
+        TypeKind::Bool => Qtrue::from_value(value).is_some() || Qfalse::from_value(value).is_some(),
+        TypeKind::True => Qtrue::from_value(value).is_some(),
+        TypeKind::False => Qfalse::from_value(value).is_some(),
+        TypeKind::Integer => Integer::from_value(value).is_some(),
+        TypeKind::Float => Float::from_value(value).is_some(),
+        TypeKind::Decimal => classes
             .big_decimal(ruby)
             .is_some_and(|class| value.is_kind_of(class)),
-        "string" => RString::from_value(value).is_some(),
-        "symbol" => Symbol::from_value(value).is_some(),
-        "array" => RArray::from_value(value).is_some(),
-        "hash" => RHash::from_value(value).is_some(),
-        "date" => {
+        TypeKind::String => RString::from_value(value).is_some(),
+        TypeKind::Symbol => Symbol::from_value(value).is_some(),
+        TypeKind::Array => RArray::from_value(value).is_some(),
+        TypeKind::Hash => RHash::from_value(value).is_some(),
+        TypeKind::Date => {
             classes
                 .date(ruby)
                 .is_some_and(|class| value.is_kind_of(class))
@@ -349,10 +349,10 @@ pub(crate) fn type_matches(
                     .date_time(ruby)
                     .is_some_and(|class| value.is_kind_of(class))
         }
-        "date_time" => classes
+        TypeKind::DateTime => classes
             .date_time(ruby)
             .is_some_and(|class| value.is_kind_of(class)),
-        "time" => classes
+        TypeKind::Time => classes
             .time(ruby)
             .is_some_and(|class| value.is_kind_of(class)),
         _ => {
@@ -475,7 +475,7 @@ pub(crate) mod tests {
             ruby,
             &classes,
             Mode::Params,
-            "date",
+            &TypeKind::Date,
             ruby.str_new("2026-02-30").as_value(),
         )?
         .is_none());
@@ -485,7 +485,7 @@ pub(crate) mod tests {
                 ruby,
                 &classes,
                 Mode::Params,
-                "decimal",
+                &TypeKind::Decimal,
                 ruby.str_new(source).as_value(),
             )?
             .is_none());
@@ -504,7 +504,7 @@ pub(crate) mod tests {
             ruby,
             &classes,
             Mode::Params,
-            "symbol",
+            &TypeKind::Symbol,
             ruby.str_new(source).as_value(),
         )?
         .expect("symbol source should coerce");

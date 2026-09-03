@@ -120,10 +120,12 @@ they are evidence for those workloads, not a general speed guarantee.
 Ruby-allocation and Criterion regression gates compare pull-request candidates
 with the main-branch baselines when those baselines are available. The
 **Benchmark Regression** workflow also runs the schema-throughput p95 latency
-matrix on pull requests and fails above a 5% regression; trusted branch pushes
-to `main` and manual dispatches from `main` refresh its GitHub Pages baseline
-and dashboard. Refresh the repository baselines only after reviewing the
-measurement:
+matrix on pull requests and reports a 5% regression alert. Because its samples
+run on shared GitHub-hosted runners, an alert does not fail the workflow;
+review it with repeated controlled measurements before treating it as a
+regression. Trusted branch pushes to `main` and manual dispatches from `main`
+refresh its GitHub Pages baseline and dashboard. Refresh the repository
+baselines only after reviewing the measurement:
 
 The first trusted Benchmark Regression run from `main` creates the `gh-pages`
 branch and writes the baseline. Configure that branch as the repository's
@@ -141,7 +143,7 @@ GitHub Pages source to serve the dashboard.
 | `Package`                                                  | Pull requests, pushes, manual              | Source-gem audit, isolated install smoke test, and generated package-content manifest                                                                                                                        |
 | `Security`                                                 | Pull requests, pushes, weekly, manual      | Ruby/Rust dependency audit, `cargo vet`, locked build, and CodeQL                                                                                                                                            |
 | `Fuzz`                                                     | Weekly, manual                             | Bounded nightly plan-deserialization fuzzing and corpus/crash artifacts; non-gating                                                                                                                          |
-| `Benchmark Regression`                                     | Pull requests, main/develop pushes, manual | Schema-throughput p95 latency gate; main runs update the GitHub Pages dashboard                                                                                                                              |
+| `Benchmark Regression`                                     | Pull requests, main/develop pushes, manual | Schema-throughput p95 latency alerts; main runs update the GitHub Pages dashboard                                                                                                                            |
 | `Native Gems`                                              | Manual                                     | Cross-platform native-gem build and installed-gem smoke tests                                                                                                                                                |
 | `Record Allocation Baseline` / `Record Criterion Baseline` | Manual                                     | Reviewable benchmark-baseline artifacts without repository writes                                                                                                                                            |
 | `rubygems:push`                                            | Version tags, manual                       | Release-context verification, signed gem artifacts, and trusted publishing after environment approval                                                                                                        |

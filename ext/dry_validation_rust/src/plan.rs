@@ -93,7 +93,7 @@ impl<'de> Deserialize<'de> for PredicateArg {
 
 include!("generated_predicates.rs");
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub(crate) struct PredicatePlan {
     pub(crate) name: String,
     pub(crate) op: PredicateOp,
