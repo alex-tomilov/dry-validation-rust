@@ -4,6 +4,8 @@
 //! converts it once, at engine construction, so validation dispatches on Rust
 //! variants instead of repeatedly inspecting a field's string type.
 
+use std::sync::Arc;
+
 use crate::plan::{FieldPlan, PredicatePlan};
 
 #[derive(Debug, Clone)]
@@ -79,7 +81,9 @@ pub(crate) enum NativeValidator {
 
 #[derive(Debug)]
 pub(crate) struct ValidatorOptions {
-    pub(crate) name: Option<String>,
+    /// Field names are allocated while compiling the transport plan and then
+    /// shared by traversal paths and deferred errors.
+    pub(crate) name: Option<Arc<str>>,
     pub(crate) required: bool,
     pub(crate) nullable: bool,
     pub(crate) filled: bool,
@@ -96,6 +100,7 @@ pub(crate) struct ScalarValidator {
 pub(crate) struct HashValidator {
     pub(crate) options: ValidatorOptions,
     pub(crate) fields: Vec<NativeValidator>,
+    pub(crate) declared_keys: Vec<Arc<str>>,
 }
 
 #[derive(Debug)]
@@ -117,7 +122,7 @@ impl NativeValidator {
             predicates,
         } = field;
         let options = ValidatorOptions {
-            name,
+            name: name.map(Arc::from),
             required,
             nullable,
             filled,
@@ -125,10 +130,14 @@ impl NativeValidator {
             predicates,
         };
         match kind.as_str() {
-            "hash" => Self::Hash(HashValidator {
-                options,
-                fields: children.into_iter().map(Self::compile).collect(),
-            }),
+            "hash" => {
+                let fields: Vec<_> = children.into_iter().map(Self::compile).collect();
+                Self::Hash(HashValidator {
+                    options,
+                    declared_keys: compile_declared_keys(&fields),
+                    fields,
+                })
+            }
             "array" => Self::Array(ArrayValidator {
                 options,
                 member: member.map(|field| Box::new(Self::compile(*field))),
@@ -178,6 +187,21 @@ pub(crate) fn compile_fields(fields: Vec<FieldPlan>) -> Vec<NativeValidator> {
     fields.into_iter().map(NativeValidator::compile).collect()
 }
 
+pub(crate) fn compile_declared_keys(fields: &[NativeValidator]) -> Vec<Arc<str>> {
+    let mut keys: Vec<_> = fields
+        .iter()
+        .map(|field| {
+            field
+                .options()
+                .name
+                .clone()
+                .unwrap_or_else(|| Arc::from(""))
+        })
+        .collect();
+    keys.sort_unstable();
+    keys
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -215,5 +239,35 @@ mod tests {
         let validator = NativeValidator::compile(field);
         assert!(matches!(validator, NativeValidator::Array(_)));
         assert_eq!(validator.count_fields(), 2);
+    }
+
+    #[test]
+    fn compilation_owns_field_names_once() {
+        let validator = NativeValidator::compile(FieldPlan {
+            name: Some("profile".to_owned()),
+            required: true,
+            nullable: false,
+            filled: false,
+            kind: "hash".to_owned(),
+            predicates: Vec::new(),
+            member: None,
+            children: vec![FieldPlan {
+                name: Some("name".to_owned()),
+                required: false,
+                nullable: false,
+                filled: false,
+                kind: "string".to_owned(),
+                member: None,
+                children: Vec::new(),
+                predicates: Vec::new(),
+            }],
+        });
+
+        let NativeValidator::Hash(hash) = validator else {
+            panic!("hash plan must compile to a hash validator");
+        };
+        assert_eq!(hash.options.name.as_deref(), Some("profile"));
+        assert_eq!(hash.fields[0].options().name.as_deref(), Some("name"));
+        assert_eq!(hash.declared_keys.as_slice(), [Arc::from("name")]);
     }
 }

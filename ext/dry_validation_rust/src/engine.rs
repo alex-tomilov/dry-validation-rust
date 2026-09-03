@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::sync::Arc;
 
 use magnus::{
     gc::Marker, prelude::*, r_hash::ForEach, typed_data::Obj, DataTypeFunctions, Error, RArray,
@@ -7,7 +7,7 @@ use magnus::{
 
 use crate::{
     coercion::{coerce, empty_value, null_if_empty_nullable_param, type_matches},
-    compiled::{compile_fields, NativeValidator, ValidatorOptions},
+    compiled::{compile_declared_keys, compile_fields, NativeValidator, ValidatorOptions},
     error::{NativeError, PathPart},
     plan::{parse_plan, Mode},
     predicates::apply_predicates,
@@ -26,6 +26,7 @@ const MAX_TRAVERSAL_DEPTH: u16 = 128;
 )]
 pub(crate) struct Engine {
     validators: Vec<NativeValidator>,
+    declared_keys: Vec<Arc<str>>,
     classes: RuntimeClasses,
     mode: Mode,
     validate_keys: bool,
@@ -59,9 +60,11 @@ impl Engine {
         let mode = plan.mode;
         let validate_keys = plan.validate_keys;
         let validators = compile_fields(plan.fields);
+        let declared_keys = compile_declared_keys(&validators);
         let field_count = validators.iter().map(NativeValidator::count_fields).sum();
         Ok(Self {
             validators,
+            declared_keys,
             classes,
             mode,
             validate_keys,
@@ -81,7 +84,14 @@ impl Engine {
                 validate_keys: self.validate_keys,
                 errors: &mut errors,
             };
-            process_hash(&mut traversal, &self.validators, input, &mut Vec::new(), 0)?
+            process_hash(
+                &mut traversal,
+                &self.validators,
+                &self.declared_keys,
+                input,
+                &mut Vec::new(),
+                0,
+            )?
         };
         let ruby_errors = ruby.ary_new();
         for error in errors {
@@ -114,6 +124,7 @@ impl Engine {
 fn process_hash(
     traversal: &mut Traversal<'_>,
     fields: &[NativeValidator],
+    declared_keys: &[Arc<str>],
     input: RHash,
     path: &mut Vec<PathPart>,
     depth: u16,
@@ -125,13 +136,13 @@ fn process_hash(
     for field in fields {
         process_field(traversal, &output, field, input, path, depth)?;
     }
-    report_unexpected_keys(traversal, fields, input, path)?;
+    report_unexpected_keys(traversal, declared_keys, input, path)?;
     Ok(output)
 }
 
 fn report_unexpected_keys(
     traversal: &mut Traversal<'_>,
-    fields: &[NativeValidator],
+    declared_keys: &[Arc<str>],
     input: RHash,
     path: &[PathPart],
 ) -> Result<(), Error> {
@@ -139,16 +150,14 @@ fn report_unexpected_keys(
         return Ok(());
     }
 
-    let declared: HashSet<&str> = fields
-        .iter()
-        .map(|field| field.options().name.as_deref().unwrap_or_default())
-        .collect();
-
     input.foreach(|key: Value, _: Value| {
         let key_name: String = key.funcall("to_s", ())?;
-        if !declared.contains(key_name.as_str()) {
+        if declared_keys
+            .binary_search_by(|candidate| candidate.as_ref().cmp(key_name.as_str()))
+            .is_err()
+        {
             let mut error_path = path.to_vec();
-            error_path.push(PathPart::Key(key_name.clone()));
+            error_path.push(PathPart::Key(Arc::from(key_name.as_str())));
             traversal
                 .errors
                 .push(NativeError::unexpected_key(&error_path, key_name));
@@ -167,7 +176,9 @@ fn process_field(
 ) -> Result<(), Error> {
     let options = field.options();
     let name = options.name.as_deref().unwrap_or_default();
-    path.push(PathPart::Key(name.to_owned()));
+    path.push(PathPart::Key(
+        options.name.clone().unwrap_or_else(|| Arc::from("")),
+    ));
     let result = match resolve_field_input(input, traversal.ruby, traversal.mode, name) {
         Some(raw) => process_value(traversal, field, raw, path, depth)
             .and_then(|processed| output.aset(traversal.ruby.to_symbol(name), processed)),
@@ -316,9 +327,15 @@ fn process_children(
     match field {
         NativeValidator::Hash(validator) if !validator.fields.is_empty() => {
             if let Some(hash) = RHash::from_value(value) {
-                return Ok(
-                    process_hash(traversal, &validator.fields, hash, path, depth + 1)?.as_value(),
-                );
+                return Ok(process_hash(
+                    traversal,
+                    &validator.fields,
+                    &validator.declared_keys,
+                    hash,
+                    path,
+                    depth + 1,
+                )?
+                .as_value());
             }
         }
         NativeValidator::Array(validator) => {
@@ -398,9 +415,11 @@ mod tests {
         let mode = plan.mode;
         let validate_keys = plan.validate_keys;
         let validators = compile_fields(plan.fields);
+        let declared_keys = compile_declared_keys(&validators);
         let field_count = validators.iter().map(NativeValidator::count_fields).sum();
         let engine = Engine {
             validators,
+            declared_keys,
             classes: RuntimeClasses::default(),
             mode,
             validate_keys,
@@ -422,7 +441,7 @@ mod tests {
                 return;
             }
 
-            path.push(PathPart::Key(format!("level_{depth}")));
+            path.push(PathPart::Key(Arc::from(format!("level_{depth}"))));
             traverse_nested_structure(depth + 1, path, errors);
             path.pop();
         }

@@ -1,4 +1,4 @@
-use std::borrow::Cow;
+use std::{borrow::Cow, sync::Arc};
 
 use magnus::{Error, RHash, Ruby};
 
@@ -6,7 +6,7 @@ use crate::{compiled::TypeKind, plan::PredicatePlan};
 
 #[derive(Debug, Clone)]
 pub(crate) enum PathPart {
-    Key(String),
+    Key(Arc<str>),
     Index(usize),
 }
 
@@ -108,17 +108,19 @@ pub(crate) fn type_message(kind: &str) -> &'static str {
 
 #[cfg(test)]
 mod tests {
+    use std::sync::Arc;
+
     use super::{type_message, ErrorKind, NativeError, PathPart};
     use crate::compiled::TypeKind;
 
     #[test]
     fn native_error_owns_a_clone_of_key_and_index_path_parts() {
-        let mut path = vec![PathPart::Key("profile".to_owned()), PathPart::Index(2)];
+        let mut path = vec![PathPart::Key(Arc::from("profile")), PathPart::Index(2)];
         let error = NativeError::type_mismatch(&path, TypeKind::Hash);
-        path[0] = PathPart::Key("changed".to_owned());
+        path[0] = PathPart::Key(Arc::from("changed"));
 
         assert!(
-            matches!(&error.path[..], [PathPart::Key(key), PathPart::Index(2)] if key == "profile")
+            matches!(&error.path[..], [PathPart::Key(key), PathPart::Index(2)] if key.as_ref() == "profile")
         );
     }
 
