@@ -37,6 +37,9 @@ pub(crate) struct Engine {
 impl DataTypeFunctions for Engine {
     fn mark(&self, marker: &Marker) {
         self.classes.mark(marker);
+        for validator in &self.validators {
+            validator.mark(marker);
+        }
     }
 }
 
@@ -59,7 +62,10 @@ impl Engine {
         let classes = RuntimeClasses::new(ruby, &plan)?;
         let mode = plan.mode;
         let validate_keys = plan.validate_keys;
-        let validators = compile_fields(plan.fields);
+        let mut validators = compile_fields(plan.fields);
+        for validator in &mut validators {
+            validator.pre_intern_symbols(ruby);
+        }
         let declared_keys = compile_declared_keys(&validators);
         let field_count = validators.iter().map(NativeValidator::count_fields).sum();
         Ok(Self {
@@ -179,9 +185,13 @@ fn process_field(
     path.push(PathPart::Key(
         options.name.clone().unwrap_or_else(|| Arc::from("")),
     ));
-    let result = match resolve_field_input(input, traversal.ruby, traversal.mode, name) {
+    let key_symbol = field
+        .key_symbol()
+        .expect("named validators must have a pre-interned key symbol");
+    let key = traversal.ruby.get_inner(key_symbol);
+    let result = match resolve_field_input(input, traversal.mode, key, name) {
         Some(raw) => process_value(traversal, field, raw, path, depth)
-            .and_then(|processed| output.aset(traversal.ruby.to_symbol(name), processed)),
+            .and_then(|processed| output.aset(key, processed)),
         None => {
             report_missing_field(traversal, options, path);
             Ok(())
@@ -191,8 +201,13 @@ fn process_field(
     result
 }
 
-fn resolve_field_input(input: RHash, ruby: &Ruby, mode: Mode, name: &str) -> Option<Value> {
-    input.get(ruby.to_symbol(name)).or_else(|| {
+fn resolve_field_input(
+    input: RHash,
+    mode: Mode,
+    key_symbol: magnus::Symbol,
+    name: &str,
+) -> Option<Value> {
+    input.get(key_symbol).or_else(|| {
         if mode == Mode::Schema {
             None
         } else {

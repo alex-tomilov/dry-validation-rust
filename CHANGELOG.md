@@ -4,6 +4,8 @@
 
 - Improved compiled native-validator traversal by reusing field names and
   declared-key lookups.
+- Improved native validation performance by pre-interning compiled field-key
+  symbols for repeated hash lookups and output construction.
 - Changed native validation errors to retain structured failure kinds and
   materialize Ruby error messages only when constructing the result.
 
