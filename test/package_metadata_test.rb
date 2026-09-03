@@ -81,11 +81,11 @@ class PackageMetadataTest < Minitest::Test
     end
   end
 
-  def test_extension_config_uses_gnu_rust_for_mingw_ruby
+  def test_extension_config_uses_mounted_stable_rust_for_mingw_docker_builds
     extension_config = File.read(File.join(PROJECT_ROOT, 'ext/dry_validation_rust/extconf.rb'))
 
     assert_includes extension_config, "if ENV['RUBY_TARGET'] == 'x64-mingw-ucrt'"
-    assert_includes extension_config, "rustup_toolchain = '1.75.0-x86_64-unknown-linux-gnu'"
+    assert_includes extension_config, "rustup_toolchain = 'stable-x86_64-unknown-linux-gnu'"
     assert_includes extension_config, "elsif RUBY_PLATFORM.include?('mingw')"
     assert_includes extension_config, "ENV['RUSTUP_TOOLCHAIN'] ||= '1.75.0-x86_64-pc-windows-gnu'"
     assert_includes extension_config, "config.env['RUSTUP_TOOLCHAIN'] = rustup_toolchain if defined?(rustup_toolchain)"
