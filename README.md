@@ -251,7 +251,8 @@ each scenario. On Linux it records current/peak RSS plus PSS and USS around the
 timed validation loop. Peak RSS includes resident Ruby and Rust/native memory;
 PSS apportions shared pages and USS reports private resident pages. See
 [`docs/MEMORY_BENCHMARKING.md`](docs/MEMORY_BENCHMARKING.md) for exact metric
-semantics and limitations.
+semantics and limitations. It prints calibration and measurement progress to
+stderr, including a checkpoint path and resume command.
 
 These are process-footprint metrics, not cumulative bytes allocated over time.
 Ruby object counts from `GC.stat` remain a separate GC-pressure signal.
