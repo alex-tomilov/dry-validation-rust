@@ -12,6 +12,7 @@ pub(crate) enum PathPart {
 
 #[derive(Debug)]
 pub(crate) enum ErrorKind {
+    ParseError { message: String },
     Missing,
     TypeMismatch { expected: TypeKind },
     Filled,
@@ -27,6 +28,10 @@ pub(crate) struct NativeError {
 }
 
 impl NativeError {
+    pub(crate) fn parse_error(message: String) -> Self {
+        Self::with_kind(&[], ErrorKind::ParseError { message })
+    }
+
     pub(crate) fn missing(path: &[PathPart]) -> Self {
         Self::with_kind(path, ErrorKind::Missing)
     }
@@ -60,6 +65,7 @@ impl NativeError {
 
     pub(crate) fn to_ruby_message(&self, ruby: &Ruby) -> Result<RHash, Error> {
         let (code, text) = match &self.kind {
+            ErrorKind::ParseError { message } => ("json", Cow::Borrowed(message.as_str())),
             ErrorKind::Missing => ("key", Cow::Borrowed("is missing")),
             ErrorKind::TypeMismatch { expected } => {
                 ("type", Cow::Borrowed(type_message(expected.name())))

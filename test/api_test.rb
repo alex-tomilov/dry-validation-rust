@@ -9,11 +9,11 @@ class ApiTest < Minitest::Test
   SIDE_BY_SIDE_PUBLIC_API = {
     Dry::Validation::Rust::Contract => {
       class: %i[build config import_predicates_as_macros inherited json macro_registry option option_definitions own_rules params register_macro rule rules schema schema_definition],
-      instance: %i[[] call default_context inspect macro_registered? resolve_macro]
+      instance: %i[[] call call_json default_context inspect macro_registered? resolve_macro]
     },
     Dry::Validation::Rust::Schema => {
       class: %i[JSON Params define],
-      instance: %i[[] call engine fields inspect key_paths mode]
+      instance: %i[[] call call_json engine fields inspect key_paths mode]
     },
     Dry::Validation::Rust::Contract::Result => {
       class: [],

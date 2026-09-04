@@ -259,6 +259,81 @@ class SchemaTest < Minitest::Test
     assert_equal [{ path: [:age], code: :type, text: 'must be an integer' }], result.errors
   end
 
+  def test_contract_call_json_fuses_json_parsing_and_native_schema_validation
+    contract = build_contract do
+      json do
+        required(:profile).hash do
+          required(:age).value(:integer, gteq?: 18)
+          required(:tags).array(:string, min_size?: 1)
+        end
+      end
+      rule(:profile) { key.failure('is blocked') if value[:age] == 19 }
+    end
+
+    result = contract.new.call_json('{"profile":{"age":19,"tags":["rust"]}}')
+
+    assert_equal({ profile: { age: 19, tags: ['rust'] } }, result.to_h)
+    assert_equal({ profile: ['is blocked'] }, result.errors.to_h)
+  end
+
+  def test_schema_call_json_preserves_partial_output_and_structured_errors
+    schema = Dry::Validation::Rust::Schema.JSON do
+      required(:profile).hash do
+        required(:age).value(:integer, gteq?: 18)
+        required(:name).filled(:string)
+      end
+    end
+
+    result = schema.call_json('{"profile":{"age":17,"name":""}}')
+
+    assert_equal({ profile: { age: 17, name: '' } }, result.to_h)
+    assert_equal(
+      { profile: { age: ['must be greater than or equal to 18'], name: ['must be filled'] } },
+      result.errors.to_h
+    )
+  end
+
+  def test_schema_call_json_reports_nested_unknown_keys
+    contract = build_contract do
+      config.validate_keys = true
+      json { required(:profile).hash { required(:name).value(:string) } }
+    end
+
+    result = contract.new.call_json('{"profile":{"name":"Ada","extra":true}}')
+
+    assert_equal({ profile: { name: 'Ada' } }, result.to_h)
+    assert_equal({ profile: { extra: ['is not allowed'] } }, result.errors.to_h)
+  end
+
+  def test_schema_call_json_reports_invalid_json_without_raising
+    schema = Dry::Validation::Rust::Schema.JSON { required(:name).value(:string) }
+
+    result = schema.call_json('{"name":')
+
+    assert_empty result.to_h
+    assert_equal :json, result.messages.first.code
+    assert_includes result.messages.first.text, 'EOF'
+  end
+
+  def test_schema_call_json_rejects_ruby_dependent_schema_features
+    schema = Dry::Validation::Rust::Schema.JSON do
+      before(:value_coercer) { |input| input }
+      required(:name).value(:string, format?: /\\A[a-z]+\\z/)
+    end
+
+    error = assert_raises(ArgumentError) { schema.call_json('{"name":"Ada"}') }
+
+    assert_equal 'call_json does not support processor hooks or Ruby predicates; use call instead', error.message
+  end
+
+  def test_schema_call_json_rejects_lax_coercion
+    schema = Dry::Validation::Rust::Schema.JSON { required(:age).lax(:integer) }
+
+    error = assert_raises(ArgumentError) { schema.call_json('{"age":"21"}') }
+
+    assert_equal 'call_json does not support lax coercion; use call instead', error.message
+  end
+
   def test_native_engine_supplies_the_unexpected_key_error_text
     schema = Dry::Validation::Rust::Schema.new(
       mode: :params,

@@ -1,4 +1,8 @@
-use std::sync::Arc;
+use std::{
+    ffi::c_void,
+    panic::{catch_unwind, AssertUnwindSafe},
+    sync::Arc,
+};
 
 use magnus::{
     gc::Marker, prelude::*, r_hash::ForEach, typed_data::Obj, DataTypeFunctions, Error, RArray,
@@ -11,6 +15,7 @@ use crate::{
         compile_declared_keys, compile_fields, NativeValidator, Strictness, ValidatorOptions,
     },
     error::{NativeError, PathPart},
+    fused::{validate_json_bytes, FusedResult, FusedValidator},
     plan::{parse_plan, Mode},
     predicates::apply_predicates,
     ruby_bridge::RuntimeClasses,
@@ -28,12 +33,43 @@ const MAX_TRAVERSAL_DEPTH: u16 = 128;
 )]
 pub(crate) struct Engine {
     validators: Vec<NativeValidator>,
+    fused_validators: Vec<FusedValidator>,
+    fused_json_supported: bool,
     declared_keys: Vec<Arc<str>>,
     classes: RuntimeClasses,
     mode: Mode,
     validate_keys: bool,
     plan_bytes: usize,
     field_count: usize,
+}
+
+struct FusedJob {
+    bytes: Vec<u8>,
+    validators: Vec<FusedValidator>,
+    declared_keys: Vec<Arc<str>>,
+    validate_keys: bool,
+    result: Option<FusedResult>,
+}
+
+unsafe extern "C" fn run_fused_job(job: *mut c_void) -> *mut c_void {
+    let job = unsafe { &mut *job.cast::<FusedJob>() };
+    job.result = Some(
+        catch_unwind(AssertUnwindSafe(|| {
+            validate_json_bytes(
+                &job.bytes,
+                &job.validators,
+                &job.declared_keys,
+                job.validate_keys,
+            )
+        }))
+        .unwrap_or_else(|_| FusedResult {
+            output: serde_json::Value::Object(serde_json::Map::new()),
+            errors: vec![NativeError::parse_error(
+                "native JSON validation failed unexpectedly".to_owned(),
+            )],
+        }),
+    );
+    (job as *mut FusedJob).cast()
 }
 
 impl DataTypeFunctions for Engine {
@@ -69,9 +105,15 @@ impl Engine {
             validator.pre_intern_symbols(ruby);
         }
         let declared_keys = compile_declared_keys(&validators);
+        let fused_validators: Vec<_> = validators.iter().map(FusedValidator::from_native).collect();
+        let fused_json_supported = fused_validators
+            .iter()
+            .all(FusedValidator::supports_json_validation);
         let field_count = validators.iter().map(NativeValidator::count_fields).sum();
         Ok(Self {
             validators,
+            fused_validators,
+            fused_json_supported,
             declared_keys,
             classes,
             mode,
@@ -101,23 +143,47 @@ impl Engine {
                 0,
             )?
         };
-        let ruby_errors = ruby.ary_new();
-        for error in errors {
-            let ruby_error = error.to_ruby_message(&ruby)?;
-            let path = ruby.ary_new_capa(error.path.len());
-            for part in error.path {
-                match part {
-                    PathPart::Key(key) => path.push(ruby.to_symbol(key))?,
-                    PathPart::Index(index) => path.push(index)?,
-                }
-            }
-            ruby_error.aset(ruby.to_symbol("path"), path)?;
-            ruby_errors.push(ruby_error)?;
+        build_schema_result(&ruby, output, errors)
+    }
+
+    pub(crate) fn call_json(&self, raw: RString) -> Result<Obj<SchemaResult>, Error> {
+        let ruby = Ruby::get_with(raw);
+        if self.mode != Mode::Json {
+            return Err(Error::new(
+                ruby.exception_arg_error(),
+                "call_json requires a json schema",
+            ));
         }
-        Ok(ruby.obj_wrap(SchemaResult {
-            output: output.into(),
-            errors: ruby_errors.into(),
-        }))
+        if !self.fused_json_supported {
+            return Err(Error::new(
+                ruby.exception_arg_error(),
+                "call_json does not support lax coercion; use call instead",
+            ));
+        }
+        let bytes = unsafe { raw.as_slice() }.to_vec();
+        let mut job = FusedJob {
+            bytes,
+            validators: self.fused_validators.clone(),
+            declared_keys: self.declared_keys.clone(),
+            validate_keys: self.validate_keys,
+            result: None,
+        };
+        unsafe {
+            rb_sys::rb_thread_call_without_gvl(
+                Some(run_fused_job),
+                (&mut job as *mut FusedJob).cast(),
+                None,
+                std::ptr::null_mut(),
+            );
+        }
+        let result = job
+            .result
+            .expect("fused validation job must return a result");
+        build_schema_result(
+            &ruby,
+            json_value_to_ruby(&ruby, &result.output)?,
+            result.errors,
+        )
     }
 
     pub(crate) fn field_count(&self) -> usize {
@@ -127,6 +193,74 @@ impl Engine {
     pub(crate) fn plan_bytes(&self) -> usize {
         self.plan_bytes
     }
+}
+
+fn build_schema_result(
+    ruby: &Ruby,
+    output: RHash,
+    errors: Vec<NativeError>,
+) -> Result<Obj<SchemaResult>, Error> {
+    let ruby_errors = ruby.ary_new_capa(errors.len());
+    for error in errors {
+        let ruby_error = error.to_ruby_message(ruby)?;
+        let path = ruby.ary_new_capa(error.path.len());
+        for part in error.path {
+            match part {
+                PathPart::Key(key) => path.push(ruby.to_symbol(key))?,
+                PathPart::Index(index) => path.push(index)?,
+            }
+        }
+        ruby_error.aset(ruby.to_symbol("path"), path)?;
+        ruby_errors.push(ruby_error)?;
+    }
+    Ok(ruby.obj_wrap(SchemaResult {
+        output: output.into(),
+        errors: ruby_errors.into(),
+    }))
+}
+
+fn json_value_to_ruby(ruby: &Ruby, value: &serde_json::Value) -> Result<RHash, Error> {
+    let serde_json::Value::Object(value) = value else {
+        unreachable!("fused validation always produces an object output");
+    };
+    let output = ruby.hash_new_capa(value.len());
+    for (key, value) in value {
+        output.aset(ruby.to_symbol(key), json_scalar_to_ruby(ruby, value)?)?;
+    }
+    Ok(output)
+}
+
+fn json_scalar_to_ruby(ruby: &Ruby, value: &serde_json::Value) -> Result<Value, Error> {
+    Ok(match value {
+        serde_json::Value::Null => ruby.qnil().as_value(),
+        serde_json::Value::Bool(true) => ruby.qtrue().as_value(),
+        serde_json::Value::Bool(false) => ruby.qfalse().as_value(),
+        serde_json::Value::Number(number) => {
+            if let Some(number) = number.as_i64() {
+                ruby.integer_from_i64(number).as_value()
+            } else if let Some(number) = number.as_u64() {
+                ruby.integer_from_u64(number).as_value()
+            } else {
+                ruby.float_from_f64(number.as_f64().expect("JSON number is finite"))
+                    .as_value()
+            }
+        }
+        serde_json::Value::String(value) => ruby.str_new(value).as_value(),
+        serde_json::Value::Array(values) => {
+            let output = ruby.ary_new_capa(values.len());
+            for value in values {
+                output.push(json_scalar_to_ruby(ruby, value)?)?;
+            }
+            output.as_value()
+        }
+        serde_json::Value::Object(values) => {
+            let output = ruby.hash_new_capa(values.len());
+            for (key, value) in values {
+                output.aset(ruby.to_symbol(key), json_scalar_to_ruby(ruby, value)?)?;
+            }
+            output.as_value()
+        }
+    })
 }
 
 fn process_hash(
@@ -451,6 +585,8 @@ mod tests {
         let field_count = validators.iter().map(NativeValidator::count_fields).sum();
         let engine = Engine {
             validators,
+            fused_validators: Vec::new(),
+            fused_json_supported: true,
             declared_keys,
             classes: RuntimeClasses::default(),
             mode,
