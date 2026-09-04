@@ -7,7 +7,9 @@ use magnus::{
 
 use crate::{
     coercion::{coerce, empty_value, null_if_empty_nullable_param, type_matches},
-    compiled::{compile_declared_keys, compile_fields, NativeValidator, ValidatorOptions},
+    compiled::{
+        compile_declared_keys, compile_fields, NativeValidator, Strictness, ValidatorOptions,
+    },
     error::{NativeError, PathPart},
     plan::{parse_plan, Mode},
     predicates::apply_predicates,
@@ -62,7 +64,7 @@ impl Engine {
         let classes = RuntimeClasses::new(ruby, &plan)?;
         let mode = plan.mode;
         let validate_keys = plan.validate_keys;
-        let mut validators = compile_fields(plan.fields);
+        let mut validators = compile_fields(plan.fields, mode);
         for validator in &mut validators {
             validator.pre_intern_symbols(ruby);
         }
@@ -313,7 +315,7 @@ fn coerce_and_validate_type(
     let Some(coerced) = coerce(
         traversal.ruby,
         traversal.classes,
-        traversal.mode,
+        options.strict == Strictness::Strict,
         &options.kind,
         raw,
     )?
@@ -444,7 +446,7 @@ mod tests {
         let plan = crate::plan::deserialize_plan(json).expect("valid plan");
         let mode = plan.mode;
         let validate_keys = plan.validate_keys;
-        let validators = compile_fields(plan.fields);
+        let validators = compile_fields(plan.fields, mode);
         let declared_keys = compile_declared_keys(&validators);
         let field_count = validators.iter().map(NativeValidator::count_fields).sum();
         let engine = Engine {

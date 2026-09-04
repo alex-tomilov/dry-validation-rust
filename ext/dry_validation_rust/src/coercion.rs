@@ -10,14 +10,14 @@ use magnus::{
 pub(crate) fn coerce(
     ruby: &Ruby,
     classes: &RuntimeClasses,
-    mode: Mode,
+    strict: bool,
     kind: &TypeKind,
     value: Value,
 ) -> Result<Option<Value>, magnus::Error> {
     if type_matches(ruby, classes, kind, value) {
         return Ok(Some(value));
     }
-    if !allows_literal_coercion(mode) {
+    if strict {
         return Ok(None);
     }
 
@@ -291,10 +291,6 @@ fn params_boolean(source: &str) -> Option<bool> {
     }
 }
 
-fn allows_literal_coercion(mode: Mode) -> bool {
-    mode == Mode::Params
-}
-
 pub(crate) fn null_if_empty_nullable_param(
     ruby: &Ruby,
     mode: Mode,
@@ -429,13 +425,6 @@ pub(crate) mod tests {
         }
     }
 
-    #[test]
-    fn only_params_mode_enables_literal_coercion() {
-        assert!(allows_literal_coercion(Mode::Params));
-        assert!(!allows_literal_coercion(Mode::Json));
-        assert!(!allows_literal_coercion(Mode::Schema));
-    }
-
     pub(crate) fn params_coercion_handles_native_boundary_edge_cases(
         ruby: &Ruby,
     ) -> Result<(), Error> {
@@ -471,10 +460,13 @@ pub(crate) mod tests {
         assert!("1e999".parse::<BigDecimal>().is_ok());
 
         assert!(ruby.eval::<Value>("Date.iso8601('2026-02-30')").is_err());
+        let integer_literal = ruby.str_new("42").as_value();
+        assert!(coerce(ruby, &classes, false, &TypeKind::Integer, integer_literal)?.is_some());
+        assert!(coerce(ruby, &classes, true, &TypeKind::Integer, integer_literal)?.is_none());
         assert!(coerce(
             ruby,
             &classes,
-            Mode::Params,
+            false,
             &TypeKind::Date,
             ruby.str_new("2026-02-30").as_value(),
         )?
@@ -484,7 +476,7 @@ pub(crate) mod tests {
             assert!(coerce(
                 ruby,
                 &classes,
-                Mode::Params,
+                false,
                 &TypeKind::Decimal,
                 ruby.str_new(source).as_value(),
             )?
@@ -503,7 +495,7 @@ pub(crate) mod tests {
         let value = coerce(
             ruby,
             &classes,
-            Mode::Params,
+            false,
             &TypeKind::Symbol,
             ruby.str_new(source).as_value(),
         )?

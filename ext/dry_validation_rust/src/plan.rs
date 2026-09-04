@@ -126,6 +126,8 @@ pub(crate) struct FieldPlan {
     pub(crate) required: bool,
     pub(crate) nullable: bool,
     pub(crate) filled: bool,
+    #[serde(default)]
+    pub(crate) strict: Option<bool>,
     #[serde(rename = "type")]
     pub(crate) kind: String,
     pub(crate) member: Option<Box<FieldPlan>>,
@@ -463,6 +465,7 @@ mod tests {
             "required": true,
             "nullable": false,
             "filled": true,
+            "strict": true,
             "type": "integer",
             "member": null,
             "children": [],
@@ -475,9 +478,32 @@ mod tests {
         assert_eq!(plan.mode, Mode::Params);
         assert_eq!(plan.fields.len(), 1);
         assert_eq!(plan.fields[0].name.as_deref(), Some("age"));
+        assert_eq!(plan.fields[0].strict, Some(true));
         assert_eq!(plan.fields[0].predicates[0].name, "gteq");
         assert_eq!(plan.fields[0].predicates[0].op, PredicateOp::Gteq);
         assert_eq!(plan.fields[0].predicates[0].argument, PredicateArg::Int(18));
+    }
+
+    #[test]
+    fn plan_defaults_missing_field_strictness_to_inherit() {
+        let json = r#"{
+          "engine_version": 1,
+          "mode": "params",
+          "fields": [{
+            "name": "age",
+            "required": true,
+            "nullable": false,
+            "filled": false,
+            "type": "integer",
+            "member": null,
+            "children": [],
+            "predicates": []
+          }]
+        }"#;
+
+        let plan: SchemaPlan = serde_json::from_str(json).expect("valid plan");
+
+        assert_eq!(plan.fields[0].strict, None);
     }
 
     #[test]

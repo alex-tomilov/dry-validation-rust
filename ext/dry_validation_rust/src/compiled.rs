@@ -8,7 +8,18 @@ use std::{fmt, sync::Arc};
 
 use magnus::{gc::Marker, value::Opaque, Ruby, Symbol};
 
-use crate::plan::{FieldPlan, PredicatePlan};
+use crate::plan::{FieldPlan, Mode, PredicatePlan};
+
+/// The coercion policy assigned to a compiled validator node.
+///
+/// `Inherit` remains unresolved until schema compilation applies parent and
+/// global-mode defaults.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Strictness {
+    Inherit,
+    Strict,
+    Lax,
+}
 
 #[derive(Debug, Clone)]
 pub(crate) enum TypeKind {
@@ -91,6 +102,8 @@ pub(crate) struct ValidatorOptions {
     pub(crate) required: bool,
     pub(crate) nullable: bool,
     pub(crate) filled: bool,
+    /// Per-node coercion preference, unresolved until phase 3.2.
+    pub(crate) strict: Strictness,
     pub(crate) kind: TypeKind,
     pub(crate) predicates: Vec<PredicatePlan>,
 }
@@ -104,6 +117,7 @@ impl fmt::Debug for ValidatorOptions {
             .field("required", &self.required)
             .field("nullable", &self.nullable)
             .field("filled", &self.filled)
+            .field("strict", &self.strict)
             .field("kind", &self.kind)
             .field("predicates", &self.predicates)
             .finish()
@@ -129,12 +143,17 @@ pub(crate) struct ArrayValidator {
 }
 
 impl NativeValidator {
-    pub(crate) fn compile(field: FieldPlan) -> Self {
+    pub(crate) fn compile(
+        field: FieldPlan,
+        global_mode: Mode,
+        parent_strictness: Strictness,
+    ) -> Self {
         let FieldPlan {
             name,
             required,
             nullable,
             filled,
+            strict,
             kind,
             member,
             children,
@@ -146,12 +165,17 @@ impl NativeValidator {
             required,
             nullable,
             filled,
+            strict: resolve_strictness(strict, parent_strictness, global_mode),
             kind: TypeKind::compile(kind.clone()),
             predicates,
         };
+        let strictness = options.strict;
         match kind.as_str() {
             "hash" => {
-                let fields: Vec<_> = children.into_iter().map(Self::compile).collect();
+                let fields: Vec<_> = children
+                    .into_iter()
+                    .map(|field| Self::compile(field, global_mode, strictness))
+                    .collect();
                 Self::Hash(HashValidator {
                     options,
                     declared_keys: compile_declared_keys(&fields),
@@ -160,7 +184,8 @@ impl NativeValidator {
             }
             "array" => Self::Array(ArrayValidator {
                 options,
-                member: member.map(|field| Box::new(Self::compile(*field))),
+                member: member
+                    .map(|field| Box::new(Self::compile(*field, global_mode, strictness))),
             }),
             _ => Self::Scalar(ScalarValidator { options }),
         }
@@ -251,8 +276,29 @@ fn pre_intern_options(ruby: &Ruby, options: &mut ValidatorOptions) {
     );
 }
 
-pub(crate) fn compile_fields(fields: Vec<FieldPlan>) -> Vec<NativeValidator> {
-    fields.into_iter().map(NativeValidator::compile).collect()
+pub(crate) fn compile_fields(fields: Vec<FieldPlan>, global_mode: Mode) -> Vec<NativeValidator> {
+    fields
+        .into_iter()
+        .map(|field| NativeValidator::compile(field, global_mode, Strictness::Inherit))
+        .collect()
+}
+
+fn resolve_strictness(
+    node_strictness: Option<bool>,
+    parent_strictness: Strictness,
+    global_mode: Mode,
+) -> Strictness {
+    match node_strictness {
+        Some(true) => Strictness::Strict,
+        Some(false) => Strictness::Lax,
+        None => match parent_strictness {
+            Strictness::Inherit => match global_mode {
+                Mode::Params => Strictness::Lax,
+                Mode::Json | Mode::Schema => Strictness::Strict,
+            },
+            resolved => resolved,
+        },
+    }
 }
 
 pub(crate) fn compile_declared_keys(fields: &[NativeValidator]) -> Vec<Arc<str>> {
@@ -281,6 +327,7 @@ mod tests {
             required: true,
             nullable: false,
             filled: false,
+            strict: None,
             kind: "array".to_owned(),
             predicates: Vec::new(),
             children: Vec::new(),
@@ -289,6 +336,7 @@ mod tests {
                 required: true,
                 nullable: false,
                 filled: false,
+                strict: None,
                 kind: "hash".to_owned(),
                 predicates: Vec::new(),
                 member: None,
@@ -297,6 +345,7 @@ mod tests {
                     required: true,
                     nullable: false,
                     filled: false,
+                    strict: None,
                     kind: "integer".to_owned(),
                     member: None,
                     children: Vec::new(),
@@ -304,32 +353,38 @@ mod tests {
                 }],
             })),
         };
-        let validator = NativeValidator::compile(field);
+        let validator = NativeValidator::compile(field, Mode::Params, Strictness::Inherit);
         assert!(matches!(validator, NativeValidator::Array(_)));
         assert_eq!(validator.count_fields(), 2);
     }
 
     #[test]
     fn compilation_owns_field_names_once() {
-        let validator = NativeValidator::compile(FieldPlan {
-            name: Some("profile".to_owned()),
-            required: true,
-            nullable: false,
-            filled: false,
-            kind: "hash".to_owned(),
-            predicates: Vec::new(),
-            member: None,
-            children: vec![FieldPlan {
-                name: Some("name".to_owned()),
-                required: false,
+        let validator = NativeValidator::compile(
+            FieldPlan {
+                name: Some("profile".to_owned()),
+                required: true,
                 nullable: false,
                 filled: false,
-                kind: "string".to_owned(),
-                member: None,
-                children: Vec::new(),
+                strict: None,
+                kind: "hash".to_owned(),
                 predicates: Vec::new(),
-            }],
-        });
+                member: None,
+                children: vec![FieldPlan {
+                    name: Some("name".to_owned()),
+                    required: false,
+                    nullable: false,
+                    filled: false,
+                    strict: None,
+                    kind: "string".to_owned(),
+                    member: None,
+                    children: Vec::new(),
+                    predicates: Vec::new(),
+                }],
+            },
+            Mode::Params,
+            Strictness::Inherit,
+        );
 
         let NativeValidator::Hash(hash) = validator else {
             panic!("hash plan must compile to a hash validator");
@@ -337,5 +392,120 @@ mod tests {
         assert_eq!(hash.options.name.as_deref(), Some("profile"));
         assert_eq!(hash.fields[0].options().name.as_deref(), Some("name"));
         assert_eq!(hash.declared_keys.as_slice(), [Arc::from("name")]);
+    }
+
+    #[test]
+    fn compilation_resolves_global_strictness_for_every_validator_node() {
+        let validator = NativeValidator::compile(
+            FieldPlan {
+                name: Some("items".to_owned()),
+                required: true,
+                nullable: false,
+                filled: false,
+                strict: None,
+                kind: "array".to_owned(),
+                predicates: Vec::new(),
+                member: Some(Box::new(FieldPlan {
+                    name: None,
+                    required: true,
+                    nullable: false,
+                    filled: false,
+                    strict: None,
+                    kind: "hash".to_owned(),
+                    predicates: Vec::new(),
+                    member: None,
+                    children: vec![FieldPlan {
+                        name: Some("id".to_owned()),
+                        required: true,
+                        nullable: false,
+                        filled: false,
+                        strict: None,
+                        kind: "integer".to_owned(),
+                        predicates: Vec::new(),
+                        member: None,
+                        children: Vec::new(),
+                    }],
+                })),
+                children: Vec::new(),
+            },
+            Mode::Schema,
+            Strictness::Inherit,
+        );
+
+        let NativeValidator::Array(array) = &validator else {
+            panic!("array plan must compile to an array validator");
+        };
+        assert_eq!(array.options.strict, Strictness::Strict);
+
+        let NativeValidator::Hash(hash) = array.member.as_deref().expect("array member") else {
+            panic!("array member must compile to a hash validator");
+        };
+        assert_eq!(hash.options.strict, Strictness::Strict);
+        assert_eq!(hash.fields[0].options().strict, Strictness::Strict);
+    }
+
+    #[test]
+    fn compilation_applies_node_overrides_before_inheritance() {
+        let validator = NativeValidator::compile(
+            FieldPlan {
+                name: Some("profile".to_owned()),
+                required: true,
+                nullable: false,
+                filled: false,
+                strict: Some(false),
+                kind: "hash".to_owned(),
+                predicates: Vec::new(),
+                member: None,
+                children: vec![
+                    FieldPlan {
+                        name: Some("age".to_owned()),
+                        required: true,
+                        nullable: false,
+                        filled: false,
+                        strict: None,
+                        kind: "integer".to_owned(),
+                        predicates: Vec::new(),
+                        member: None,
+                        children: Vec::new(),
+                    },
+                    FieldPlan {
+                        name: Some("admin".to_owned()),
+                        required: true,
+                        nullable: false,
+                        filled: false,
+                        strict: Some(true),
+                        kind: "bool".to_owned(),
+                        predicates: Vec::new(),
+                        member: None,
+                        children: Vec::new(),
+                    },
+                ],
+            },
+            Mode::Json,
+            Strictness::Inherit,
+        );
+
+        let NativeValidator::Hash(profile) = validator else {
+            panic!("hash plan must compile to a hash validator");
+        };
+        assert_eq!(profile.options.strict, Strictness::Lax);
+        assert_eq!(profile.fields[0].options().strict, Strictness::Lax);
+        assert_eq!(profile.fields[1].options().strict, Strictness::Strict);
+    }
+
+    #[test]
+    fn inherited_strictness_uses_the_global_mode_default() {
+        assert_eq!(
+            resolve_strictness(None, Strictness::Inherit, Mode::Params),
+            Strictness::Lax
+        );
+        assert_eq!(
+            resolve_strictness(None, Strictness::Inherit, Mode::Json),
+            Strictness::Strict
+        );
+        assert_eq!(
+            resolve_strictness(None, Strictness::Inherit, Mode::Schema),
+            Strictness::Strict
+        );
     }
 }
