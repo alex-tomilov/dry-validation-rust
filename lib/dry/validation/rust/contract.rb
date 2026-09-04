@@ -269,22 +269,20 @@ module Dry
           schema = self.class.schema_definition
           raise SchemaMissingError, "#{self.class} must define a schema" unless schema
 
-          schema_result = schema.call(input)
-          shared_context = default_context.merge(context)
-          result = Result.new(schema_result, shared_context)
-          schema_error_paths = schema_result.error_prefixes
+          finalize_schema_result(schema.call(input), context)
+        end
 
-          self.class.rules.each do |rule|
-            if rule.each?
-              execute_each(rule, result, shared_context)
-            else
-              next if rule.paths.any? { |path| dependency_error?(schema_error_paths, path) }
+        # Parses and validates JSON through the fused native validator, releasing MRI's GVL.
+        # @param raw_json [String] a JSON object accepted by the declared JSON schema
+        # @param context [Hash] context available to rule evaluators for this call
+        # @return [Result] finalized schema and rule validation result
+        # @raise [SchemaMissingError] if this contract has no schema
+        # @raise [ArgumentError] if the schema cannot use fused JSON validation
+        def call_json(raw_json, context = {})
+          schema = self.class.schema_definition
+          raise SchemaMissingError, "#{self.class} must define a schema" unless schema
 
-              execute_rule(rule, result, shared_context)
-            end
-          end
-
-          result.finalize!
+          finalize_schema_result(schema.call_json(raw_json), context)
         end
 
         # Validates input with bracket syntax; equivalent to {#call}.
@@ -329,6 +327,23 @@ module Dry
         end
 
         private
+
+        # Applies the shared rule-evaluation phase after either schema entrypoint.
+        def finalize_schema_result(schema_result, context)
+          shared_context = default_context.merge(context)
+          result = Result.new(schema_result, shared_context)
+          schema_error_paths = schema_result.error_prefixes
+          self.class.rules.each do |rule|
+            if rule.each?
+              execute_each(rule, result, shared_context)
+            else
+              next if rule.paths.any? { |path| dependency_error?(schema_error_paths, path) }
+
+              execute_rule(rule, result, shared_context)
+            end
+          end
+          result.finalize!
+        end
 
         # @api private
         def initialize_options(provided)

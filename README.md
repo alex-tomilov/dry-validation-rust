@@ -251,7 +251,8 @@ each scenario. On Linux it records current/peak RSS plus PSS and USS around the
 timed validation loop. Peak RSS includes resident Ruby and Rust/native memory;
 PSS apportions shared pages and USS reports private resident pages. See
 [`docs/MEMORY_BENCHMARKING.md`](docs/MEMORY_BENCHMARKING.md) for exact metric
-semantics and limitations.
+semantics and limitations. It prints calibration and measurement progress to
+stderr, including a checkpoint path and resume command.
 
 These are process-footprint metrics, not cumulative bytes allocated over time.
 Ruby object counts from `GC.stat` remain a separate GC-pressure signal.
@@ -414,33 +415,33 @@ performance guarantee.
 | 100-object array |                             318.85–322.47 µs |      320.55 µs |
 | 20-field invalid |                             63.480–64.437 µs |      63.953 µs |
 
-## Representative publication results (2026-08-24)
+## Representative publication results (2026-09-04)
 
 The following publication runs compare the hybrid engine with
 dry-validation 1.11.1 (dry-schema 1.16.0 and dry-types 1.9.1) on CRuby 3.3.7,
 x86_64 Linux, and an AMD Ryzen 7 5800H. They are host-local evidence, not a
 cross-host guarantee or an end-to-end Rails request benchmark.
 
-The throughput run measured commit `e26bbb18e90f` in seven isolated Ruby
+The throughput run measured commit `bb260c5ba0e9` in seven isolated Ruby
 processes per engine and scenario, targeting 10 seconds each. It measures
 validation calls after contract/plan construction; ranges show the full set of
 successful measurements.
 
 | `SCENARIO`            | Rust validations/s, median (range) | Upstream validations/s, median (range) | Median speedup (range) |
 | --------------------- | ---------------------------------: | -------------------------------------: | ---------------------: |
-| `small_form`          |           100,083 (84,791–101,865) |                 40,111 (36,933–41,111) |      2.50× (2.11–2.56) |
-| `medium_form`         |             14,517 (13,099–14,657) |                    2,792 (2,439–2,921) |      5.14× (4.97–5.51) |
-| `large_form`          |                2,140 (1,816–2,153) |                          307 (275–344) |      6.73× (6.24–7.36) |
-| `nested_object`       |             56,291 (50,939–62,997) |                 19,402 (17,589–20,917) |      2.98× (2.90–3.15) |
-| `array_of_objects`    |                4,411 (4,202–4,778) |                          800 (709–832) |      5.68× (5.33–5.93) |
-| `all_invalid`         |                5,397 (5,057–5,625) |                          823 (762–887) |      6.44× (6.16–7.38) |
-| `sparse_optional`     |             30,623 (29,528–32,315) |                    7,345 (7,073–8,073) |      4.12× (3.66–4.41) |
-| `mixed_types`         |             38,408 (36,599–39,227) |                 15,420 (14,069–16,033) |      2.48× (2.45–2.69) |
-| `array_of_primitives` |             16,656 (15,718–17,299) |                    3,220 (3,083–3,272) |      5.20× (4.80–5.32) |
-| `wide_nested_object`  |                8,472 (7,993–8,802) |                    3,744 (3,440–4,002) |      2.26× (2.06–2.33) |
-| `ruby_rules`          |             18,127 (16,774–19,774) |                    8,812 (8,487–9,239) |      2.09× (1.93–2.16) |
+| `small_form`          |          108,259 (101,631–109,643) |                 40,471 (38,864–41,268) |      2.68× (2.54–2.77) |
+| `medium_form`         |             15,104 (14,206–15,271) |                    2,790 (2,673–2,845) |      5.41× (5.09–5.58) |
+| `large_form`          |                2,154 (1,966–2,183) |                          330 (296–337) |      6.56× (6.08–6.64) |
+| `nested_object`       |             70,248 (62,016–72,255) |                 19,715 (18,531–20,577) |      3.53× (3.35–3.68) |
+| `array_of_objects`    |                8,562 (8,395–8,817) |                          803 (779–837) |   10.61× (10.24–11.32) |
+| `all_invalid`         |                5,509 (5,226–5,702) |                          843 (737–879) |      6.60× (6.42–7.09) |
+| `sparse_optional`     |             37,851 (37,092–38,943) |                    8,000 (7,545–8,441) |      4.67× (4.41–4.95) |
+| `mixed_types`         |             44,435 (42,462–46,271) |                 15,434 (14,637–16,065) |      2.90× (2.81–2.98) |
+| `array_of_primitives` |             18,389 (17,490–18,609) |                    3,181 (3,015–3,239) |      5.78× (5.50–6.11) |
+| `wide_nested_object`  |              10,182 (9,555–10,251) |                    3,896 (3,768–4,046) |      2.58× (2.52–2.63) |
+| `ruby_rules`          |             19,532 (18,316–20,139) |                    9,168 (8,283–9,420) |      2.14× (1.96–2.30) |
 
-The separate process-memory run measured commit `0f2f46414bc9`, also with
+The separate process-memory run measured commit `979fbf9a0428`, also with
 seven runs and identical validation count/warmup for both engines within each
 scenario. Peak RSS is a whole-process high-water mark during the loop; the
 Linux-only PSS and USS measurements are taken after it. PSS apportions shared
@@ -448,22 +449,26 @@ pages and USS counts private resident pages.
 
 | `SCENARIO`            | Peak RSS reduction |     PSS reduction |     USS reduction | Ruby object reduction |
 | --------------------- | -----------------: | ----------------: | ----------------: | --------------------: |
-| `small_form`          |  12.9% (12.6–13.2) | 14.8% (14.5–15.0) | 16.2% (15.8–16.4) |                -42.9% |
-| `medium_form`         |  12.3% (12.2–12.7) | 14.6% (14.3–14.8) | 15.9% (15.6–16.1) |                 63.7% |
-| `large_form`          |  11.2% (10.7–11.4) | 12.9% (12.2–13.1) | 14.1% (13.5–14.3) |                 74.9% |
-| `nested_object`       |  13.1% (12.8–13.4) | 15.3% (15.0–15.6) | 16.7% (16.4–17.0) |                -13.3% |
-| `array_of_objects`    |  13.0% (12.2–13.1) | 15.1% (14.4–15.4) | 16.4% (15.7–16.7) |                  3.6% |
-| `all_invalid`         |     9.5% (9.0–9.9) | 10.8% (10.2–11.1) | 12.0% (11.4–12.2) |                 78.0% |
-| `sparse_optional`     |  15.7% (15.6–16.1) | 18.7% (18.2–18.9) | 20.1% (19.7–20.4) |                 39.3% |
-| `mixed_types`         |  16.0% (15.4–16.2) | 18.8% (18.5–19.1) | 20.2% (19.9–20.6) |                -74.3% |
-| `array_of_primitives` |  12.9% (11.9–13.1) | 14.6% (13.4–14.8) | 15.7% (14.5–15.9) |                 -2.6% |
-| `wide_nested_object`  |  14.8% (14.4–15.2) | 17.1% (16.8–17.7) | 18.5% (18.2–19.1) |               -179.6% |
-| `ruby_rules`          |  11.4% (10.9–12.3) | 13.1% (12.5–14.2) | 14.4% (13.7–15.4) |                 34.2% |
+| `small_form`          |  12.9% (12.7–13.1) | 15.1% (14.6–15.5) | 16.5% (16.0–16.9) |                -22.4% |
+| `medium_form`         |  11.5% (11.1–11.8) | 13.4% (13.0–13.8) | 14.7% (14.3–15.1) |                 68.2% |
+| `large_form`          |  11.1% (10.7–11.5) | 12.6% (12.4–13.2) | 13.9% (13.6–14.4) |                 76.8% |
+| `nested_object`       |  12.6% (12.2–12.9) | 14.5% (13.9–15.1) | 15.9% (15.2–16.5) |                  6.2% |
+| `array_of_objects`    |  11.6% (11.3–12.1) | 13.5% (13.3–14.0) | 14.7% (14.6–15.2) |                 62.1% |
+| `all_invalid`         |     8.9% (7.8–9.3) |  10.1% (8.9–10.2) | 11.3% (10.0–11.3) |                 79.0% |
+| `sparse_optional`     |  15.6% (15.4–16.5) | 18.3% (18.1–19.1) | 19.8% (19.5–20.6) |                 55.1% |
+| `mixed_types`         |  15.7% (15.3–16.1) | 18.3% (18.1–18.9) | 19.7% (19.5–20.4) |                -37.6% |
+| `array_of_primitives` |  11.9% (11.1–12.8) | 13.4% (12.7–14.4) | 14.5% (13.8–15.5) |                  2.6% |
+| `wide_nested_object`  |  14.7% (14.0–15.0) | 17.1% (16.7–17.6) | 18.6% (18.2–19.0) |               -112.8% |
+| `ruby_rules`          |  11.2% (11.1–11.2) | 12.7% (12.4–12.9) | 14.0% (13.7–14.1) |                 39.4% |
 
 Ruby object reduction is a `GC.stat` count, not a byte total; negative values
 mean the hybrid path allocated more Ruby objects. None of RSS, PSS, or USS is a
-measure of cumulative allocated bytes. Reproduce fresh evidence with the
-publication runners above rather than extrapolating these host-local figures.
+measure of cumulative allocated bytes. The hybrid path's lower process
+footprint does not imply lower memory growth during the timed loop: the
+September run observed larger median RSS growth for several scenarios,
+including `medium_form`, `large_form`, `all_invalid`, and
+`array_of_primitives`. Reproduce fresh evidence with the publication runners
+above rather than extrapolating these host-local figures.
 
 ## Important performance caveat
 

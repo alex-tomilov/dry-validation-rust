@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Added live calibration and measurement progress to the process-memory
+  benchmark runner, including checkpoint-resume guidance.
+- Added `Contract#call_json` for fused parsing and validation of raw JSON objects
+  using JSON-mode schemas, with the native phase running without MRI's GVL.
 - Added per-field strict and lax coercion controls to the schema DSL.
 - Improved compiled native-validator traversal by reusing field names and
   declared-key lookups.

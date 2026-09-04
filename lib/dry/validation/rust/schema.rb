@@ -123,8 +123,32 @@ module Dry
           # Before hooks receive an isolated copy and may safely mutate nested values.
           prepared_input = before_hooks.empty? ? input.dup : ProcessorHooks.deep_dup(input)
           prepared_input = ProcessorHooks.apply(before_hooks, prepared_input)
-          result = engine.call(prepared_input)
-          output = ProcessorHooks.apply(after_hooks, result.output)
+          build_result(engine.call(prepared_input), apply_after_hooks: true)
+        end
+
+        # Parses and validates a raw JSON object without allocating an input Ruby Hash.
+        #
+        # The JSON parse and native schema-validation pass run while MRI's GVL is released.
+        # This entrypoint is available only for JSON-mode schemas without Ruby processor hooks
+        # or Ruby-owned predicates; use {#call} for those Ruby-dependent schema features.
+        #
+        # @param raw_json [String] a JSON object to validate.
+        # @return [Result] the output and validation messages.
+        # @raise [ArgumentError] if the schema cannot use fused JSON validation.
+        def call_json(raw_json)
+          raise ArgumentError, "JSON input must be a String. #{raw_json.class} was given." unless raw_json.is_a?(String)
+          raise ArgumentError, 'call_json requires a json schema' unless mode == :json
+          unless before_hooks.empty? && after_hooks.empty? && !@has_ruby_predicates
+            raise ArgumentError, 'call_json does not support processor hooks or Ruby predicates; use call instead'
+          end
+
+          build_result(engine.call_json(raw_json), apply_after_hooks: false)
+        end
+
+        private
+
+        def build_result(result, apply_after_hooks:)
+          output = apply_after_hooks ? ProcessorHooks.apply(after_hooks, result.output) : result.output
           messages = result.errors.map do |error|
             path = error[:path]
             code = error[:code]
@@ -136,6 +160,8 @@ module Dry
           apply_ruby_predicates(fields, output, [], messages) if @has_ruby_predicates
           Result.new(output, messages.freeze)
         end
+
+        public
 
         # Validates and coerces a Hash.
         #

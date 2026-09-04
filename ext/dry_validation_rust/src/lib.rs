@@ -8,6 +8,7 @@ mod compiled;
 mod engine;
 mod error;
 mod extract_primitive;
+mod fused;
 mod plan;
 mod predicates;
 mod ruby_bridge;
@@ -228,6 +229,7 @@ fn init(ruby: &Ruby) -> Result<(), Error> {
     let class = native.define_class("Engine", ruby.class_object())?;
     class.define_singleton_method("new", function!(Engine::new, 1))?;
     class.define_method("call", method!(Engine::call, 1))?;
+    class.define_method("call_json", method!(Engine::call_json, 1))?;
     class.define_method("field_count", method!(Engine::field_count, 0))?;
     class.define_method("plan_bytes", method!(Engine::plan_bytes, 0))?;
     let result_class = native.define_class("SchemaResult", ruby.class_object())?;

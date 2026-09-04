@@ -18,6 +18,8 @@ same amount of work, so the memory runner calibrates `N` from upstream and then
 uses exactly the same `N` and warmup for Rust and upstream.
 
 Defaults are five runs and roughly two seconds of upstream work per scenario.
+The runner prints its calibration and measurement progress to stderr, along
+with a checkpoint path and a `RESUME_FROM` command for interrupted runs.
 Useful overrides:
 
 ```bash
