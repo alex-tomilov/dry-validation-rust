@@ -33,7 +33,7 @@ pub mod benchmark {
 
     use crate::{
         coercion::coerce,
-        plan::{FieldPlan, Mode, PredicateArg, PredicateOp, PredicatePlan},
+        plan::{FieldPlan, PredicateArg, PredicateOp, PredicatePlan},
         predicates::apply_predicates,
         ruby_bridge::RuntimeClasses,
     };
@@ -55,7 +55,7 @@ pub mod benchmark {
             coerce(
                 ruby,
                 &self.classes,
-                Mode::Params,
+                false,
                 &crate::compiled::TypeKind::compile(kind.to_owned()),
                 value,
             )
@@ -178,6 +178,7 @@ pub mod benchmark {
             required: false,
             nullable: false,
             filled: false,
+            strict: None,
             kind: "any".to_owned(),
             member: None,
             children: Vec::new(),

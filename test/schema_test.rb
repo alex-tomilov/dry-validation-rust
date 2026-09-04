@@ -304,6 +304,43 @@ class SchemaTest < Minitest::Test
     assert_equal({ age: 42, ratio: 1.5, enabled: false, role: :admin, nickname: nil }, result.to_h)
   end
 
+  def test_per_field_strictness_overrides_schema_mode
+    params = build_contract do
+      params do
+        required(:lax).value(:integer)
+        required(:strict).strict(:integer)
+      end
+    end
+    json = build_contract do
+      json { required(:lax).lax(:integer) }
+    end
+
+    params_result = params.new.call('lax' => '21', 'strict' => '21')
+    assert_equal 21, params_result.to_h.fetch(:lax)
+    assert_equal '21', params_result.to_h.fetch(:strict)
+    assert_equal({ strict: ['must be an integer'] }, params_result.errors.to_h)
+
+    json_result = json.new.call('lax' => '21')
+    assert json_result.success?
+    assert_equal({ lax: 21 }, json_result.to_h)
+  end
+
+  def test_value_accepts_boolean_strictness_keywords_and_rejects_invalid_settings
+    schema = Dry::Validation::Rust::Schema.JSON do
+      required(:strict).value(:integer, strict: false, lax: nil)
+      required(:lax).value(:integer, lax: true)
+    end
+
+    result = schema.call('strict' => '21', 'lax' => '22')
+    assert result.success?
+    assert_equal({ strict: 21, lax: 22 }, result.to_h)
+
+    error = assert_raises(ArgumentError) do
+      Dry::Validation::Rust::Schema.Params { required(:age).value(:integer, strict: 'yes') }
+    end
+    assert_equal 'strict must be true or false', error.message
+  end
+
   def test_native_engine_reuses_interned_symbols_for_nested_symbol_and_string_keys
     contract = build_contract do
       params do

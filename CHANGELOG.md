@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Added per-field strict and lax coercion controls to the schema DSL.
 - Improved compiled native-validator traversal by reusing field names and
   declared-key lookups.
 - Improved native validation performance by pre-interning compiled field-key

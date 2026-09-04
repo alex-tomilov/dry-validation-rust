@@ -6,7 +6,7 @@ module Dry
       class Schema
         # @api private
         class FieldDefinition
-          attr_accessor :name, :required, :nullable, :filled, :type, :member, :ruby_type
+          attr_accessor :name, :required, :nullable, :filled, :strict, :type, :member, :ruby_type
           attr_reader :children, :predicates
 
           def initialize(name:, required:)
@@ -14,6 +14,7 @@ module Dry
             @required = required
             @nullable = false
             @filled = false
+            @strict = nil
             @type = :any
             @member = nil
             @ruby_type = nil
@@ -44,7 +45,7 @@ module Dry
           end
 
           def to_native_h
-            {
+            native = {
               name: name&.to_s,
               required: required,
               nullable: nullable,
@@ -58,6 +59,8 @@ module Dry
                 { name: predicate.name.to_s, argument: predicate.argument }
               end
             }
+            native[:strict] = strict unless strict.nil?
+            native
           end
 
           def normalized_type
@@ -68,6 +71,7 @@ module Dry
             self.class.new(name: name, required: required).tap do |copy|
               copy.nullable = nullable
               copy.filled = filled
+              copy.strict = strict
               copy.type = type
               copy.ruby_type = ruby_type
               copy.member = member&.deep_dup

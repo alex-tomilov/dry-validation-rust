@@ -13,12 +13,32 @@ module Dry
             @mode = mode
           end
 
-          def value(*specs, **predicates, &block)
+          # Declares a typed value and optionally overrides inherited coercion strictness.
+          #
+          # @param strict [Boolean, nil] whether to disable literal coercion for this field.
+          # @param lax [Boolean, nil] whether to enable literal coercion for this field.
+          # @raise [ArgumentError] when strictness options conflict or are not booleans.
+          def value(*specs, strict: nil, lax: nil, **predicates, &block)
+            apply_strictness(strict, lax)
             apply_specs(specs, predicates)
             if block
               nested_value_block? ? nested_target(block) : PredicateBlock.new(definition).instance_eval(&block)
             end
             self
+          end
+
+          # Declares a typed value with literal coercion disabled for this field.
+          #
+          # @see #value
+          def strict(*specs, **predicates, &)
+            value(*specs, strict: true, **predicates, &)
+          end
+
+          # Declares a typed value with literal coercion enabled for this field.
+          #
+          # @see #value
+          def lax(*specs, **predicates, &)
+            value(*specs, lax: true, **predicates, &)
           end
 
           def filled(*specs, **predicates, &)
@@ -91,6 +111,22 @@ module Dry
           end
 
           private
+
+          def apply_strictness(strict, lax)
+            raise ArgumentError, 'strict and lax cannot both be specified' if !strict.nil? && !lax.nil?
+
+            if !strict.nil?
+              definition.strict = boolean_strictness!(:strict, strict)
+            elsif !lax.nil?
+              definition.strict = !boolean_strictness!(:lax, lax)
+            end
+          end
+
+          def boolean_strictness!(name, value)
+            return value if [true, false].include?(value)
+
+            raise ArgumentError, "#{name} must be true or false"
+          end
 
           def apply_specs(specs, predicates)
             remaining = specs.dup
