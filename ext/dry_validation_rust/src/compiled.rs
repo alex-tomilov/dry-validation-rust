@@ -188,7 +188,7 @@ impl NativeValidator {
                 Self::Array(validator) => validator
                     .member
                     .as_deref()
-                    .is_none_or(Self::supports_json_validation),
+                    .map_or(true, Self::supports_json_validation),
             }
     }
 
@@ -270,6 +270,53 @@ mod tests {
         fn assert_send<T: Send>() {}
 
         assert_send::<NativeValidator>();
+    }
+
+    #[test]
+    fn json_validation_support_requires_a_supported_array_member() {
+        let no_member = NativeValidator::compile(
+            FieldPlan {
+                name: Some("items".to_owned()),
+                required: true,
+                nullable: false,
+                filled: false,
+                strict: None,
+                kind: "array".to_owned(),
+                predicates: Vec::new(),
+                children: Vec::new(),
+                member: None,
+            },
+            Mode::Json,
+            Strictness::Inherit,
+        );
+        let lax_member = NativeValidator::compile(
+            FieldPlan {
+                name: Some("items".to_owned()),
+                required: true,
+                nullable: false,
+                filled: false,
+                strict: None,
+                kind: "array".to_owned(),
+                predicates: Vec::new(),
+                children: Vec::new(),
+                member: Some(Box::new(FieldPlan {
+                    name: None,
+                    required: true,
+                    nullable: false,
+                    filled: false,
+                    strict: Some(false),
+                    kind: "integer".to_owned(),
+                    predicates: Vec::new(),
+                    children: Vec::new(),
+                    member: None,
+                })),
+            },
+            Mode::Json,
+            Strictness::Inherit,
+        );
+
+        assert!(no_member.supports_json_validation());
+        assert!(!lax_member.supports_json_validation());
     }
 
     #[test]
