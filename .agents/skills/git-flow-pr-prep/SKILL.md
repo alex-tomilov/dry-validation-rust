@@ -28,10 +28,25 @@ or commits, stage files, push, open a PR, or alter repository settings.
    entry needed; otherwise state that the PR needs the `no-changelog` label.
    Verify that any entry describes the observable diff, belongs under
    `Unreleased`, and does not claim unrun evidence or a release. Draft a
-   concise PR title and fill every relevant section of the repository PR
-   template. Keep unchecked items that were not performed; never claim
-   verification, compatibility evidence, benchmarks, or releases that the diff
-   and command output do not establish.
+   concise PR title and fill the repository PR template using its exact
+   heading order and checklist item text. Do not add, remove, rename, or
+   reorder template sections or checklist items. Keep unchecked items that
+   were not performed; never claim verification, compatibility evidence,
+   benchmarks, or releases that the diff and command output do not establish.
+
+### Template stability
+
+- Treat the repository template as the output schema. Reproduce every
+  non-comment heading and every checklist item in the generated description,
+  in template order.
+- For a related-issue section, use `Fixes #<number>` only when the user or
+  inspected repository context supplies an issue number. Otherwise retain the
+  template's first non-comment placeholder in that section verbatim (for this
+  repository, `Fixes #(issue)`). Do not substitute `N/A`, `Not provided`, or
+  another ad hoc placeholder.
+- Fill prose placeholders with evidence-backed content. Preserve unchecked
+  checklist items for checks not run or not applicable; do not replace them
+  with prose outside the template.
 
 ## Output
 
