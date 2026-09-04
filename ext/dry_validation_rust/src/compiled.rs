@@ -4,9 +4,7 @@
 //! converts it once, at engine construction, so validation dispatches on Rust
 //! variants instead of repeatedly inspecting a field's string type.
 
-use std::{fmt, sync::Arc};
-
-use magnus::{gc::Marker, value::Opaque, Ruby, Symbol};
+use std::sync::Arc;
 
 use crate::plan::{FieldPlan, Mode, PredicatePlan};
 
@@ -85,20 +83,18 @@ impl TypeKind {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub(crate) enum NativeValidator {
     Scalar(ScalarValidator),
     Hash(HashValidator),
     Array(ArrayValidator),
 }
 
+#[derive(Debug, Clone)]
 pub(crate) struct ValidatorOptions {
     /// Field names are allocated while compiling the transport plan and then
     /// shared by traversal paths and deferred errors.
     pub(crate) name: Option<Arc<str>>,
-    /// Interned when the engine is constructed, avoiding repeated field-name
-    /// hashing during validation.
-    pub(crate) key_symbol: Option<Opaque<Symbol>>,
     pub(crate) required: bool,
     pub(crate) nullable: bool,
     pub(crate) filled: bool,
@@ -108,35 +104,19 @@ pub(crate) struct ValidatorOptions {
     pub(crate) predicates: Vec<PredicatePlan>,
 }
 
-impl fmt::Debug for ValidatorOptions {
-    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        formatter
-            .debug_struct("ValidatorOptions")
-            .field("name", &self.name)
-            .field("key_symbol", &self.key_symbol.as_ref().map(|_| "interned"))
-            .field("required", &self.required)
-            .field("nullable", &self.nullable)
-            .field("filled", &self.filled)
-            .field("strict", &self.strict)
-            .field("kind", &self.kind)
-            .field("predicates", &self.predicates)
-            .finish()
-    }
-}
-
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub(crate) struct ScalarValidator {
     pub(crate) options: ValidatorOptions,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub(crate) struct HashValidator {
     pub(crate) options: ValidatorOptions,
     pub(crate) fields: Vec<NativeValidator>,
     pub(crate) declared_keys: Vec<Arc<str>>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub(crate) struct ArrayValidator {
     pub(crate) options: ValidatorOptions,
     pub(crate) member: Option<Box<NativeValidator>>,
@@ -161,7 +141,6 @@ impl NativeValidator {
         } = field;
         let options = ValidatorOptions {
             name: name.map(Arc::from),
-            key_symbol: None,
             required,
             nullable,
             filled,
@@ -199,45 +178,18 @@ impl NativeValidator {
         }
     }
 
-    pub(crate) fn key_symbol(&self) -> Option<Opaque<Symbol>> {
-        self.options().key_symbol
-    }
-
-    pub(crate) fn pre_intern_symbols(&mut self, ruby: &Ruby) {
-        match self {
-            Self::Scalar(validator) => pre_intern_options(ruby, &mut validator.options),
-            Self::Hash(validator) => {
-                pre_intern_options(ruby, &mut validator.options);
-                for field in &mut validator.fields {
-                    field.pre_intern_symbols(ruby);
+    pub(crate) fn supports_json_validation(&self) -> bool {
+        self.options().strict != Strictness::Lax
+            && match self {
+                Self::Scalar(_) => true,
+                Self::Hash(validator) => {
+                    validator.fields.iter().all(Self::supports_json_validation)
                 }
+                Self::Array(validator) => validator
+                    .member
+                    .as_deref()
+                    .is_none_or(Self::supports_json_validation),
             }
-            Self::Array(validator) => {
-                pre_intern_options(ruby, &mut validator.options);
-                if let Some(member) = &mut validator.member {
-                    member.pre_intern_symbols(ruby);
-                }
-            }
-        }
-    }
-
-    pub(crate) fn mark(&self, marker: &Marker) {
-        if let Some(symbol) = self.key_symbol() {
-            marker.mark(symbol);
-        }
-        match self {
-            Self::Hash(validator) => {
-                for field in &validator.fields {
-                    field.mark(marker);
-                }
-            }
-            Self::Array(validator) => {
-                if let Some(member) = &validator.member {
-                    member.mark(marker);
-                }
-            }
-            Self::Scalar(_) => {}
-        }
     }
 
     pub(crate) fn count_fields(&self) -> usize {
@@ -267,13 +219,6 @@ impl NativeValidator {
             _ => 0,
         }
     }
-}
-
-fn pre_intern_options(ruby: &Ruby, options: &mut ValidatorOptions) {
-    options.key_symbol = Some(
-        ruby.to_symbol(options.name.as_deref().unwrap_or_default())
-            .into(),
-    );
 }
 
 pub(crate) fn compile_fields(fields: Vec<FieldPlan>, global_mode: Mode) -> Vec<NativeValidator> {
@@ -319,6 +264,13 @@ pub(crate) fn compile_declared_keys(fields: &[NativeValidator]) -> Vec<Arc<str>>
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn native_validators_are_send_without_ruby_handles() {
+        fn assert_send<T: Send>() {}
+
+        assert_send::<NativeValidator>();
+    }
 
     #[test]
     fn compilation_places_nested_work_in_variants() {

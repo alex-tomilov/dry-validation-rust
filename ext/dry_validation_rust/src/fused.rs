@@ -9,100 +9,12 @@ use std::sync::Arc;
 use serde_json::{Map, Value};
 
 use crate::{
-    compiled::{
-        ArrayValidator, HashValidator, NativeValidator, Strictness, TypeKind, ValidatorOptions,
-    },
+    compiled::{NativeValidator, TypeKind},
     error::{NativeError, PathPart},
     plan::{PredicateArg, PredicateOp, PredicatePlan},
 };
 
 const MAX_TRAVERSAL_DEPTH: u16 = 128;
-
-#[derive(Clone)]
-pub(crate) struct FusedValidator {
-    name: Option<Arc<str>>,
-    required: bool,
-    nullable: bool,
-    filled: bool,
-    strictness: Strictness,
-    kind: TypeKind,
-    predicates: Vec<PredicatePlan>,
-    children: FusedChildren,
-}
-
-#[derive(Clone)]
-enum FusedChildren {
-    None,
-    Hash {
-        fields: Vec<FusedValidator>,
-        declared_keys: Vec<Arc<str>>,
-    },
-    Array(Option<Box<FusedValidator>>),
-}
-
-impl FusedValidator {
-    pub(crate) fn from_native(validator: &NativeValidator) -> Self {
-        match validator {
-            NativeValidator::Scalar(validator) => Self::scalar(&validator.options),
-            NativeValidator::Hash(validator) => Self::hash(validator),
-            NativeValidator::Array(validator) => Self::array(validator),
-        }
-    }
-
-    fn scalar(options: &ValidatorOptions) -> Self {
-        Self {
-            name: options.name.clone(),
-            required: options.required,
-            nullable: options.nullable,
-            filled: options.filled,
-            strictness: options.strict,
-            kind: options.kind.clone(),
-            predicates: options.predicates.clone(),
-            children: FusedChildren::None,
-        }
-    }
-
-    fn hash(validator: &HashValidator) -> Self {
-        let mut fused = Self::scalar(&validator.options);
-        fused.children = FusedChildren::Hash {
-            fields: validator.fields.iter().map(Self::from_native).collect(),
-            declared_keys: validator.declared_keys.clone(),
-        };
-        fused
-    }
-
-    fn array(validator: &ArrayValidator) -> Self {
-        let mut fused = Self::scalar(&validator.options);
-        fused.children = FusedChildren::Array(
-            validator
-                .member
-                .as_deref()
-                .map(Self::from_native)
-                .map(Box::new),
-        );
-        fused
-    }
-
-    pub(crate) fn supports_json_validation(&self) -> bool {
-        self.strictness_is_native()
-            && match &self.children {
-                FusedChildren::None => true,
-                FusedChildren::Hash { fields, .. } => {
-                    fields.iter().all(Self::supports_json_validation)
-                }
-                FusedChildren::Array(member) => {
-                    member.as_deref().is_none_or(Self::supports_json_validation)
-                }
-            }
-    }
-
-    fn strictness_is_native(&self) -> bool {
-        // `Strictness` is resolved while compiling the native validator. A
-        // lax node can invoke Ruby coercion in the normal engine, which must
-        // remain an explicit unsupported boundary for the GVL-free path.
-        !matches!(self.strictness, Strictness::Lax)
-    }
-}
 
 pub(crate) struct FusedResult {
     pub(crate) output: Value,
@@ -111,7 +23,7 @@ pub(crate) struct FusedResult {
 
 pub(crate) fn validate_json_bytes(
     bytes: &[u8],
-    validators: &[FusedValidator],
+    validators: &[NativeValidator],
     declared_keys: &[Arc<str>],
     validate_keys: bool,
 ) -> FusedResult {
@@ -147,7 +59,7 @@ pub(crate) fn validate_json_bytes(
 }
 
 fn process_hash(
-    fields: &[FusedValidator],
+    fields: &[NativeValidator],
     declared_keys: &[Arc<str>],
     input: &Map<String, Value>,
     validate_keys: bool,
@@ -160,14 +72,15 @@ fn process_hash(
     }
     let mut output = Map::with_capacity(fields.len());
     for field in fields {
-        let name = field.name.as_deref().expect("schema fields are named");
+        let options = field.options();
+        let name = options.name.as_deref().expect("schema fields are named");
         path.push(PathPart::Key(Arc::from(name)));
         if let Some(value) = input.get(name) {
             output.insert(
                 name.to_owned(),
                 process_value(field, value, path, depth, validate_keys, errors),
             );
-        } else if field.required {
+        } else if options.required {
             errors.push(NativeError::missing(path));
         }
         path.pop();
@@ -188,7 +101,7 @@ fn process_hash(
 }
 
 fn process_value(
-    field: &FusedValidator,
+    field: &NativeValidator,
     raw: &Value,
     path: &mut Vec<PathPart>,
     depth: u16,
@@ -198,55 +111,62 @@ fn process_value(
     if !within_depth_limit(depth, path, errors) {
         return raw.clone();
     }
+    let options = field.options();
     if raw.is_null() {
-        if field.filled && matches!(field.kind, TypeKind::Nil | TypeKind::Any) {
+        if options.filled && matches!(options.kind, TypeKind::Nil | TypeKind::Any) {
             errors.push(NativeError::filled(path));
-        } else if !field.nullable && !matches!(field.kind, TypeKind::Nil | TypeKind::Any) {
-            errors.push(NativeError::type_mismatch(path, field.kind.clone()));
+        } else if !options.nullable && !matches!(options.kind, TypeKind::Nil | TypeKind::Any) {
+            errors.push(NativeError::type_mismatch(path, options.kind.clone()));
         }
         return raw.clone();
     }
-    if !type_matches(&field.kind, raw) {
-        errors.push(NativeError::type_mismatch(path, field.kind.clone()));
+    if !type_matches(&options.kind, raw) {
+        errors.push(NativeError::type_mismatch(path, options.kind.clone()));
         return raw.clone();
     }
-    if field.filled && empty(raw) {
+    if options.filled && empty(raw) {
         errors.push(NativeError::filled(path));
         return raw.clone();
     }
 
-    let value = match (&field.children, raw) {
-        (
-            FusedChildren::Hash {
-                fields,
-                declared_keys,
-            },
-            Value::Object(input),
-        ) if !fields.is_empty() => process_hash(
-            fields,
-            declared_keys,
-            input,
-            validate_keys,
-            path,
-            depth + 1,
-            errors,
-        ),
-        (FusedChildren::Array(Some(member)), Value::Array(values)) => Value::Array(
-            values
-                .iter()
-                .enumerate()
-                .map(|(index, value)| {
-                    path.push(PathPart::Index(index));
-                    let output =
-                        process_value(member, value, path, depth + 1, validate_keys, errors);
-                    path.pop();
-                    output
-                })
-                .collect(),
-        ),
+    let value = match (field, raw) {
+        (NativeValidator::Hash(validator), Value::Object(input))
+            if !validator.fields.is_empty() =>
+        {
+            process_hash(
+                &validator.fields,
+                &validator.declared_keys,
+                input,
+                validate_keys,
+                path,
+                depth + 1,
+                errors,
+            )
+        }
+        (NativeValidator::Array(validator), Value::Array(values)) if validator.member.is_some() => {
+            Value::Array(
+                values
+                    .iter()
+                    .enumerate()
+                    .map(|(index, value)| {
+                        path.push(PathPart::Index(index));
+                        let output = process_value(
+                            validator.member.as_deref().expect("array member exists"),
+                            value,
+                            path,
+                            depth + 1,
+                            validate_keys,
+                            errors,
+                        );
+                        path.pop();
+                        output
+                    })
+                    .collect(),
+            )
+        }
         _ => raw.clone(),
     };
-    apply_predicates(&field.predicates, &value, path, errors);
+    apply_predicates(&options.predicates, &value, path, errors);
     value
 }
 

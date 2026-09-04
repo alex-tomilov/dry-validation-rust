@@ -5,8 +5,8 @@ use std::{
 };
 
 use magnus::{
-    gc::Marker, prelude::*, r_hash::ForEach, typed_data::Obj, DataTypeFunctions, Error, RArray,
-    RHash, RString, Ruby, Symbol, TypedData, Value,
+    gc::Marker, prelude::*, r_hash::ForEach, typed_data::Obj, value::Opaque, DataTypeFunctions,
+    Error, RArray, RHash, RString, Ruby, Symbol, TypedData, Value,
 };
 
 use crate::{
@@ -15,7 +15,7 @@ use crate::{
         compile_declared_keys, compile_fields, NativeValidator, Strictness, ValidatorOptions,
     },
     error::{NativeError, PathPart},
-    fused::{validate_json_bytes, FusedResult, FusedValidator},
+    fused::{validate_json_bytes, FusedResult},
     plan::{parse_plan, Mode},
     predicates::apply_predicates,
     ruby_bridge::RuntimeClasses,
@@ -33,8 +33,7 @@ const MAX_TRAVERSAL_DEPTH: u16 = 128;
 )]
 pub(crate) struct Engine {
     validators: Vec<NativeValidator>,
-    fused_validators: Vec<FusedValidator>,
-    fused_json_supported: bool,
+    ruby_validators: Vec<RubyValidatorCache>,
     declared_keys: Vec<Arc<str>>,
     classes: RuntimeClasses,
     mode: Mode,
@@ -45,10 +44,89 @@ pub(crate) struct Engine {
 
 struct FusedJob {
     bytes: Vec<u8>,
-    validators: Vec<FusedValidator>,
+    validators: Vec<NativeValidator>,
     declared_keys: Vec<Arc<str>>,
     validate_keys: bool,
     result: Option<FusedResult>,
+}
+
+enum RubyValidatorCache {
+    Scalar {
+        key_symbol: Option<Opaque<Symbol>>,
+    },
+    Hash {
+        key_symbol: Option<Opaque<Symbol>>,
+        fields: Vec<Self>,
+    },
+    Array {
+        key_symbol: Option<Opaque<Symbol>>,
+        member: Option<Box<Self>>,
+    },
+}
+
+impl RubyValidatorCache {
+    fn compile(ruby: &Ruby, validator: &NativeValidator) -> Self {
+        let key_symbol = validator
+            .options()
+            .name
+            .as_deref()
+            .map(|name| ruby.to_symbol(name).into());
+        match validator {
+            NativeValidator::Scalar(_) => Self::Scalar { key_symbol },
+            NativeValidator::Hash(validator) => Self::Hash {
+                key_symbol,
+                fields: validator
+                    .fields
+                    .iter()
+                    .map(|field| Self::compile(ruby, field))
+                    .collect(),
+            },
+            NativeValidator::Array(validator) => Self::Array {
+                key_symbol,
+                member: validator
+                    .member
+                    .as_deref()
+                    .map(|member| Box::new(Self::compile(ruby, member))),
+            },
+        }
+    }
+
+    fn key_symbol(&self) -> Option<Opaque<Symbol>> {
+        match self {
+            Self::Scalar { key_symbol }
+            | Self::Hash { key_symbol, .. }
+            | Self::Array { key_symbol, .. } => *key_symbol,
+        }
+    }
+
+    fn mark(&self, marker: &Marker) {
+        if let Some(symbol) = self.key_symbol() {
+            marker.mark(symbol);
+        }
+        match self {
+            Self::Hash { fields, .. } => fields.iter().for_each(|field| field.mark(marker)),
+            Self::Array { member, .. } => {
+                if let Some(field) = member {
+                    field.mark(marker);
+                }
+            }
+            Self::Scalar { .. } => {}
+        }
+    }
+
+    fn fields(&self) -> Option<&[Self]> {
+        match self {
+            Self::Hash { fields, .. } => Some(fields),
+            _ => None,
+        }
+    }
+
+    fn member(&self) -> Option<&Self> {
+        match self {
+            Self::Array { member, .. } => member.as_deref(),
+            _ => None,
+        }
+    }
 }
 
 unsafe extern "C" fn run_fused_job(job: *mut c_void) -> *mut c_void {
@@ -75,7 +153,7 @@ unsafe extern "C" fn run_fused_job(job: *mut c_void) -> *mut c_void {
 impl DataTypeFunctions for Engine {
     fn mark(&self, marker: &Marker) {
         self.classes.mark(marker);
-        for validator in &self.validators {
+        for validator in &self.ruby_validators {
             validator.mark(marker);
         }
     }
@@ -100,20 +178,16 @@ impl Engine {
         let classes = RuntimeClasses::new(ruby, &plan)?;
         let mode = plan.mode;
         let validate_keys = plan.validate_keys;
-        let mut validators = compile_fields(plan.fields, mode);
-        for validator in &mut validators {
-            validator.pre_intern_symbols(ruby);
-        }
-        let declared_keys = compile_declared_keys(&validators);
-        let fused_validators: Vec<_> = validators.iter().map(FusedValidator::from_native).collect();
-        let fused_json_supported = fused_validators
+        let validators = compile_fields(plan.fields, mode);
+        let ruby_validators = validators
             .iter()
-            .all(FusedValidator::supports_json_validation);
+            .map(|validator| RubyValidatorCache::compile(ruby, validator))
+            .collect();
+        let declared_keys = compile_declared_keys(&validators);
         let field_count = validators.iter().map(NativeValidator::count_fields).sum();
         Ok(Self {
             validators,
-            fused_validators,
-            fused_json_supported,
+            ruby_validators,
             declared_keys,
             classes,
             mode,
@@ -137,6 +211,7 @@ impl Engine {
             process_hash(
                 &mut traversal,
                 &self.validators,
+                &self.ruby_validators,
                 &self.declared_keys,
                 input,
                 &mut Vec::new(),
@@ -154,7 +229,11 @@ impl Engine {
                 "call_json requires a json schema",
             ));
         }
-        if !self.fused_json_supported {
+        if !self
+            .validators
+            .iter()
+            .all(NativeValidator::supports_json_validation)
+        {
             return Err(Error::new(
                 ruby.exception_arg_error(),
                 "call_json does not support lax coercion; use call instead",
@@ -163,7 +242,7 @@ impl Engine {
         let bytes = unsafe { raw.as_slice() }.to_vec();
         let mut job = FusedJob {
             bytes,
-            validators: self.fused_validators.clone(),
+            validators: self.validators.clone(),
             declared_keys: self.declared_keys.clone(),
             validate_keys: self.validate_keys,
             result: None,
@@ -266,6 +345,7 @@ fn json_scalar_to_ruby(ruby: &Ruby, value: &serde_json::Value) -> Result<Value, 
 fn process_hash(
     traversal: &mut Traversal<'_>,
     fields: &[NativeValidator],
+    ruby_fields: &[RubyValidatorCache],
     declared_keys: &[Arc<str>],
     input: RHash,
     path: &mut Vec<PathPart>,
@@ -275,9 +355,17 @@ fn process_hash(
     if !within_depth_limit(depth, path, traversal.errors) {
         return Ok(output);
     }
+    let mut ruby_fields = ruby_fields.iter();
     for field in fields {
-        process_field(traversal, &output, field, input, path, depth)?;
+        let ruby_field = ruby_fields
+            .next()
+            .expect("every native validator must have a Ruby cache");
+        process_field(traversal, &output, field, ruby_field, input, path, depth)?;
     }
+    assert!(
+        ruby_fields.next().is_none(),
+        "every Ruby cache must have a native validator"
+    );
     report_unexpected_keys(traversal, declared_keys, input, path)?;
     Ok(output)
 }
@@ -327,6 +415,7 @@ fn process_field(
     traversal: &mut Traversal<'_>,
     output: &RHash,
     field: &NativeValidator,
+    ruby_field: &RubyValidatorCache,
     input: RHash,
     path: &mut Vec<PathPart>,
     depth: u16,
@@ -336,12 +425,12 @@ fn process_field(
     path.push(PathPart::Key(
         options.name.clone().unwrap_or_else(|| Arc::from("")),
     ));
-    let key_symbol = field
+    let key_symbol = ruby_field
         .key_symbol()
         .expect("named validators must have a pre-interned key symbol");
     let key = traversal.ruby.get_inner(key_symbol);
     let result = match resolve_field_input(input, traversal.mode, key, name) {
-        Some(raw) => process_value(traversal, field, raw, path, depth)
+        Some(raw) => process_value(traversal, field, ruby_field, raw, path, depth)
             .and_then(|processed| output.aset(key, processed)),
         None => {
             report_missing_field(traversal, options, path);
@@ -380,6 +469,7 @@ fn report_missing_field(
 fn process_value(
     traversal: &mut Traversal<'_>,
     field: &NativeValidator,
+    ruby_field: &RubyValidatorCache,
     raw: Value,
     path: &mut Vec<PathPart>,
     depth: u16,
@@ -402,7 +492,7 @@ fn process_value(
         TypeValidation::Invalid(value) => return Ok(value),
     };
     let filled_error = report_filled_error(traversal, options, coerced, path);
-    let value = process_children(traversal, field, coerced, path, depth)?;
+    let value = process_children(traversal, field, ruby_field, coerced, path, depth)?;
     if !filled_error {
         apply_field_predicates(traversal, field, value, path)?;
     }
@@ -486,6 +576,7 @@ fn report_filled_error(
 fn process_children(
     traversal: &mut Traversal<'_>,
     field: &NativeValidator,
+    ruby_field: &RubyValidatorCache,
     value: Value,
     path: &mut Vec<PathPart>,
     depth: u16,
@@ -496,6 +587,9 @@ fn process_children(
                 return Ok(process_hash(
                     traversal,
                     &validator.fields,
+                    ruby_field
+                        .fields()
+                        .expect("hash validators have Ruby field caches"),
                     &validator.declared_keys,
                     hash,
                     path,
@@ -508,6 +602,7 @@ fn process_children(
             return process_array_members(
                 traversal,
                 validator.member.as_deref(),
+                ruby_field.member(),
                 value,
                 path,
                 depth,
@@ -521,18 +616,21 @@ fn process_children(
 fn process_array_members(
     traversal: &mut Traversal<'_>,
     member: Option<&NativeValidator>,
+    ruby_member: Option<&RubyValidatorCache>,
     value: Value,
     path: &mut Vec<PathPart>,
     depth: u16,
 ) -> Result<Value, Error> {
-    let (Some(member), Some(array)) = (member, RArray::from_value(value)) else {
+    let (Some(member), Some(ruby_member), Some(array)) =
+        (member, ruby_member, RArray::from_value(value))
+    else {
         return Ok(value);
     };
 
     let output = traversal.ruby.ary_new_capa(array.len());
     for (index, item) in array.into_iter().enumerate() {
         path.push(PathPart::Index(index));
-        let processed = process_value(traversal, member, item, path, depth + 1);
+        let processed = process_value(traversal, member, ruby_member, item, path, depth + 1);
         path.pop();
         output.push(processed?)?;
     }
@@ -585,8 +683,7 @@ mod tests {
         let field_count = validators.iter().map(NativeValidator::count_fields).sum();
         let engine = Engine {
             validators,
-            fused_validators: Vec::new(),
-            fused_json_supported: true,
+            ruby_validators: Vec::new(),
             declared_keys,
             classes: RuntimeClasses::default(),
             mode,
