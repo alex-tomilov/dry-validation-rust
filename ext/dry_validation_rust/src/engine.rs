@@ -1,6 +1,6 @@
 use std::{
     ffi::c_void,
-    panic::{catch_unwind, AssertUnwindSafe},
+    panic::{catch_unwind, resume_unwind, AssertUnwindSafe},
     sync::Arc,
 };
 
@@ -47,7 +47,7 @@ struct FusedJob {
     validators: Vec<NativeValidator>,
     declared_keys: Vec<Arc<str>>,
     validate_keys: bool,
-    result: Option<FusedResult>,
+    result: Option<std::thread::Result<FusedResult>>,
 }
 
 enum RubyValidatorCache {
@@ -130,23 +130,19 @@ impl RubyValidatorCache {
 }
 
 unsafe extern "C" fn run_fused_job(job: *mut c_void) -> *mut c_void {
+    // SAFETY: call_json owns the job until the synchronous callback returns.
+    // The job contains only owned Rust data; no Ruby API is used without GVL.
     let job = unsafe { &mut *job.cast::<FusedJob>() };
-    job.result = Some(
-        catch_unwind(AssertUnwindSafe(|| {
-            validate_json_bytes(
-                &job.bytes,
-                &job.validators,
-                &job.declared_keys,
-                job.validate_keys,
-            )
-        }))
-        .unwrap_or_else(|_| FusedResult {
-            output: serde_json::Value::Object(serde_json::Map::new()),
-            errors: vec![NativeError::parse_error(
-                "native JSON validation failed unexpectedly".to_owned(),
-            )],
-        }),
-    );
+    // Store the panic payload without unwinding through C or constructing a
+    // Ruby exception. Magnus handles it once we resume with the GVL held.
+    job.result = Some(catch_unwind(AssertUnwindSafe(|| {
+        validate_json_bytes(
+            &job.bytes,
+            &job.validators,
+            &job.declared_keys,
+            job.validate_keys,
+        )
+    })));
     (job as *mut FusedJob).cast()
 }
 
@@ -239,6 +235,8 @@ impl Engine {
                 "call_json does not support lax coercion; use call instead",
             ));
         }
+        // SAFETY: copy while holding the GVL, before another Ruby thread can
+        // mutate the string or GC can move its storage.
         let bytes = unsafe { raw.as_slice() }.to_vec();
         let mut job = FusedJob {
             bytes,
@@ -247,17 +245,29 @@ impl Engine {
             validate_keys: self.validate_keys,
             result: None,
         };
-        unsafe {
-            rb_sys::rb_thread_call_without_gvl(
-                Some(run_fused_job),
-                (&mut job as *mut FusedJob).cast(),
-                None,
-                std::ptr::null_mut(),
-            );
-        }
-        let result = job
+        // Ruby checks interrupts before/after the callback. Catch its longjmp
+        // here so the owned job is dropped even on Thread#raise or Thread#kill.
+        magnus::rb_sys::protect(|| {
+            // SAFETY: the callback is synchronous and cannot unwind through C.
+            // No unblock callback: cancellation waits for pure Rust work to
+            // finish, then Ruby delivers the pending interrupt with the GVL.
+            unsafe {
+                rb_sys::rb_thread_call_without_gvl(
+                    Some(run_fused_job),
+                    (&mut job as *mut FusedJob).cast(),
+                    None,
+                    std::ptr::null_mut(),
+                );
+            }
+            0
+        })?;
+        let result = match job
             .result
-            .expect("fused validation job must return a result");
+            .expect("fused validation job must return a result")
+        {
+            Ok(result) => result,
+            Err(panic) => resume_unwind(panic),
+        };
         build_schema_result(
             &ruby,
             json_value_to_ruby(&ruby, &result.output)?,
@@ -664,6 +674,33 @@ fn within_depth_limit(depth: u16, path: &[PathPart], errors: &mut Vec<NativeErro
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn fused_callback_contains_panics_without_returning_validation_errors() {
+        // An unnamed root field violates a compiled-plan invariant. Use it to
+        // exercise the FFI panic boundary without adding a production test hook.
+        let validator = NativeValidator::Scalar(crate::compiled::ScalarValidator {
+            options: ValidatorOptions {
+                name: None,
+                required: true,
+                nullable: false,
+                filled: false,
+                strict: Strictness::Strict,
+                kind: crate::compiled::TypeKind::Integer,
+                predicates: Vec::new(),
+            },
+        });
+        let mut job = FusedJob {
+            bytes: b"{}".to_vec(),
+            validators: vec![validator],
+            declared_keys: Vec::new(),
+            validate_keys: false,
+            result: None,
+        };
+        // SAFETY: same owned, live job and synchronous callback as call_json.
+        unsafe { run_fused_job((&mut job as *mut FusedJob).cast()) };
+        assert!(matches!(job.result, Some(Err(_))));
+    }
 
     #[test]
     fn field_count_includes_nested_and_member_fields() {

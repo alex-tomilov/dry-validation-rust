@@ -201,7 +201,15 @@ the same field already has a type/structural error.
 | TruffleRuby      | ❌                                             |
 | Ruby threads     | ✅ call isolation tested                       |
 | Ractors          | ❌ no compatibility promise                    |
-| GVL release      | ❌ native Ruby-object path holds GVL           |
+| GVL release      | ✅ `call_json` native phase; `call` holds GVL  |
+
+`call_json` copies input bytes before releasing the GVL and constructs Ruby
+results after reacquiring it. Contract rules still execute with the GVL held.
+Thread interrupts wait for the current native parsing/validation pass to finish;
+there is no cooperative cancellation within that pass. Ruby result allocations
+and native heap allocations still occur. Run
+`bundle exec ruby -Ilib benchmark/json_gvl.rb` to compare end-to-end throughput
+and Ruby allocations with `JSON.parse` followed by `call` for the same schema.
 
 ## Migration guidance
 

@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Hardened `call_json` GVL release so Ruby thread interrupts preserve native
+  cleanup and unexpected native panics are not returned as JSON parse errors.
 - Added live calibration and measurement progress to the process-memory
   benchmark runner, including checkpoint-resume guidance.
 - Added `Contract#call_json` for fused parsing and validation of raw JSON objects
