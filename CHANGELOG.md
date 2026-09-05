@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Added Rust serializer primitives for direct JSON byte output from symbol-keyed
+  hashes containing signed 64-bit integers, UTF-8 strings, and typed collections.
+  Contract results now expose `to_json` through their retained native engine;
+  unsupported schemas, values, and formatting arguments fail explicitly.
 - Hardened `call_json` GVL release so Ruby thread interrupts preserve native
   cleanup and unexpected native panics are not returned as JSON parse errors.
 - Added live calibration and measurement progress to the process-memory

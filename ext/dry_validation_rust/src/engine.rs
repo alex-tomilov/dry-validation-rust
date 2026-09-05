@@ -9,6 +9,7 @@ use magnus::{
     Error, RArray, RHash, RString, Ruby, Symbol, TypedData, Value,
 };
 
+use crate::serializer::{serialize_to_json_bytes, NativeSerializer};
 use crate::{
     coercion::{coerce, empty_value, null_if_empty_nullable_param, type_matches},
     compiled::{
@@ -32,6 +33,7 @@ const MAX_TRAVERSAL_DEPTH: u16 = 128;
     size
 )]
 pub(crate) struct Engine {
+    serializer: Option<NativeSerializer>,
     validators: Vec<NativeValidator>,
     ruby_validators: Vec<RubyValidatorCache>,
     declared_keys: Vec<Arc<str>>,
@@ -148,6 +150,9 @@ unsafe extern "C" fn run_fused_job(job: *mut c_void) -> *mut c_void {
 
 impl DataTypeFunctions for Engine {
     fn mark(&self, marker: &Marker) {
+        if let Some(serializer) = &self.serializer {
+            serializer.mark(marker);
+        }
         self.classes.mark(marker);
         for validator in &self.ruby_validators {
             validator.mark(marker);
@@ -182,6 +187,7 @@ impl Engine {
         let declared_keys = compile_declared_keys(&validators);
         let field_count = validators.iter().map(NativeValidator::count_fields).sum();
         Ok(Self {
+            serializer: NativeSerializer::compile_fields(ruby, &validators),
             validators,
             ruby_validators,
             declared_keys,
@@ -215,6 +221,18 @@ impl Engine {
             )?
         };
         build_schema_result(&ruby, output, errors)
+    }
+
+    pub(crate) fn dump_json(&self, data: RHash) -> Result<RString, Error> {
+        let ruby = Ruby::get_with(data);
+        let serializer = self.serializer.as_ref().ok_or_else(|| Error::new(
+            ruby.exception_arg_error(),
+            "native JSON serialization supports only non-nullable integer, string, hash, and typed array schemas",
+        ))?;
+        let bytes = serialize_to_json_bytes(&ruby, &data, serializer)?;
+        let json = std::str::from_utf8(&bytes)
+            .map_err(|error| Error::new(ruby.exception_encoding_error(), error.to_string()))?;
+        Ok(ruby.str_new(json))
     }
 
     pub(crate) fn call_json(&self, raw: RString) -> Result<Obj<SchemaResult>, Error> {
@@ -719,6 +737,7 @@ mod tests {
         let declared_keys = compile_declared_keys(&validators);
         let field_count = validators.iter().map(NativeValidator::count_fields).sum();
         let engine = Engine {
+            serializer: None,
             validators,
             ruby_validators: Vec::new(),
             declared_keys,

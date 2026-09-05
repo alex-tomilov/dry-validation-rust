@@ -30,10 +30,12 @@ module Dry
           #
           # @param schema_result [Schema::Result] structural validation outcome
           # @param context [Hash] context supplied to the contract call
+          # @param native_engine [Native::Engine, nil] engine used for native JSON output
           # @return [Result]
-          def initialize(schema_result, context = {})
+          def initialize(schema_result, context = {}, native_engine = nil)
             @schema_result = schema_result
             @context = context
+            @native_engine = native_engine
             @rule_messages = []
           end
 
@@ -134,6 +136,24 @@ module Dry
           # @return [Hash] coerced output
           def to_h
             values.to_h
+          end
+
+          # Serializes output directly to compact UTF-8 JSON using the native engine.
+          # Supports non-nullable integer (signed 64-bit), string, hash, and typed
+          # array schemas. Fields use schema order; missing fields are omitted.
+          # Errors and context are excluded.
+          # No coercion, JSON options, or fallback serialization is performed.
+          # Call this method directly; JSON.generate(result) supplies unsupported state.
+          # @param options [nil] only the default nil is supported
+          # @return [String] JSON representation of the current output
+          # @raise [ArgumentError] for unsupported schemas, values, arguments, or a missing engine
+          # @raise [RangeError] for integers outside signed 64-bit range
+          # @raise [EncodingError] for strings that cannot be read as UTF-8
+          def to_json(options = nil)
+            raise ArgumentError, 'native JSON serialization does not accept options' unless options.nil?
+            raise ArgumentError, 'result has no native serialization engine' unless @native_engine
+
+            @native_engine.dump_json(to_h)
           end
 
           # Returns a diagnostic representation of output, errors, and context.
