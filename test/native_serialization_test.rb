@@ -37,6 +37,21 @@ class NativeSerializationTest < Minitest::Test
     assert_raises(ArgumentError) { JSON.generate(result) }
   end
 
+  def test_serialization_reads_current_output_before_and_after_values_access
+    instance = build_contract do
+      params { required(:ids).array(:integer) }
+    end.new
+    result = instance.call(ids: %w[1 2])
+    output = result.schema_result.output
+    output[:ids] << 3
+    assert_equal '{"ids":[1,2,3]}', result.to_json
+
+    assert_same output, result.to_h
+    result.values[:ids] << 4
+    assert_equal '{"ids":[1,2,3,4]}', result.to_json
+    assert_equal({ ids: [1, 2, 3, 4] }, output)
+  end
+
   def test_scalar_writers_preserve_exact_json_bytes
     result = contract.call(id: 0, name: '')
     strings = ['', (32..126).map(&:chr).join, 'plain ASCII' * 1024,

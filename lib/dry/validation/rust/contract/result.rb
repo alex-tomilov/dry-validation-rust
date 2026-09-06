@@ -153,7 +153,7 @@ module Dry
             raise ArgumentError, 'native JSON serialization does not accept options' unless options.nil?
             raise ArgumentError, 'result has no native serialization engine' unless @native_engine
 
-            @native_engine.dump_json(to_h)
+            @native_engine.dump_json(@schema_result.output)
           end
 
           # Returns a diagnostic representation of output, errors, and context.
