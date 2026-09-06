@@ -107,6 +107,11 @@ compatibility changes, packaging changes, security changes, or meaningful
 documentation changes. Internal refactors that do not affect users generally
 do not need an entry.
 
+The PR labeler adds `no-changelog` when `CHANGELOG.md` is unchanged and
+removes it when the changelog changes. It then calls the separate Changelog
+workflow to check the current files and labels. This automation does not decide
+whether a user-visible change deserves an entry; that remains part of review.
+
 Do not rewrite released changelog sections except to correct a factual error.
 
 ## Benchmark evidence

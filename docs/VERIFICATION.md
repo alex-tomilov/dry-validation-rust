@@ -138,7 +138,7 @@ GitHub Pages source to serve the dashboard.
 
 | Workflow                                                   | Trigger                                    | Evidence provided                                                                                                                                                                                            |
 | ---------------------------------------------------------- | ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `CI`                                                       | Pull requests, pushes, weekly, manual      | Changelog gate; hosted source fallback; Ruby/Rust quality (including allowed-to-fail beta); weekly nightly Miri; dependency bounds; package smoke; allocation and Criterion regression checks; loading modes |
+| `CI`                                                       | Pull requests, pushes, weekly, manual      | Hosted source fallback; Ruby/Rust quality (including allowed-to-fail beta); weekly nightly Miri; dependency bounds; package smoke; allocation and Criterion regression checks; loading modes |
 | `Compatibility`                                            | Pull requests, pushes, daily, manual       | Pinned upstream installation and baseline-fixture preflight artifact                                                                                                                                         |
 | `Package`                                                  | Pull requests, pushes, manual              | Source-gem audit, isolated install smoke test, and generated package-content manifest                                                                                                                        |
 | `Security`                                                 | Pull requests, pushes, weekly, manual      | Ruby/Rust dependency audit, `cargo vet`, locked build, and CodeQL                                                                                                                                            |
@@ -160,3 +160,8 @@ GitHub Pages source to serve the dashboard.
 | Rust dependency graph is reproducible         | Locked Cargo test/check commands and the Security workflow                              |
 | Ruby style and API documentation are clean    | `bundle exec rubocop` and `bundle exec yard --fail-on-warning`                          |
 | Performance or allocation regression claim    | Benchmark matrix plus the corresponding main-baseline CI gate                           |
+
+`Pull Request Labeler` runs on PR open, reopen, updates, and edits. It applies area
+labels and synchronizes `no-changelog`, then calls the separate `Changelog` reusable
+workflow after labeling succeeds. Both jobs use PR metadata without checking out
+PR code. The changelog check is no longer part of `CI`.
