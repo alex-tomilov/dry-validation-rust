@@ -748,6 +748,7 @@ mod tests {
         let field_count = validators.iter().map(NativeValidator::count_fields).sum();
         let engine = Engine {
             serializer: None,
+            serialization_buffer: RefCell::default(),
             validators,
             ruby_validators: Vec::new(),
             declared_keys,
