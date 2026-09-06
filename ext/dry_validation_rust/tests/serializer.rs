@@ -1,12 +1,15 @@
 use magnus::{RHash, Ruby};
-use native::serializer::{serialize_to_json_bytes, NativeSerializer as S};
+use native::serializer::{serialize_to_json_bytes, CompiledFields, NativeSerializer as S};
 
 fn object(ruby: &Ruby, fields: Vec<(&str, S)>) -> S {
     S::Hash {
-        fields: fields
-            .into_iter()
-            .map(|(key, value)| (ruby.to_symbol(key).into(), value))
-            .collect(),
+        fields: CompiledFields::new(
+            ruby,
+            fields
+                .into_iter()
+                .map(|(key, value)| (ruby.to_symbol(key), value)),
+        )
+        .unwrap(),
     }
 }
 
@@ -62,8 +65,11 @@ fn native_json_serialization() {
         b"{}"
     );
     assert!(serialize_to_json_bytes(&ruby, &empty, &S::Int).is_err());
-    let duplicate = object(&ruby, vec![("x", S::Int), ("x", S::Str)]);
-    assert!(serialize_to_json_bytes(&ruby, &empty, &duplicate).is_err());
+    assert!(CompiledFields::new(
+        &ruby,
+        [(ruby.to_symbol("x"), S::Int), (ruby.to_symbol("x"), S::Str)]
+    )
+    .is_err());
     let array_tree = object(
         &ruby,
         vec![(

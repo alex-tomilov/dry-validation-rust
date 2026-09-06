@@ -81,6 +81,34 @@ class NativeSerializationTest < Minitest::Test
     assert_equal({ name => 7 }, JSON.parse(result.to_json))
   end
 
+  def test_precompiled_keys_preserve_escaping_and_nested_schema_order
+    escaped = :"quoted\"\\\n\t\u0000héllo#{object_id}"
+    instance = build_contract do
+      json do
+        optional(escaped).value(:string)
+        optional(:nested).hash do
+          optional(escaped).value(:integer)
+          optional(:last).value(:string)
+        end
+      end
+    end.new
+    result = instance.call(escaped => 'first', nested: { escaped => 7, last: 'end' })
+    expected = JSON.generate(result.to_h)
+    # Mutate insertion order after validation to exercise serializer ordering.
+    result.to_h[escaped] = result.to_h.delete(escaped)
+    result.to_h[:nested][escaped] = result.to_h[:nested].delete(escaped)
+    GC.start
+    GC.compact
+    2.times { assert_equal expected, result.to_json }
+
+    result.to_h[:nested].delete(escaped)
+    result.to_h[:nested][:unknown] = 1
+    assert_raises(ArgumentError) { result.to_json }
+    result.to_h[:nested].delete(:unknown)
+    result.to_h[:nested]['last'] = result.to_h[:nested].delete(:last)
+    assert_raises(ArgumentError) { result.to_json }
+  end
+
   def test_manually_constructed_result_requires_engine
     result = Dry::Validation::Rust::Contract::Result.new(contract.call(id: 1).schema_result)
     assert_raises(ArgumentError) { result.to_json }

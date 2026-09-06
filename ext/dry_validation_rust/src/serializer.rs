@@ -3,23 +3,65 @@
 //! Trees and data must be accessed with the GVL held. An owner retaining a tree
 //! across Ruby calls must invoke `mark` from its TypedData mark callback.
 
+use indexmap::IndexMap;
+use magnus::rb_sys::AsRawValue;
 use magnus::{
     gc::Marker, prelude::*, r_hash::ForEach, value::Opaque, Error, Integer, RArray, RHash, RString,
     Ruby, Symbol, Value,
 };
 use serde::Serialize;
 
+/// Ordered fields built once; private storage prevents bypassing duplicate checks.
+#[derive(Clone)]
+pub struct CompiledFields {
+    // Raw identities are only lookup keys. The corresponding symbols are marked
+    // (and pinned) below, so GC cannot invalidate them.
+    fields: IndexMap<rb_sys::VALUE, CompiledField>,
+}
+
+#[derive(Clone)]
+struct CompiledField {
+    key_symbol: Opaque<Symbol>,
+    escaped_key: Vec<u8>,
+    serializer: NativeSerializer,
+}
+
+impl CompiledFields {
+    /// Pre-escape keys and reject duplicate symbols before serialization.
+    /// The caller must keep input symbols alive until the owning tree is rooted.
+    pub fn new(
+        ruby: &Ruby,
+        fields: impl IntoIterator<Item = (Symbol, NativeSerializer)>,
+    ) -> Result<Self, Error> {
+        let mut compiled = IndexMap::new();
+        for (symbol, serializer) in fields {
+            let identity = symbol.as_value().as_raw();
+            if compiled.contains_key(&identity) {
+                return Err(invalid(ruby, "duplicate serializer field"));
+            }
+            let mut escaped_key = Vec::new();
+            write_json(ruby, &mut escaped_key, &symbol.name()?.as_ref())?;
+            escaped_key.push(b':');
+            compiled.insert(
+                identity,
+                CompiledField {
+                    key_symbol: symbol.into(),
+                    escaped_key,
+                    serializer,
+                },
+            );
+        }
+        Ok(Self { fields: compiled })
+    }
+}
+
 /// The supported output types. Integers are limited to signed 64-bit values.
 #[derive(Clone)]
 pub enum NativeSerializer {
     Int,
     Str,
-    Hash {
-        fields: Vec<(Opaque<Symbol>, NativeSerializer)>,
-    },
-    Array {
-        member: Box<NativeSerializer>,
-    },
+    Hash { fields: CompiledFields },
+    Array { member: Box<NativeSerializer> },
 }
 
 impl NativeSerializer {
@@ -46,16 +88,17 @@ impl NativeSerializer {
                 }),
             }
         }
+        let fields = validators
+            .iter()
+            .map(|validator| {
+                Some((
+                    ruby.to_symbol(validator.options().name.as_deref()?),
+                    compile(ruby, validator)?,
+                ))
+            })
+            .collect::<Option<Vec<_>>>()?;
         Some(Self::Hash {
-            fields: validators
-                .iter()
-                .map(|validator| {
-                    Some((
-                        ruby.to_symbol(validator.options().name.as_deref()?).into(),
-                        compile(ruby, validator)?,
-                    ))
-                })
-                .collect::<Option<Vec<_>>>()?,
+            fields: CompiledFields::new(ruby, fields).ok()?,
         })
     }
 
@@ -63,9 +106,9 @@ impl NativeSerializer {
     pub fn mark(&self, marker: &Marker) {
         match self {
             Self::Hash { fields } => {
-                for (key, child) in fields {
-                    marker.mark(*key);
-                    child.mark(marker);
+                for field in fields.fields.values() {
+                    marker.mark(field.key_symbol);
+                    field.serializer.mark(marker);
                 }
             }
             Self::Array { member } => member.mark(marker),
@@ -98,35 +141,26 @@ impl NativeSerializer {
             Self::Hash { fields } => {
                 let hash =
                     RHash::from_value(value).ok_or_else(|| invalid(ruby, "expected a hash"))?;
-                for (index, (key, _)) in fields.iter().enumerate() {
-                    if fields[..index]
-                        .iter()
-                        .any(|(other, _)| ruby.get_inner(*other) == ruby.get_inner(*key))
-                    {
-                        return Err(invalid(ruby, "duplicate serializer field"));
-                    }
-                }
                 // Reject undeclared and string keys instead of silently losing data.
                 hash.foreach(|key: Value, _: Value| {
                     let symbol = Symbol::from_value(key)
                         .ok_or_else(|| invalid(ruby, "expected symbol hash keys"))?;
-                    if !fields.iter().any(|(key, _)| ruby.get_inner(*key) == symbol) {
+                    if !fields.fields.contains_key(&symbol.as_value().as_raw()) {
                         return Err(invalid(ruby, "undeclared serializer field"));
                     }
                     Ok(ForEach::Continue)
                 })?;
                 bytes.push(b'{');
                 let mut first = true;
-                for (key, child) in fields {
-                    let symbol = ruby.get_inner(*key);
+                for field in fields.fields.values() {
+                    let symbol = ruby.get_inner(field.key_symbol);
                     if let Some(value) = hash.get(symbol) {
                         if !first {
                             bytes.push(b',');
                         }
                         first = false;
-                        write_json(ruby, bytes, &symbol.name()?.as_ref())?;
-                        bytes.push(b':');
-                        child.write(ruby, value, bytes, depth + 1)?;
+                        bytes.extend_from_slice(&field.escaped_key);
+                        field.serializer.write(ruby, value, bytes, depth + 1)?;
                     }
                 }
                 bytes.push(b'}');
