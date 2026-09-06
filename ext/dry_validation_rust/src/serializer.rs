@@ -207,10 +207,26 @@ pub fn serialize_to_json_bytes(
     data: &RHash,
     serializer: &NativeSerializer,
 ) -> Result<Vec<u8>, Error> {
+    let mut bytes = Vec::new();
+    serialize_to_json_buffer(ruby, data, serializer, &mut bytes)?;
+    Ok(bytes)
+}
+
+/// Replace the output in a reusable buffer, retaining its capacity on success
+/// and failure. Partial output is cleared before returning an error.
+pub fn serialize_to_json_buffer(
+    ruby: &Ruby,
+    data: &RHash,
+    serializer: &NativeSerializer,
+    bytes: &mut Vec<u8>,
+) -> Result<(), Error> {
+    bytes.clear();
     if !matches!(serializer, NativeSerializer::Hash { .. }) {
         return Err(invalid(ruby, "expected a root hash serializer"));
     }
-    let mut bytes = Vec::new();
-    serializer.write(ruby, data.as_value(), &mut bytes, 0)?;
-    Ok(bytes)
+    if let Err(error) = serializer.write(ruby, data.as_value(), bytes, 0) {
+        bytes.clear();
+        return Err(error);
+    }
+    Ok(())
 }

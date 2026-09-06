@@ -113,4 +113,28 @@ class NativeSerializationTest < Minitest::Test
     result = Dry::Validation::Rust::Contract::Result.new(contract.call(id: 1).schema_result)
     assert_raises(ArgumentError) { result.to_json }
   end
+
+  def test_reused_buffer_preserves_returned_strings_and_recovers_after_errors
+    instance = contract
+    large = instance.call(id: 1, name: 'héllo' * 2048)
+    expected = JSON.generate(large.to_h)
+    retained = large.to_json
+    small = instance.call(id: 2)
+    assert_equal '{"id":2}', small.to_json
+    assert_equal expected, retained
+    retained.replace('changed by caller')
+    assert_equal expected, large.to_json
+
+    [nil, 2**63].each do |invalid|
+      large.to_h[:id] = invalid
+      assert_raises(invalid.nil? ? ArgumentError : RangeError) { large.to_json }
+      assert_equal '{"id":2}', small.to_json
+    end
+    large.to_h[:id] = 1
+    large.to_h[:name] = "\xff".b
+    assert_raises(EncodingError) { large.to_json }
+    assert_equal '{"id":2}', small.to_json
+    large.to_h[:name] = 'recovered'
+    assert_equal '{"id":1,"name":"recovered"}', large.to_json
+  end
 end

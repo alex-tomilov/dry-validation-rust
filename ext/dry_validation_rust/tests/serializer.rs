@@ -1,5 +1,7 @@
 use magnus::{RHash, Ruby};
-use native::serializer::{serialize_to_json_bytes, CompiledFields, NativeSerializer as S};
+use native::serializer::{
+    serialize_to_json_buffer, serialize_to_json_bytes, CompiledFields, NativeSerializer as S,
+};
 
 fn object(ruby: &Ruby, fields: Vec<(&str, S)>) -> S {
     S::Hash {
@@ -65,6 +67,29 @@ fn native_json_serialization() {
         b"{}"
     );
     assert!(serialize_to_json_bytes(&ruby, &empty, &S::Int).is_err());
+    let mut buffer = Vec::with_capacity(1024);
+    let large = ruby.eval::<RHash>("{text: 'x' * 4096}").unwrap();
+    serialize_to_json_buffer(&ruby, &large, &tree, &mut buffer).unwrap();
+    let capacity = buffer.capacity();
+    let pointer = buffer.as_ptr();
+    for source in ["{}", "{id: 1, text: nil}", "{id: 2}"] {
+        let data = ruby.eval::<RHash>(source).unwrap();
+        let result = serialize_to_json_buffer(&ruby, &data, &tree, &mut buffer);
+        if source.contains("nil") {
+            assert!(result.is_err());
+            assert!(buffer.is_empty());
+        } else {
+            result.unwrap();
+            assert_eq!(
+                buffer,
+                serialize_to_json_bytes(&ruby, &data, &tree).unwrap()
+            );
+        }
+        assert_eq!(buffer.capacity(), capacity);
+        assert_eq!(buffer.as_ptr(), pointer);
+    }
+    assert!(serialize_to_json_buffer(&ruby, &empty, &S::Int, &mut buffer).is_err());
+    assert!(buffer.is_empty());
     assert!(CompiledFields::new(
         &ruby,
         [(ruby.to_symbol("x"), S::Int), (ruby.to_symbol("x"), S::Str)]
