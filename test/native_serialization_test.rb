@@ -37,6 +37,35 @@ class NativeSerializationTest < Minitest::Test
     assert_raises(ArgumentError) { JSON.generate(result) }
   end
 
+  def test_scalar_writers_preserve_exact_json_bytes
+    result = contract.call(id: 0, name: '')
+    strings = ['', (32..126).map(&:chr).join, 'plain ASCII' * 1024,
+               (0..31).map(&:chr).join, "\u007fhéllo世界😀\u2028\u2029", "prefix\"suffix\\\n"]
+    [-(2**63), -1, 0, 1, (2**63) - 1].each do |integer|
+      strings.each do |string|
+        result.to_h[:id] = integer
+        result.to_h[:name] = string
+        assert_equal JSON.generate(result.to_h), result.to_json
+      end
+    end
+  end
+
+  def test_borrowed_strings_preserve_encoding_conversion_and_errors
+    result = contract.call(id: 1, name: '')
+    ['ASCII'.b, 'ASCII'.encode('US-ASCII'), 'héllo'.encode('ISO-8859-1'),
+     '世界'.encode('UTF-16LE')].each do |string|
+      result.to_h[:name] = string
+      assert_equal JSON.generate(id: 1, name: string.encode('UTF-8')), result.to_json
+    end
+    ["\xff".b, "\xc0\xaf".b.force_encoding('UTF-8'), "\xed\xa0\x80".b.force_encoding('UTF-8'),
+     "\xe2\x82".b.force_encoding('UTF-8')].each do |string|
+      result.to_h[:name] = string
+      assert_raises(EncodingError) { result.to_json }
+    end
+    result.to_h[:name] = 'recovered'
+    assert_equal '{"id":1,"name":"recovered"}', result.to_json
+  end
+
   def test_rule_failures_serialize_output_without_errors_or_context
     result = contract.call({ id: -1 }, trace: 'secret')
     assert result.failure?

@@ -130,13 +130,27 @@ impl NativeSerializer {
             Self::Int => {
                 let integer = Integer::from_value(value)
                     .ok_or_else(|| invalid(ruby, "expected an integer"))?;
-                write_json(ruby, bytes, &integer.to_i64()?)?;
+                let integer = integer.to_i64()?;
+                bytes.extend_from_slice(itoa::Buffer::new().format(integer).as_bytes());
             }
             Self::Str => {
                 let string =
                     RString::from_value(value).ok_or_else(|| invalid(ruby, "expected a string"))?;
-                // Own the UTF-8 bytes: no borrowed Ruby storage survives an FFI call.
-                write_json(ruby, bytes, &string.to_string()?)?;
+                // SAFETY: The GVL is held. While a view of Ruby storage is live,
+                // write_json_string only performs Rust operations and cannot call
+                // Ruby, release the GVL, or trigger Ruby GC. Encoding conversion
+                // happens only after test_as_str returns no borrowed view.
+                let written = unsafe {
+                    if let Some(text) = string.test_as_str() {
+                        write_json_string(bytes, text)
+                    } else {
+                        // Preserve to_string's existing transcoding and errors.
+                        let utf8 = string.conv_enc(ruby.utf8_encoding())?;
+                        write_json_string(bytes, utf8.as_str()?)
+                    }
+                };
+                // Construct Ruby exceptions only after the borrow has ended.
+                written.map_err(|error| invalid(ruby, &error.to_string()))?;
             }
             Self::Hash { fields } => {
                 let hash =
@@ -184,6 +198,21 @@ impl NativeSerializer {
 
 fn invalid(ruby: &Ruby, message: &str) -> Error {
     Error::new(ruby.exception_arg_error(), message.to_owned())
+}
+
+fn write_json_string(bytes: &mut Vec<u8>, text: &str) -> Result<(), serde_json::Error> {
+    if text
+        .bytes()
+        .all(|byte| (0x20..=0x7e).contains(&byte) && byte != b'"' && byte != b'\\')
+    {
+        bytes.push(b'"');
+        bytes.extend_from_slice(text.as_bytes());
+        bytes.push(b'"');
+        Ok(())
+    } else {
+        // Keep complete JSON control-character escaping on the general path.
+        serde_json::to_writer(bytes, text)
+    }
 }
 
 fn write_json<T: Serialize + ?Sized>(
