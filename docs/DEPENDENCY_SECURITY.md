@@ -39,7 +39,15 @@ temporary exception in this file before merging.
 
 ## Audit exceptions
 
-There are no active audit exceptions.
+- ID: cargo-vet serializer dependency baseline
+  Dependency: indexmap 2.4.0, equivalent 1.0.2, hashbrown 0.14.5
+  Reason: the serializer's ordered map introduced versions without complete
+    safe-to-deploy coverage from the configured Mozilla audit source.
+  Mitigation: version-specific exemptions in supply-chain/config.toml follow
+    the existing dependency baseline; they do not certify a source audit or
+    trust future versions. The existing advisory checks remain enabled.
+  Owner: project maintainers
+  Expires: 2026-12-05
 
 Temporary exceptions must use this format and include an expiry date:
 
