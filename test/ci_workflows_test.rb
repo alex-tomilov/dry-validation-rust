@@ -8,9 +8,13 @@ class CiWorkflowsTest < Minitest::Test
   READ_ONLY_PERMISSIONS = { 'contents' => 'read' }.freeze
   DEFAULT_WORKFLOW_POLICY = { permissions: READ_ONLY_PERMISSIONS, concurrency: true }.freeze
   WORKFLOW_POLICIES = {
+    'changelog.yml' => {
+      permissions: READ_ONLY_PERMISSIONS.merge('pull-requests' => 'read').freeze,
+      concurrency: false
+    }.freeze,
     'labeler.yml' => {
       permissions: READ_ONLY_PERMISSIONS.merge('pull-requests' => 'write').freeze,
-      concurrency: false
+      concurrency: true
     }.freeze
   }.freeze
 
@@ -81,15 +85,39 @@ class CiWorkflowsTest < Minitest::Test
                     '[Ruby API reference](docs/ruby-api-reference.md)'
   end
 
-  def test_ci_requires_changelog_updates_unless_the_pull_request_is_labeled
-    workflow = workflows.fetch(File.join(WORKFLOW_DIR, 'ci.yml'))
-    changelog = workflow.fetch('jobs').fetch('changelog')
-    source = changelog.fetch('steps').last.fetch('run')
+  def test_changelog_workflow_requires_changelog_updates_unless_the_pull_request_is_labeled
+    ci = workflows.fetch(File.join(WORKFLOW_DIR, 'ci.yml'))
+    refute ci.fetch('jobs').key?('changelog')
 
-    assert_equal "github.event_name == 'pull_request'", changelog.fetch('if')
-    assert_equal 0, changelog.fetch('steps').first.fetch('with').fetch('fetch-depth')
-    assert_includes source, 'no-changelog'
-    assert_includes source, 'git diff --quiet "${BASE_SHA}" "${HEAD_SHA}" -- CHANGELOG.md'
+    workflow = workflows.fetch(File.join(WORKFLOW_DIR, 'changelog.yml'))
+    changelog = workflow.fetch('jobs').fetch('changelog')
+    script = changelog.fetch('steps').last.fetch('with').fetch('script')
+
+    assert workflow.fetch(true).key?('workflow_call')
+    assert_equal 'ubuntu-latest', changelog.fetch('runs-on')
+    assert_includes script, 'no-changelog'
+    assert_includes script, "file.filename === 'CHANGELOG.md'"
+    assert_includes script, "core.setFailed('Update CHANGELOG.md or apply the no-changelog label.')"
+  end
+
+  def test_labeler_workflow_synchronizes_no_changelog_and_invokes_changelog_workflow
+    workflow = workflows.fetch(File.join(WORKFLOW_DIR, 'labeler.yml'))
+    jobs = workflow.fetch('jobs')
+    label_step = jobs.fetch('label').fetch('steps').last
+    label_script = label_step.fetch('with').fetch('script')
+    changelog_job = jobs.fetch('changelog')
+
+    assert_equal %w[opened reopened synchronize edited],
+                 workflow.fetch(true).fetch('pull_request_target').fetch('types')
+    assert_equal 'pr-labeler-${{ github.event.pull_request.number }}',
+                 workflow.fetch('concurrency').fetch('group')
+    assert_equal false, workflow.fetch('concurrency').fetch('cancel-in-progress')
+    assert_includes label_script, 'no-changelog'
+    assert_includes label_script, "labels: ['no-changelog']"
+    assert_includes label_script, "name: 'no-changelog'"
+    assert_equal 'label', changelog_job.fetch('needs')
+    assert_equal './.github/workflows/changelog.yml', changelog_job.fetch('uses')
+    assert_equal({ 'contents' => 'read', 'pull-requests' => 'read' }, changelog_job.fetch('permissions'))
   end
 
   def test_security_workflow_scans_full_history_for_secrets
