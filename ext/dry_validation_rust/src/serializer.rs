@@ -155,20 +155,14 @@ impl NativeSerializer {
             Self::Hash { fields } => {
                 let hash =
                     RHash::from_value(value).ok_or_else(|| invalid(ruby, "expected a hash"))?;
-                // Reject undeclared and string keys instead of silently losing data.
-                hash.foreach(|key: Value, _: Value| {
-                    let symbol = Symbol::from_value(key)
-                        .ok_or_else(|| invalid(ruby, "expected symbol hash keys"))?;
-                    if !fields.fields.contains_key(&symbol.as_value().as_raw()) {
-                        return Err(invalid(ruby, "undeclared serializer field"));
-                    }
-                    Ok(ForEach::Continue)
-                })?;
+                let entry_count = hash.len();
                 bytes.push(b'{');
                 let mut first = true;
+                let mut matched = 0;
                 for field in fields.fields.values() {
                     let symbol = ruby.get_inner(field.key_symbol);
                     if let Some(value) = hash.get(symbol) {
+                        matched += 1;
                         if !first {
                             bytes.push(b',');
                         }
@@ -176,6 +170,20 @@ impl NativeSerializer {
                         bytes.extend_from_slice(&field.escaped_key);
                         field.serializer.write(ruby, value, bytes, depth + 1)?;
                     }
+                }
+                if matched != entry_count {
+                    // The matched count proves that an input key was either not
+                    // a Symbol or is absent from the compiled schema. Retain the
+                    // detailed error classification on that exceptional path.
+                    hash.foreach(|key: Value, _: Value| {
+                        let symbol = Symbol::from_value(key)
+                            .ok_or_else(|| invalid(ruby, "expected symbol hash keys"))?;
+                        if !fields.fields.contains_key(&symbol.as_value().as_raw()) {
+                            return Err(invalid(ruby, "undeclared serializer field"));
+                        }
+                        Ok(ForEach::Continue)
+                    })?;
+                    return Err(invalid(ruby, "undeclared serializer field"));
                 }
                 bytes.push(b'}');
             }

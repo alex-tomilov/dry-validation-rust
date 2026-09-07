@@ -96,6 +96,39 @@ class NativeSerializationTest < Minitest::Test
     assert_raises(ArgumentError) { contract.call(id: 1).to_json(indent: '  ') }
   end
 
+  def test_hash_serialization_rejects_unknown_and_string_keys_at_every_level
+    result = contract.call(id: 1, name: 'Alex', items: [{ label: 'one' }])
+    output = result.to_h
+
+    output[:extra] = 2
+    assert_raises(ArgumentError, 'unknown symbol key') { result.to_json }
+    output.delete(:extra)
+
+    output['name'] = 'shadow'
+    assert_raises(ArgumentError, 'string key shadowing a declared symbol') { result.to_json }
+    output.delete('name')
+
+    output['extra'] = 2
+    assert_raises(ArgumentError, 'unknown string key') { result.to_json }
+    output.delete('extra')
+
+    output[:items].first[:extra] = 2
+    assert_raises(ArgumentError, 'nested unknown symbol key') { result.to_json }
+    output[:items].first.delete(:extra)
+
+    output[:items].first['label'] = output[:items].first.delete(:label)
+    assert_raises(ArgumentError, 'nested string key') { result.to_json }
+    output[:items].first[:label] = output[:items].first.delete('label')
+
+    output[:id] = 'wrong'
+    output[:extra] = 2
+    error = assert_raises(ArgumentError) { result.to_json }
+    assert_equal 'expected an integer', error.message
+    output[:id] = 1
+    output.delete(:extra)
+    assert_equal JSON.generate(output), result.to_json
+  end
+
   def test_unsupported_schemas_still_validate
     instance = build_contract do
       params do
