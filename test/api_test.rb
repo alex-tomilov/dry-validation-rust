@@ -17,7 +17,7 @@ class ApiTest < Minitest::Test
     },
     Dry::Validation::Rust::Contract::Result => {
       class: [],
-      instance: %i[[] add_error base_rule_error? context deconstruct deconstruct_keys error? errors failure? finalize! inspect key? rule_error? schema_error? schema_result success? to_h values]
+      instance: %i[[] add_error base_rule_error? context deconstruct deconstruct_keys error? errors failure? finalize! inspect key? rule_error? schema_error? schema_result success? to_h to_json values]
     },
     Dry::Validation::Rust::MessageSet => {
       class: [],

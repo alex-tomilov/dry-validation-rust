@@ -331,7 +331,7 @@ module Dry
         # Applies the shared rule-evaluation phase after either schema entrypoint.
         def finalize_schema_result(schema_result, context)
           shared_context = default_context.merge(context)
-          result = Result.new(schema_result, shared_context)
+          result = Result.new(schema_result, shared_context, self.class.schema_definition.engine)
           schema_error_paths = schema_result.error_prefixes
           self.class.rules.each do |rule|
             if rule.each?

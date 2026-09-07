@@ -39,7 +39,8 @@ temporary exception in this file before merging.
 
 ## Audit exceptions
 
-There are no active audit exceptions.
+No active temporary audit exceptions are documented here. The baseline
+cargo-vet exemptions remain in `supply-chain/config.toml`.
 
 Temporary exceptions must use this format and include an expiry date:
 

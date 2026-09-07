@@ -16,6 +16,7 @@ name = "native"
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
+itoa = "1"
 bigdecimal = "0.4"
 chrono = { version = "0.4", default-features = false, features = ["alloc", "std"] }
 magnus = { version = "~0.8.2", default-features = false, features = ["rb-sys"] }
