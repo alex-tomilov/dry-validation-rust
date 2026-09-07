@@ -53,7 +53,7 @@ jobs:
         run: mkdir -p _site/rustdoc && cp -r target/doc/* _site/rustdoc/
 
       - name: Upload GitHub Pages artifact
-        uses: actions/upload-pages-artifact@v4
+        uses: actions/upload-pages-artifact@v5
         with:
           path: _site
 
