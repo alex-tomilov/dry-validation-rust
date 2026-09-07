@@ -2,12 +2,13 @@ use std::{
     cell::RefCell,
     ffi::c_void,
     panic::{catch_unwind, resume_unwind, AssertUnwindSafe},
-    sync::Arc,
+    sync::{Arc, Mutex},
+    time::Instant,
 };
 
 use magnus::{
-    gc::Marker, prelude::*, r_hash::ForEach, typed_data::Obj, value::Opaque, DataTypeFunctions,
-    Error, RArray, RHash, RString, Ruby, Symbol, TypedData, Value,
+    block::Proc, gc::Marker, prelude::*, r_hash::ForEach, typed_data::Obj, value::Opaque,
+    DataTypeFunctions, Error, RArray, RHash, RString, Ruby, Symbol, TypedData, Value,
 };
 
 use crate::serializer::{serialize_to_json_buffer, NativeSerializer};
@@ -19,8 +20,11 @@ use crate::{
     error::{NativeError, PathPart},
     fused::{validate_json_bytes, FusedResult},
     plan::{parse_plan, Mode},
+    plugin::{
+        InputSummary, PluginAbort, PluginFallback, ResultSummary, SchemaMode, ValidationPlugin,
+    },
     predicates::apply_predicates,
-    ruby_bridge::RuntimeClasses,
+    ruby_bridge::{RubyCallbackPlugin, RuntimeClasses},
     SchemaResult,
 };
 
@@ -45,6 +49,10 @@ pub(crate) struct Engine {
     validate_keys: bool,
     plan_bytes: usize,
     field_count: usize,
+    plugin: Mutex<Option<Arc<dyn ValidationPlugin>>>,
+    // The schema is created before a contract can attach a plugin. Until that
+    // boundary supplies its class name, retain an explicit anonymous value.
+    contract_name: String,
 }
 
 struct FusedJob {
@@ -160,6 +168,9 @@ impl DataTypeFunctions for Engine {
         for validator in &self.ruby_validators {
             validator.mark(marker);
         }
+        if let Some(plugin) = self.plugin.lock().expect("plugin lock poisoned").as_ref() {
+            plugin.mark(marker);
+        }
     }
 }
 
@@ -200,15 +211,50 @@ impl Engine {
             validate_keys,
             plan_bytes: json.len(),
             field_count,
+            plugin: Mutex::new(None),
+            contract_name: "<anonymous>".to_owned(),
         })
     }
 
     pub(crate) fn call(&self, input: RHash) -> Result<Obj<SchemaResult>, Error> {
         let ruby = Ruby::get_with(input);
+        let plugin = self.plugin.lock().expect("plugin lock poisoned").clone();
+        let Some(plugin) = plugin else {
+            return self.validate_inner(&ruby, input);
+        };
+
+        let start = Instant::now();
+        let input_summary = self.summarize_input(input);
+        if let Err(abort) = plugin.on_before_validate(&self.contract_name, &input_summary) {
+            return self.handle_plugin_abort(&ruby, input, abort);
+        }
+
+        let result = self.validate_inner(&ruby, input);
+        if let Ok(schema_result) = &result {
+            let errors = SchemaResult::errors(&ruby, schema_result);
+            let result_summary = ResultSummary {
+                success: errors.is_empty(),
+                error_count: errors.len(),
+                // Rule evaluation remains on the Ruby side and is not yet observable.
+                rule_invocation_count: 0,
+            };
+            if let Err(abort) =
+                plugin.on_after_validate(&self.contract_name, start.elapsed(), &result_summary)
+            {
+                return Err(Error::new(
+                    ruby.exception_runtime_error(),
+                    format!("validation plugin after hook failed: {}", abort.reason),
+                ));
+            }
+        }
+        result
+    }
+
+    fn validate_inner(&self, ruby: &Ruby, input: RHash) -> Result<Obj<SchemaResult>, Error> {
         let mut errors = Vec::new();
         let output = {
             let mut traversal = Traversal {
-                ruby: &ruby,
+                ruby,
                 classes: &self.classes,
                 mode: self.mode,
                 validate_keys: self.validate_keys,
@@ -224,7 +270,70 @@ impl Engine {
                 0,
             )?
         };
-        build_schema_result(&ruby, output, errors)
+        build_schema_result(ruby, output, errors)
+    }
+
+    pub(crate) fn register_plugin(
+        ruby: &Ruby,
+        this: &Self,
+        name: String,
+        before_proc: Option<Proc>,
+        after_proc: Option<Proc>,
+    ) -> Result<(), Error> {
+        if before_proc.is_none() && after_proc.is_none() {
+            return Err(Error::new(
+                ruby.exception_arg_error(),
+                "register_plugin requires a before or after Proc",
+            ));
+        }
+        *this.plugin.lock().expect("plugin lock poisoned") = Some(Arc::new(
+            RubyCallbackPlugin::new(name, before_proc, after_proc),
+        ));
+        Ok(())
+    }
+
+    fn summarize_input(&self, input: RHash) -> InputSummary {
+        let mut top_level_keys = Vec::with_capacity(input.len());
+        input
+            .foreach(|key: Value, _: Value| {
+                // Observability must not change validation behavior. Keys which
+                // cannot be represented as UTF-8 strings are omitted rather than
+                // turning a successful validation into a hook-summary failure.
+                if let Ok(Some(key_name)) = native_key_name(key) {
+                    top_level_keys.push(key_name);
+                }
+                Ok(ForEach::Continue)
+            })
+            .expect("hash iteration callback cannot fail");
+        InputSummary {
+            top_level_keys,
+            // Deep traversal would make observability proportional to input size.
+            estimated_size_bytes: 0,
+            schema_mode: schema_mode(self.mode),
+        }
+    }
+
+    fn handle_plugin_abort(
+        &self,
+        ruby: &Ruby,
+        input: RHash,
+        abort: PluginAbort,
+    ) -> Result<Obj<SchemaResult>, Error> {
+        match abort.fallback_result {
+            Some(PluginFallback::Success) => build_schema_result(ruby, input, Vec::new()),
+            Some(PluginFallback::Failure(messages)) => build_schema_result(
+                ruby,
+                ruby.hash_new(),
+                messages
+                    .into_iter()
+                    .map(NativeError::plugin_abort)
+                    .collect(),
+            ),
+            None => Err(Error::new(
+                ruby.exception_runtime_error(),
+                format!("validation plugin aborted: {}", abort.reason),
+            )),
+        }
     }
 
     pub(crate) fn dump_json(&self, data: RHash) -> Result<RString, Error> {
@@ -334,6 +443,14 @@ fn build_schema_result(
         output: output.into(),
         errors: ruby_errors.into(),
     }))
+}
+
+const fn schema_mode(mode: Mode) -> SchemaMode {
+    match mode {
+        Mode::Schema => SchemaMode::Schema,
+        Mode::Params => SchemaMode::Params,
+        Mode::Json => SchemaMode::Json,
+    }
 }
 
 fn json_value_to_ruby(ruby: &Ruby, value: &serde_json::Value) -> Result<RHash, Error> {
@@ -757,9 +874,92 @@ mod tests {
             validate_keys,
             plan_bytes: json.len(),
             field_count,
+            plugin: Mutex::new(None),
+            contract_name: "<anonymous>".to_owned(),
         };
         assert_eq!(engine.field_count(), 2);
         assert_eq!(engine.plan_bytes(), json.len());
+    }
+
+    #[test]
+    fn engine_sends_before_and_after_summaries_to_an_attached_plugin() {
+        struct RecordingPlugin(Mutex<Vec<String>>);
+
+        impl ValidationPlugin for RecordingPlugin {
+            fn on_before_validate(
+                &self,
+                contract_name: &str,
+                input_summary: &InputSummary,
+            ) -> Result<(), PluginAbort> {
+                self.0.lock().expect("recording lock").push(format!(
+                    "before:{contract_name}:{}:{:?}",
+                    input_summary.top_level_keys.join(","),
+                    input_summary.schema_mode
+                ));
+                Ok(())
+            }
+
+            fn on_after_validate(
+                &self,
+                contract_name: &str,
+                _: std::time::Duration,
+                result_summary: &ResultSummary,
+            ) -> Result<(), PluginAbort> {
+                self.0.lock().expect("recording lock").push(format!(
+                    "after:{contract_name}:{}:{}",
+                    result_summary.success, result_summary.error_count
+                ));
+                Ok(())
+            }
+        }
+
+        let plugin = Arc::new(RecordingPlugin(Mutex::new(Vec::new())));
+        let engine = Engine {
+            serializer: None,
+            serialization_buffer: RefCell::default(),
+            validators: Vec::new(),
+            ruby_validators: Vec::new(),
+            declared_keys: Vec::new(),
+            classes: RuntimeClasses::default(),
+            mode: Mode::Params,
+            validate_keys: false,
+            plan_bytes: 0,
+            field_count: 0,
+            plugin: Mutex::new(Some(plugin.clone())),
+            contract_name: "SignupContract".to_owned(),
+        };
+        let input = InputSummary {
+            top_level_keys: vec!["email".to_owned()],
+            estimated_size_bytes: 5,
+            schema_mode: SchemaMode::Params,
+        };
+        let result = ResultSummary {
+            success: false,
+            error_count: 1,
+            rule_invocation_count: 0,
+        };
+
+        plugin
+            .on_before_validate(&engine.contract_name, &input)
+            .expect("plugin permits validation");
+        plugin
+            .on_after_validate(&engine.contract_name, std::time::Duration::ZERO, &result)
+            .expect("plugin accepts validation result");
+
+        assert_eq!(
+            *plugin.0.lock().expect("recording lock"),
+            [
+                "before:SignupContract:email:Params",
+                "after:SignupContract:false:1"
+            ]
+        );
+    }
+
+    #[test]
+    fn schema_mode_preserves_the_compiled_plan_mode() {
+        assert_eq!(schema_mode(Mode::Schema), SchemaMode::Schema);
+        assert_eq!(schema_mode(Mode::Params), SchemaMode::Params);
+        assert_eq!(schema_mode(Mode::Json), SchemaMode::Json);
     }
 
     #[test]

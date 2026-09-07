@@ -10,6 +10,7 @@ mod error;
 mod extract_primitive;
 mod fused;
 mod plan;
+pub mod plugin;
 mod predicates;
 mod ruby_bridge;
 pub mod serializer;
@@ -231,6 +232,7 @@ fn init(ruby: &Ruby) -> Result<(), Error> {
     class.define_singleton_method("new", function!(Engine::new, 1))?;
     class.define_method("call", method!(Engine::call, 1))?;
     class.define_method("call_json", method!(Engine::call_json, 1))?;
+    class.define_method("register_plugin", method!(Engine::register_plugin, 3))?;
     class.define_method("dump_json", method!(Engine::dump_json, 1))?;
     class.define_method("field_count", method!(Engine::field_count, 0))?;
     class.define_method("plan_bytes", method!(Engine::plan_bytes, 0))?;

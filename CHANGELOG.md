@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Added native engine registration for pre- and post-validation Ruby callback
+  Procs, with shallow validation metadata and explicit callback failures.
 - Added Rust serializer primitives for direct JSON byte output from symbol-keyed
   hashes containing signed 64-bit integers, UTF-8 strings, and typed collections.
   Contract results now expose `to_json` through their retained native engine;
