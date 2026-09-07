@@ -16,8 +16,6 @@ name = "native"
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-# Keep the ordered map compatible with the declared Rust 1.75 minimum.
-indexmap = "=2.4.0"
 itoa = "1"
 bigdecimal = "0.4"
 chrono = { version = "0.4", default-features = false, features = ["alloc", "std"] }

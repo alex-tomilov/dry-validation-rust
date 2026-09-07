@@ -3,7 +3,6 @@
 //! Trees and data must be accessed with the GVL held. An owner retaining a tree
 //! across Ruby calls must invoke `mark` from its TypedData mark callback.
 
-use indexmap::IndexMap;
 use magnus::rb_sys::AsRawValue;
 use magnus::{
     gc::Marker, prelude::*, r_hash::ForEach, value::Opaque, Error, Integer, RArray, RHash, RString,
@@ -14,9 +13,7 @@ use serde::Serialize;
 /// Ordered fields built once; private storage prevents bypassing duplicate checks.
 #[derive(Clone)]
 pub struct CompiledFields {
-    // Raw identities are only lookup keys. The corresponding symbols are marked
-    // (and pinned) below, so GC cannot invalidate them.
-    fields: IndexMap<rb_sys::VALUE, CompiledField>,
+    fields: Vec<CompiledField>,
 }
 
 #[derive(Clone)]
@@ -33,23 +30,24 @@ impl CompiledFields {
         ruby: &Ruby,
         fields: impl IntoIterator<Item = (Symbol, NativeSerializer)>,
     ) -> Result<Self, Error> {
-        let mut compiled = IndexMap::new();
+        let fields = fields.into_iter();
+        let mut compiled: Vec<CompiledField> = Vec::with_capacity(fields.size_hint().0);
         for (symbol, serializer) in fields {
             let identity = symbol.as_value().as_raw();
-            if compiled.contains_key(&identity) {
+            if compiled
+                .iter()
+                .any(|field| ruby.get_inner(field.key_symbol).as_value().as_raw() == identity)
+            {
                 return Err(invalid(ruby, "duplicate serializer field"));
             }
             let mut escaped_key = Vec::new();
             write_json(ruby, &mut escaped_key, &symbol.name()?.as_ref())?;
             escaped_key.push(b':');
-            compiled.insert(
-                identity,
-                CompiledField {
-                    key_symbol: symbol.into(),
-                    escaped_key,
-                    serializer,
-                },
-            );
+            compiled.push(CompiledField {
+                key_symbol: symbol.into(),
+                escaped_key,
+                serializer,
+            });
         }
         Ok(Self { fields: compiled })
     }
@@ -106,7 +104,7 @@ impl NativeSerializer {
     pub fn mark(&self, marker: &Marker) {
         match self {
             Self::Hash { fields } => {
-                for field in fields.fields.values() {
+                for field in &fields.fields {
                     marker.mark(field.key_symbol);
                     field.serializer.mark(marker);
                 }
@@ -159,7 +157,7 @@ impl NativeSerializer {
                 bytes.push(b'{');
                 let mut first = true;
                 let mut matched = 0;
-                for field in fields.fields.values() {
+                for field in &fields.fields {
                     let symbol = ruby.get_inner(field.key_symbol);
                     if let Some(value) = hash.get(symbol) {
                         matched += 1;
@@ -178,7 +176,10 @@ impl NativeSerializer {
                     hash.foreach(|key: Value, _: Value| {
                         let symbol = Symbol::from_value(key)
                             .ok_or_else(|| invalid(ruby, "expected symbol hash keys"))?;
-                        if !fields.fields.contains_key(&symbol.as_value().as_raw()) {
+                        if !fields.fields.iter().any(|field| {
+                            ruby.get_inner(field.key_symbol).as_value().as_raw()
+                                == symbol.as_value().as_raw()
+                        }) {
                             return Err(invalid(ruby, "undeclared serializer field"));
                         }
                         Ok(ForEach::Continue)

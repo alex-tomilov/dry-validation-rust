@@ -111,11 +111,6 @@ criteria = "safe-to-run"
 version = "1.16.0"
 criteria = "safe-to-deploy"
 
-[[exemptions.equivalent]]
-version = "1.0.2"
-criteria = "safe-to-deploy"
-notes = "Temporary serializer dependency baseline; review by 2026-12-05 (docs/DEPENDENCY_SECURITY.md)."
-
 [[exemptions.futures-core]]
 version = "0.3.34"
 criteria = "safe-to-run"
@@ -136,19 +131,9 @@ criteria = "safe-to-deploy"
 version = "2.4.1"
 criteria = "safe-to-run"
 
-[[exemptions.hashbrown]]
-version = "0.14.5"
-criteria = "safe-to-deploy"
-notes = "Temporary serializer dependency baseline; review by 2026-12-05 (docs/DEPENDENCY_SECURITY.md)."
-
 [[exemptions.hermit-abi]]
 version = "0.5.2"
 criteria = "safe-to-run"
-
-[[exemptions.indexmap]]
-version = "2.4.0"
-criteria = "safe-to-deploy"
-notes = "Temporary serializer dependency baseline; review by 2026-12-05 (docs/DEPENDENCY_SECURITY.md)."
 
 [[exemptions.is-terminal]]
 version = "0.4.17"
