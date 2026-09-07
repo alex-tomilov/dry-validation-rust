@@ -15,6 +15,7 @@ module Dry
       #       key.failure("is invalid") unless value.include?("@")
       #     end
       #   end
+      # rubocop:disable Metrics/ClassLength
       class Contract
         Undefined = Object.new.freeze
         # @api private
@@ -79,6 +80,19 @@ module Dry
           # @raise [DuplicateSchemaError] if this class already has a schema
           def schema(*external_schemas, &)
             define_schema(:schema, external_schemas, &)
+          end
+
+          # Registers native validation observability callbacks for this contract.
+          # @param name [Symbol, String] plugin identifier included in callback payloads.
+          # @param before [#to_proc, nil] callback invoked before schema validation.
+          # @param after [#to_proc, nil] callback invoked after schema validation.
+          # @return [Class] this contract class; raises if no schema or callback is supplied.
+          def on_validate(name = :default, before: nil, after: nil)
+            schema = schema_definition
+            raise SchemaMissingError, "#{self} must define a schema before registering a plugin" unless schema
+
+            schema.engine.register_plugin(name.to_s, before&.to_proc, after&.to_proc)
+            self
           end
 
           # Registers a validation rule for one or more schema paths.
@@ -410,6 +424,7 @@ module Dry
           end
         end
       end
+      # rubocop:enable Metrics/ClassLength
     end
   end
 end

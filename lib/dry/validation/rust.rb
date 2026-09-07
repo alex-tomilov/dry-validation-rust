@@ -17,6 +17,7 @@ require_relative 'rust/rule'
 require_relative 'rust/evaluator'
 require_relative 'rust/contract/result'
 require_relative 'rust/contract'
+require_relative 'rust/plugins/otel_plugin'
 
 module Dry
   module Validation

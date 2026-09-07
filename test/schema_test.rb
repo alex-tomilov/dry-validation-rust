@@ -303,6 +303,46 @@ class SchemaTest < Minitest::Test
     assert_includes error.message, 'observer unavailable'
   end
 
+  def test_contract_registers_native_validation_callbacks
+    contract = build_contract do
+      params { required(:age).value(:integer) }
+    end
+    events = []
+
+    assert_same contract, contract.on_validate(:audit, after: ->(event, payload) { events << [event, payload] })
+    contract.new.call(age: 'invalid')
+
+    event, payload = events.fetch(0)
+    assert_equal :after_validate, event
+    assert_equal 'audit', payload[:plugin_name]
+    assert_equal false, payload[:success]
+  end
+
+  def test_otel_plugin_records_native_validation_outcome
+    span = Struct.new(:attributes, :finished) do
+      def set_attribute(key, value)
+        attributes[key] = value
+      end
+
+      def finish
+        self.finished = true
+      end
+    end.new({}, false)
+    tracer = Object.new
+    tracer.define_singleton_method(:start_span) { |_name| span }
+    contract = build_contract do
+      params { required(:age).value(:integer) }
+    end
+
+    Dry::Validation::Rust::Plugins::OtelPlugin.install(contract, tracer: tracer)
+    contract.new.call(age: 'invalid')
+
+    assert_equal false, span.attributes['validation.success']
+    assert_equal 1, span.attributes['validation.error_count']
+    assert_operator span.attributes['validation.duration_ms'], :>=, 0.0
+    assert span.finished
+  end
+
   def test_contract_call_json_fuses_json_parsing_and_native_schema_validation
     contract = build_contract do
       json do

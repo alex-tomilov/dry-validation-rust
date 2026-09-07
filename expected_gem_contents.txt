@@ -47,6 +47,7 @@ ext/dry_validation_rust/src/fused.rs
 ext/dry_validation_rust/src/generated_predicates.rs
 ext/dry_validation_rust/src/lib.rs
 ext/dry_validation_rust/src/plan.rs
+ext/dry_validation_rust/src/plugin.rs
 ext/dry_validation_rust/src/predicates.rs
 ext/dry_validation_rust/src/ruby_bridge.rs
 ext/dry_validation_rust/src/serializer.rs
@@ -72,6 +73,7 @@ lib/dry/validation/rust/message_set.rb
 lib/dry/validation/rust/native.rb
 lib/dry/validation/rust/path.rb
 lib/dry/validation/rust/path_trie.rb
+lib/dry/validation/rust/plugins/otel_plugin.rb
 lib/dry/validation/rust/result.rb
 lib/dry/validation/rust/rule.rb
 lib/dry/validation/rust/schema.rb
