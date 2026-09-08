@@ -43,3 +43,7 @@ harness = false
 [[bench]]
 name = "full_schema"
 harness = false
+
+[[bench]]
+name = "plugin_overhead"
+harness = false

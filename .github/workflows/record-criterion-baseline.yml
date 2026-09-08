@@ -35,7 +35,7 @@ jobs:
           toolchain: 1.75.0
           cache-workspaces: ext/dry_validation_rust -> target
 
-      - name: Run Criterion benchmarks
+      - name: Run baseline Criterion benchmarks
         env:
           CARGO_TARGET_DIR: ${{ runner.temp }}/criterion-target
         run: cargo bench --locked --manifest-path ext/dry_validation_rust/Cargo.toml --bench plan_compile --bench coercion --bench predicates -- --profile-time 2 --sample-size 10

@@ -89,6 +89,30 @@ pub mod benchmark {
         }
     }
 
+    /// Prepared engines for verifying that an absent plugin adds no measurable
+    /// cost to a representative native validation call.
+    pub struct PluginOverheadRuntime {
+        engine: super::Engine,
+    }
+
+    impl PluginOverheadRuntime {
+        pub fn new(ruby: &Ruby, plan_json: String) -> Result<Self, Error> {
+            Ok(Self {
+                engine: super::Engine::new(ruby, plan_json)?,
+            })
+        }
+
+        /// The production NOOP path: no plugin has been registered.
+        pub fn call_with_noop_plugin(&self, input: RHash) -> Result<(), Error> {
+            self.engine.call(input).map(|_| ())
+        }
+
+        /// The same validator before the plugin dispatch boundary.
+        pub fn call_without_plugin(&self, ruby: &Ruby, input: RHash) -> Result<(), Error> {
+            self.engine.validate_inner(ruby, input).map(|_| ())
+        }
+    }
+
     /// Reusable predicate plans for Criterion benchmarks of native predicate paths.
     pub struct PredicateRuntime {
         fields: Vec<FieldPlan>,

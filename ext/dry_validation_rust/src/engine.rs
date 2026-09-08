@@ -250,7 +250,11 @@ impl Engine {
         result
     }
 
-    fn validate_inner(&self, ruby: &Ruby, input: RHash) -> Result<Obj<SchemaResult>, Error> {
+    pub(crate) fn validate_inner(
+        &self,
+        ruby: &Ruby,
+        input: RHash,
+    ) -> Result<Obj<SchemaResult>, Error> {
         let mut errors = Vec::new();
         let output = {
             let mut traversal = Traversal {
