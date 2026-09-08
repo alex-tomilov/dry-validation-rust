@@ -4,6 +4,7 @@ require_relative 'test_helper'
 require 'bigdecimal'
 require 'date'
 require 'dry/types'
+require 'json'
 require 'tempfile'
 require 'time'
 
@@ -341,6 +342,44 @@ class SchemaTest < Minitest::Test
     assert_equal 1, span.attributes['validation.error_count']
     assert_operator span.attributes['validation.duration_ms'], :>=, 0.0
     assert span.finished
+  end
+
+  def test_local_telemetry_plugin_appends_validation_outcomes_as_json_lines
+    contract = build_contract do
+      params { required(:age).value(:integer) }
+    end
+
+    Tempfile.create(['dry-validation-rust-telemetry', '.jsonl']) do |file|
+      Dry::Validation::Rust::Plugins::LocalTelemetryPlugin.install(contract, path: file.path)
+
+      contract.new.call(age: 21)
+      contract.new.call(age: 'invalid')
+
+      records = File.readlines(file.path, chomp: true).map { |line| JSON.parse(line) }
+      successes = records.map { |record| record.fetch('success') }
+      error_counts = records.map { |record| record.fetch('error_count') }
+      events = records.map { |record| record.fetch('event') }
+      contract_names = records.map { |record| record.fetch('contract_name') }
+
+      assert_equal [true, false], successes
+      assert_equal [0, 1], error_counts
+      assert_equal %w[after_validate after_validate], events
+      assert_equal %w[<anonymous> <anonymous>], contract_names
+      assert(records.all? { |record| record.fetch('duration_ms') >= 0.0 })
+    end
+  end
+
+  def test_local_telemetry_plugin_surfaces_file_write_failures
+    contract = build_contract do
+      params { required(:age).value(:integer) }
+    end
+    path = File.join(Dir.mktmpdir, 'missing', 'telemetry.jsonl')
+
+    Dry::Validation::Rust::Plugins::LocalTelemetryPlugin.install(contract, path: path)
+
+    error = assert_raises(RuntimeError) { contract.new.call(age: 21) }
+
+    assert_includes error.message, "plugin 'local_telemetry' after_validate callback failed"
   end
 
   def test_contract_call_json_fuses_json_parsing_and_native_schema_validation

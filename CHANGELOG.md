@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Added `LocalTelemetryPlugin` for appending native validation outcomes to a
+  local JSON Lines file without an OpenTelemetry dependency.
 - Added `Contract.on_validate` registration for pre- and post-validation Ruby
   callback Procs, with shallow validation metadata, explicit callback failures,
   and an injectable OpenTelemetry example plugin.
