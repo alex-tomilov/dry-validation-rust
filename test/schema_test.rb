@@ -305,9 +305,10 @@ class SchemaTest < Minitest::Test
   end
 
   def test_contract_registers_native_validation_callbacks
-    contract = build_contract do
+    contract = Class.new(Dry::Validation::Rust::Contract) do
       params { required(:age).value(:integer) }
     end
+    self.class.const_set(:TelemetryPluginContract, contract)
     events = []
 
     assert_same contract, contract.on_validate(:audit, after: ->(event, payload) { events << [event, payload] })
@@ -316,7 +317,12 @@ class SchemaTest < Minitest::Test
     event, payload = events.fetch(0)
     assert_equal :after_validate, event
     assert_equal 'audit', payload[:plugin_name]
+    assert_equal contract.name, payload[:contract_name]
     assert_equal false, payload[:success]
+  ensure
+    if self.class.const_defined?(:TelemetryPluginContract, false)
+      self.class.send(:remove_const, :TelemetryPluginContract)
+    end
   end
 
   def test_otel_plugin_records_native_validation_outcome

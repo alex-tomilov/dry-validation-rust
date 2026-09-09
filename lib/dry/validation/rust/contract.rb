@@ -91,7 +91,12 @@ module Dry
             schema = schema_definition
             raise SchemaMissingError, "#{self} must define a schema before registering a plugin" unless schema
 
-            schema.engine.register_plugin(name.to_s, before&.to_proc, after&.to_proc)
+            schema.engine.register_contract_plugin(
+              name.to_s,
+              self.name || '<anonymous>',
+              before&.to_proc,
+              after&.to_proc
+            )
             self
           end
 
