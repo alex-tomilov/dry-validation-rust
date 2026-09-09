@@ -1,7 +1,7 @@
 use magnus::{Error, Ruby};
 use serde::{
     de::{DeserializeSeed, EnumAccess, Error as DeError, MapAccess, SeqAccess, Visitor},
-    Deserialize,
+    Deserialize, Serialize,
 };
 use std::{collections::HashSet, fmt};
 
@@ -91,11 +91,27 @@ impl<'de> Deserialize<'de> for PredicateArg {
     }
 }
 
+impl Serialize for PredicateArg {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        match self {
+            Self::Bool(value) => serializer.serialize_bool(*value),
+            Self::Int(value) => serializer.serialize_i64(*value),
+            Self::Float(value) => serializer.serialize_f64(*value),
+            Self::Str(value) => serializer.serialize_str(value),
+            Self::List(values) => values.serialize(serializer),
+        }
+    }
+}
+
 include!("generated_predicates.rs");
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Serialize)]
 pub(crate) struct PredicatePlan {
     pub(crate) name: String,
+    #[serde(skip_serializing)]
     pub(crate) op: PredicateOp,
     pub(crate) argument: PredicateArg,
 }

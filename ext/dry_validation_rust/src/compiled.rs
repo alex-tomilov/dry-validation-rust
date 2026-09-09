@@ -7,19 +7,20 @@
 use std::sync::Arc;
 
 use crate::plan::{FieldPlan, Mode, PredicatePlan};
+use serde::{Deserialize, Serialize};
 
 /// The coercion policy assigned to a compiled validator node.
 ///
 /// `Inherit` remains unresolved until schema compilation applies parent and
 /// global-mode defaults.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub(crate) enum Strictness {
     Inherit,
     Strict,
     Lax,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub(crate) enum TypeKind {
     Any,
     Nil,
@@ -83,14 +84,15 @@ impl TypeKind {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "type", content = "config")]
 pub(crate) enum NativeValidator {
     Scalar(ScalarValidator),
     Hash(HashValidator),
     Array(ArrayValidator),
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub(crate) struct ValidatorOptions {
     /// Field names are allocated while compiling the transport plan and then
     /// shared by traversal paths and deferred errors.
@@ -104,19 +106,19 @@ pub(crate) struct ValidatorOptions {
     pub(crate) predicates: Vec<PredicatePlan>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub(crate) struct ScalarValidator {
     pub(crate) options: ValidatorOptions,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub(crate) struct HashValidator {
     pub(crate) options: ValidatorOptions,
     pub(crate) fields: Vec<NativeValidator>,
     pub(crate) declared_keys: Vec<Arc<str>>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub(crate) struct ArrayValidator {
     pub(crate) options: ValidatorOptions,
     pub(crate) member: Option<Box<NativeValidator>>,
@@ -270,6 +272,62 @@ mod tests {
         fn assert_send<T: Send>() {}
 
         assert_send::<NativeValidator>();
+    }
+
+    #[test]
+    fn native_validator_serializes_with_a_tagged_recursive_config() {
+        let validator = NativeValidator::compile(
+            FieldPlan {
+                name: Some("accounts".to_owned()),
+                required: true,
+                nullable: false,
+                filled: true,
+                strict: None,
+                kind: "array".to_owned(),
+                predicates: Vec::new(),
+                children: Vec::new(),
+                member: Some(Box::new(FieldPlan {
+                    name: None,
+                    required: true,
+                    nullable: false,
+                    filled: false,
+                    strict: None,
+                    kind: "hash".to_owned(),
+                    predicates: Vec::new(),
+                    member: None,
+                    children: vec![FieldPlan {
+                        name: Some("balance".to_owned()),
+                        required: true,
+                        nullable: false,
+                        filled: false,
+                        strict: Some(true),
+                        kind: "integer".to_owned(),
+                        predicates: vec![PredicatePlan {
+                            name: "gteq".to_owned(),
+                            op: crate::plan::PredicateOp::Gteq,
+                            argument: crate::plan::PredicateArg::Int(0),
+                        }],
+                        member: None,
+                        children: Vec::new(),
+                    }],
+                })),
+            },
+            Mode::Params,
+            Strictness::Inherit,
+        );
+
+        let serialized = serde_json::to_value(&validator).expect("serializable validator");
+        assert_eq!(serialized["type"], "Array");
+        assert_eq!(serialized["config"]["member"]["type"], "Hash");
+        assert_eq!(
+            serialized["config"]["member"]["config"]["fields"][0]["config"]["options"]
+                ["predicates"][0]["argument"],
+            0
+        );
+
+        let restored: NativeValidator =
+            serde_json::from_value(serialized).expect("deserializable validator");
+        assert_eq!(restored, validator);
     }
 
     #[test]
