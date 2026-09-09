@@ -334,8 +334,7 @@ mod tests {
         let cache = PlanCache::new(directory.clone());
         let key = PlanCache::key_for_plan(br#"{"fields":[]}"#);
 
-        fs::write(directory.join(&key), b"not a serialized plan")
-            .expect("corrupt cache fixture");
+        fs::write(directory.join(&key), b"not a serialized plan").expect("corrupt cache fixture");
         fs::write(directory.join("keep.txt"), b"not a plan").expect("non-plan fixture");
         fs::write(directory.join("unrelated.plan"), b"not a cache entry")
             .expect("unrelated plan fixture");
