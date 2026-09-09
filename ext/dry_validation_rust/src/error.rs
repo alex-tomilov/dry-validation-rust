@@ -18,6 +18,7 @@ pub(crate) enum ErrorKind {
     Filled,
     UnexpectedKey { key: String },
     PredicateFailed { predicate: PredicatePlan },
+    PluginAbort { message: String },
     DepthExceeded,
 }
 
@@ -56,6 +57,10 @@ impl NativeError {
         Self::with_kind(path, ErrorKind::DepthExceeded)
     }
 
+    pub(crate) fn plugin_abort(message: String) -> Self {
+        Self::with_kind(&[], ErrorKind::PluginAbort { message })
+    }
+
     fn with_kind(path: &[PathPart], kind: ErrorKind) -> Self {
         Self {
             path: path.to_vec(),
@@ -79,6 +84,7 @@ impl NativeError {
                 predicate.name.as_str(),
                 Cow::Owned(crate::predicates::predicate_message(predicate)),
             ),
+            ErrorKind::PluginAbort { message } => ("plugin", Cow::Borrowed(message.as_str())),
             ErrorKind::DepthExceeded => (
                 "depth",
                 Cow::Borrowed("schema nesting depth exceeds limit (128)"),

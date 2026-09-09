@@ -8,7 +8,7 @@ class ApiTest < Minitest::Test
   CONCURRENCY_CALLS_PER_THREAD = 1_000
   SIDE_BY_SIDE_PUBLIC_API = {
     Dry::Validation::Rust::Contract => {
-      class: %i[build config import_predicates_as_macros inherited json macro_registry option option_definitions own_rules params register_macro rule rules schema schema_definition],
+      class: %i[build config import_predicates_as_macros inherited json macro_registry on_validate option option_definitions own_rules params register_macro rule rules schema schema_definition],
       instance: %i[[] call call_json default_context inspect macro_registered? resolve_macro]
     },
     Dry::Validation::Rust::Schema => {

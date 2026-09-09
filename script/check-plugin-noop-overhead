@@ -1,0 +1,46 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+require 'json'
+
+MAXIMUM_DIFFERENCE = 0.01
+BENCHMARKS = {
+  # Criterion turns slash-separated benchmark IDs into directory-safe names.
+  without: 'plugin_overhead_validate_without_plugin',
+  noop: 'plugin_overhead_validate_with_noop_plugin'
+}.freeze
+
+abort "Usage: #{File.basename($PROGRAM_NAME)} CRITERION_DIRECTORY" unless ARGV.length == 1
+
+def estimate(directory, benchmark)
+  path = File.join(directory, benchmark, 'new', 'estimates.json')
+  abort "Missing Criterion estimate for #{benchmark}: #{path}" unless File.file?(path)
+
+  payload = JSON.parse(File.read(path))
+  mean = payload.dig('mean', 'point_estimate')
+  interval = payload.dig('mean', 'confidence_interval')
+  confidence_level = interval&.fetch('confidence_level', nil)
+  lower = interval&.fetch('lower_bound', nil)
+  upper = interval&.fetch('upper_bound', nil)
+  unless mean.is_a?(Numeric) && mean.positive? && lower.is_a?(Numeric) && lower.positive? &&
+         upper.is_a?(Numeric) && upper.positive? && confidence_level.is_a?(Numeric) &&
+         (confidence_level * 100).round == 95
+    abort "Invalid 95% Criterion mean estimate for #{benchmark}"
+  end
+
+  { mean:, lower:, upper: }
+end
+
+directory = File.expand_path(ARGV.fetch(0))
+without = estimate(directory, BENCHMARKS.fetch(:without))
+noop = estimate(directory, BENCHMARKS.fetch(:noop))
+difference = ((noop.fetch(:mean) / without.fetch(:mean)) - 1).abs
+within_confidence_interval = noop.fetch(:lower) >= without.fetch(:upper) * (1 - MAXIMUM_DIFFERENCE) &&
+                             noop.fetch(:upper) <= without.fetch(:lower) * (1 + MAXIMUM_DIFFERENCE)
+
+unless within_confidence_interval
+  abort format('NOOP plugin overhead exceeds 1%% at 95%% confidence: %<difference>.2f%% (%<noop>.2f ns vs %<without>.2f ns)',
+               difference: difference * 100, noop: noop.fetch(:mean), without: without.fetch(:mean))
+end
+
+puts format('NOOP plugin path is within the 1%% limit at 95%% confidence: %.2f%% difference', difference * 100)

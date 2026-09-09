@@ -10,6 +10,7 @@ mod error;
 mod extract_primitive;
 mod fused;
 mod plan;
+pub mod plugin;
 mod predicates;
 mod ruby_bridge;
 pub mod serializer;
@@ -85,6 +86,30 @@ pub mod benchmark {
             self.engine
                 .call(input)
                 .map(|result| super::SchemaResult::errors(ruby, &result).len())
+        }
+    }
+
+    /// Prepared engines for verifying that an absent plugin adds no measurable
+    /// cost to a representative native validation call.
+    pub struct PluginOverheadRuntime {
+        engine: super::Engine,
+    }
+
+    impl PluginOverheadRuntime {
+        pub fn new(ruby: &Ruby, plan_json: String) -> Result<Self, Error> {
+            Ok(Self {
+                engine: super::Engine::new(ruby, plan_json)?,
+            })
+        }
+
+        /// The production NOOP path: no plugin has been registered.
+        pub fn call_with_noop_plugin(&self, input: RHash) -> Result<(), Error> {
+            self.engine.call(input).map(|_| ())
+        }
+
+        /// The same validator before the plugin dispatch boundary.
+        pub fn call_without_plugin(&self, ruby: &Ruby, input: RHash) -> Result<(), Error> {
+            self.engine.validate_inner(ruby, input).map(|_| ())
         }
     }
 
@@ -231,6 +256,7 @@ fn init(ruby: &Ruby) -> Result<(), Error> {
     class.define_singleton_method("new", function!(Engine::new, 1))?;
     class.define_method("call", method!(Engine::call, 1))?;
     class.define_method("call_json", method!(Engine::call_json, 1))?;
+    class.define_method("register_plugin", method!(Engine::register_plugin, 3))?;
     class.define_method("dump_json", method!(Engine::dump_json, 1))?;
     class.define_method("field_count", method!(Engine::field_count, 0))?;
     class.define_method("plan_bytes", method!(Engine::plan_bytes, 0))?;

@@ -362,6 +362,8 @@ class CiWorkflowsTest < Minitest::Test
     assert_includes source, 'git show FETCH_HEAD:benchmark/baseline.json'
     assert_includes source, 'No Criterion baseline yet'
     assert_includes source, 'script/compare-criterion-baselines "$RUNNER_TEMP/criterion-baseline.json" "$RUNNER_TEMP/candidate-target/criterion"'
+    assert_includes job.fetch('strategy').fetch('matrix').fetch('bench'), 'plugin_overhead'
+    assert_includes source, 'script/check-plugin-noop-overhead "$RUNNER_TEMP/candidate-target/criterion"'
   end
 
   def test_benchmark_workflow_reports_alerts_and_only_publishes_from_trusted_events

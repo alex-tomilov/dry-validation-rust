@@ -4,6 +4,7 @@ require_relative 'test_helper'
 require 'bigdecimal'
 require 'date'
 require 'dry/types'
+require 'json'
 require 'tempfile'
 require 'time'
 
@@ -257,6 +258,128 @@ class SchemaTest < Minitest::Test
     assert_instance_of Dry::Validation::Rust::Native::SchemaResult, result
     assert_equal({ age: 'invalid' }, result.output)
     assert_equal [{ path: [:age], code: :type, text: 'must be an integer' }], result.errors
+  end
+
+  def test_native_engine_register_plugin_forwards_before_and_after_events
+    schema = Dry::Validation::Rust::Schema.Params { required(:age).value(:integer) }
+    events = []
+    schema.engine.register_plugin(
+      'test-observer',
+      ->(event, payload) { events << [event, payload] },
+      ->(event, payload) { events << [event, payload] }
+    )
+    GC.start
+    result = schema.call(age: 'invalid')
+
+    refute result.success?
+    before_event, before_payload = events.fetch(0)
+    after_event, after_payload = events.fetch(1)
+    assert_equal :before_validate, before_event
+    assert_equal 'test-observer', before_payload[:plugin_name]
+    assert_equal ['age'], before_payload[:top_level_keys]
+    assert_equal :params, before_payload[:schema_mode]
+    assert_equal :after_validate, after_event
+    assert_equal false, after_payload[:success]
+    assert_equal 1, after_payload[:error_count]
+    assert_equal 0, after_payload[:rule_invocation_count]
+    assert_operator after_payload[:duration_ms], :>=, 0.0
+  end
+
+  def test_native_engine_register_plugin_requires_a_callback
+    schema = Dry::Validation::Rust::Schema.Params { required(:age).value(:integer) }
+
+    error = assert_raises(ArgumentError) { schema.engine.register_plugin('empty', nil, nil) }
+
+    assert_equal 'register_plugin requires a before or after Proc', error.message
+  end
+
+  def test_native_engine_plugin_callback_exceptions_are_explicit
+    schema = Dry::Validation::Rust::Schema.Params { required(:age).value(:integer) }
+    callback = ->(*) { raise 'observer unavailable' }
+    schema.engine.register_plugin('failing-observer', callback, nil)
+
+    error = assert_raises(RuntimeError) { schema.call(age: 21) }
+
+    assert_includes error.message, "plugin 'failing-observer' before_validate callback failed"
+    assert_includes error.message, 'observer unavailable'
+  end
+
+  def test_contract_registers_native_validation_callbacks
+    contract = build_contract do
+      params { required(:age).value(:integer) }
+    end
+    events = []
+
+    assert_same contract, contract.on_validate(:audit, after: ->(event, payload) { events << [event, payload] })
+    contract.new.call(age: 'invalid')
+
+    event, payload = events.fetch(0)
+    assert_equal :after_validate, event
+    assert_equal 'audit', payload[:plugin_name]
+    assert_equal false, payload[:success]
+  end
+
+  def test_otel_plugin_records_native_validation_outcome
+    span = Struct.new(:attributes, :finished) do
+      def set_attribute(key, value)
+        attributes[key] = value
+      end
+
+      def finish
+        self.finished = true
+      end
+    end.new({}, false)
+    tracer = Object.new
+    tracer.define_singleton_method(:start_span) { |_name| span }
+    contract = build_contract do
+      params { required(:age).value(:integer) }
+    end
+
+    Dry::Validation::Rust::Plugins::OtelPlugin.install(contract, tracer: tracer)
+    contract.new.call(age: 'invalid')
+
+    assert_equal false, span.attributes['validation.success']
+    assert_equal 1, span.attributes['validation.error_count']
+    assert_operator span.attributes['validation.duration_ms'], :>=, 0.0
+    assert span.finished
+  end
+
+  def test_local_telemetry_plugin_appends_validation_outcomes_as_json_lines
+    contract = build_contract do
+      params { required(:age).value(:integer) }
+    end
+
+    Tempfile.create(['dry-validation-rust-telemetry', '.jsonl']) do |file|
+      Dry::Validation::Rust::Plugins::LocalTelemetryPlugin.install(contract, path: file.path)
+
+      contract.new.call(age: 21)
+      contract.new.call(age: 'invalid')
+
+      records = File.readlines(file.path, chomp: true).map { |line| JSON.parse(line) }
+      successes = records.map { |record| record.fetch('success') }
+      error_counts = records.map { |record| record.fetch('error_count') }
+      events = records.map { |record| record.fetch('event') }
+      contract_names = records.map { |record| record.fetch('contract_name') }
+
+      assert_equal [true, false], successes
+      assert_equal [0, 1], error_counts
+      assert_equal %w[after_validate after_validate], events
+      assert_equal %w[<anonymous> <anonymous>], contract_names
+      assert(records.all? { |record| record.fetch('duration_ms') >= 0.0 })
+    end
+  end
+
+  def test_local_telemetry_plugin_surfaces_file_write_failures
+    contract = build_contract do
+      params { required(:age).value(:integer) }
+    end
+    path = File.join(Dir.mktmpdir, 'missing', 'telemetry.jsonl')
+
+    Dry::Validation::Rust::Plugins::LocalTelemetryPlugin.install(contract, path: path)
+
+    error = assert_raises(RuntimeError) { contract.new.call(age: 21) }
+
+    assert_includes error.message, "plugin 'local_telemetry' after_validate callback failed"
   end
 
   def test_contract_call_json_fuses_json_parsing_and_native_schema_validation

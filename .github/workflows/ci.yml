@@ -580,6 +580,7 @@ jobs:
           - plan_compile
           - coercion
           - predicates
+          - plugin_overhead
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -620,11 +621,20 @@ jobs:
       - name: Benchmark candidate
         env:
           CARGO_TARGET_DIR: ${{ runner.temp }}/candidate-target
-        run: cargo bench --locked --manifest-path ext/dry_validation_rust/Cargo.toml --bench ${{ matrix.bench }} -- --profile-time 2 --sample-size 10
+        run: |
+          if [ "${{ matrix.bench }}" = 'plugin_overhead' ]; then
+            cargo bench --locked --manifest-path ext/dry_validation_rust/Cargo.toml --bench plugin_overhead -- --measurement-time 2 --sample-size 30
+          else
+            cargo bench --locked --manifest-path ext/dry_validation_rust/Cargo.toml --bench ${{ matrix.bench }} -- --profile-time 2 --sample-size 10
+          fi
 
       - name: Reject Criterion regressions above five percent
-        if: github.event_name == 'pull_request' && steps.criterion-baseline.outputs.available == 'true'
+        if: github.event_name == 'pull_request' && steps.criterion-baseline.outputs.available == 'true' && matrix.bench != 'plugin_overhead'
         run: ruby script/compare-criterion-baselines "$RUNNER_TEMP/criterion-baseline.json" "$RUNNER_TEMP/candidate-target/criterion"
+
+      - name: Verify NOOP plugin overhead
+        if: matrix.bench == 'plugin_overhead'
+        run: ruby script/check-plugin-noop-overhead "$RUNNER_TEMP/candidate-target/criterion"
 
       - name: Upload Criterion reports
         if: always()
