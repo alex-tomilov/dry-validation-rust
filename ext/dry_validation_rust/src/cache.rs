@@ -6,6 +6,7 @@ use std::{
     hash::{Hash, Hasher},
     io,
     path::PathBuf,
+    time::SystemTime,
 };
 
 use crate::compiled::{
@@ -14,6 +15,7 @@ use crate::compiled::{
 
 const CACHE_MAGIC: &[u8] = b"DVPC";
 const CACHE_FORMAT_VERSION: u8 = 1;
+const CACHE_MAX_BYTES: u64 = 64 * 1024 * 1024;
 
 /// Bincode cannot deserialize Serde's internally tagged enums, so cache entries
 /// use this equivalent externally tagged representation. The public JSON form
@@ -109,7 +111,48 @@ impl PlanCache {
         bytes.extend_from_slice(CACHE_MAGIC);
         bytes.push(CACHE_FORMAT_VERSION);
         bytes.extend_from_slice(&payload);
-        fs::write(self.cache_dir.join(key), bytes)
+        fs::write(self.cache_dir.join(key), bytes)?;
+        let _ = self.prune_to(CACHE_MAX_BYTES);
+        Ok(())
+    }
+
+    fn prune_to(&self, max_bytes: u64) -> Result<(), io::Error> {
+        let mut total_bytes: u64 = 0;
+        let mut plans = Vec::new();
+
+        for entry in fs::read_dir(&self.cache_dir)? {
+            let entry = entry?;
+            let path = entry.path();
+            if !path
+                .extension()
+                .is_some_and(|extension| extension == "plan")
+            {
+                continue;
+            }
+
+            let metadata = entry.metadata()?;
+            if !metadata.is_file() {
+                continue;
+            }
+
+            total_bytes = total_bytes.saturating_add(metadata.len());
+            plans.push((
+                metadata.modified().unwrap_or(SystemTime::UNIX_EPOCH),
+                path,
+                metadata.len(),
+            ));
+        }
+
+        plans.sort_by(|left, right| left.0.cmp(&right.0).then_with(|| left.1.cmp(&right.1)));
+        for (_, path, size) in plans {
+            if total_bytes <= max_bytes {
+                break;
+            }
+
+            fs::remove_file(path)?;
+            total_bytes = total_bytes.saturating_sub(size);
+        }
+        Ok(())
     }
 
     /// Removes plan files while preserving unrelated files in the cache directory.
@@ -230,6 +273,30 @@ mod tests {
         fs::write(path, bytes).expect("outdated cache fixture");
 
         assert_eq!(cache.get(&key), None);
+
+        fs::remove_dir_all(directory).expect("test cache directory is removable");
+    }
+
+    #[test]
+    fn pruning_evicts_oldest_plan_files_and_keeps_unrelated_files() {
+        let directory = cache_dir();
+        let cache = PlanCache::new(directory.clone());
+        let oldest = directory.join("a.plan");
+        let newest = directory.join("b.plan");
+        let unrelated = directory.join("keep.txt");
+
+        fs::write(&oldest, b"aaaa").expect("oldest plan fixture");
+        fs::write(&newest, b"bbbb").expect("newest plan fixture");
+        fs::write(&unrelated, b"keep").expect("unrelated fixture");
+
+        cache.prune_to(4).expect("cache pruning succeeds");
+
+        assert!(!oldest.exists());
+        assert!(newest.exists());
+        assert_eq!(
+            fs::read(unrelated).expect("unrelated file remains"),
+            b"keep"
+        );
 
         fs::remove_dir_all(directory).expect("test cache directory is removable");
     }
