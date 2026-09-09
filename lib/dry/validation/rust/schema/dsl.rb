@@ -58,10 +58,12 @@ module Dry
                   'See: https://github.com/alex-tomilov/dry-validation-rust/blob/main/docs/MIGRATION_RECIPES.md#schema-filtering-dsl'
           end
 
-          def compile(validate_keys: false, messages: MessageConfig.new)
+          def compile(validate_keys: false, messages: MessageConfig.new, plan_cache_dir: Dir.tmpdir,
+                      plan_cache_enabled: true)
             Schema.new(
               mode: mode, fields: fields, before_hooks: before_hooks, after_hooks: after_hooks,
-              validate_keys: validate_keys, messages: messages
+              validate_keys: validate_keys, messages: messages, plan_cache_dir: plan_cache_dir,
+              plan_cache_enabled: plan_cache_enabled
             )
           end
 

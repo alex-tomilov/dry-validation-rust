@@ -229,7 +229,12 @@ module Dry
             builder.import(parent) if parent
             external_schemas.each { |external| builder.import(external) }
             builder.instance_eval(&block) if block
-            @schema_definition = builder.compile(validate_keys: config.validate_keys, messages: config.messages.dup)
+            @schema_definition = builder.compile(
+              validate_keys: config.validate_keys,
+              messages: config.messages.dup,
+              plan_cache_dir: config.plan_cache_dir,
+              plan_cache_enabled: config.plan_cache_enabled
+            )
           end
 
           def ensure_valid_paths(paths)

@@ -300,6 +300,18 @@ class ApiTest < Minitest::Test
     )
   end
 
+  def test_plan_cache_configuration_is_inherited
+    parent = build_contract do
+      config.plan_cache_dir = '/tmp/dry-validation-rust-parent-cache'
+      config.plan_cache_enabled = false
+      params { required(:name).value(:string) }
+    end
+    child = Class.new(parent)
+
+    assert_equal '/tmp/dry-validation-rust-parent-cache', child.config.plan_cache_dir
+    refute child.config.plan_cache_enabled
+  end
+
   def test_compiled_contract_remains_isolated_during_concurrent_valid_and_invalid_calls
     contract = build_contract do
       params do

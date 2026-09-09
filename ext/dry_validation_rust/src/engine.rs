@@ -2,6 +2,7 @@ use std::{
     cell::RefCell,
     ffi::c_void,
     panic::{catch_unwind, resume_unwind, AssertUnwindSafe},
+    path::PathBuf,
     sync::{Arc, Mutex},
     time::Instant,
 };
@@ -193,16 +194,18 @@ enum TypeValidation {
 
 impl Engine {
     pub(crate) fn new(ruby: &Ruby, json: String) -> Result<Self, Error> {
-        Self::new_cached(ruby, json, None)
+        Self::new_with_cache(ruby, json, None)
+    }
+
+    /// Ruby entrypoint for building an engine with an on-disk plan cache.
+    pub(crate) fn new_cached(ruby: &Ruby, json: String, cache_dir: String) -> Result<Self, Error> {
+        let cache = PlanCache::new(PathBuf::from(cache_dir));
+        Self::new_with_cache(ruby, json, Some(&cache))
     }
 
     /// Builds an engine from a schema plan, loading its compiled validators
     /// from `cache` when the raw plan bytes have been seen before.
-    pub(crate) fn new_cached(
-        ruby: &Ruby,
-        json: String,
-        cache: Option<&PlanCache>,
-    ) -> Result<Self, Error> {
+    fn new_with_cache(ruby: &Ruby, json: String, cache: Option<&PlanCache>) -> Result<Self, Error> {
         let plan = parse_plan(ruby, &json)?;
         let classes = RuntimeClasses::new(ruby, &plan)?;
         let mode = plan.mode;
