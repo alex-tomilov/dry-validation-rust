@@ -141,11 +141,11 @@ fn apply_predicates(
             PredicateOp::Gteq => insert_number(schema, "minimum", &predicate.argument)?,
             PredicateOp::Lt => insert_number(schema, "exclusiveMaximum", &predicate.argument)?,
             PredicateOp::Lteq => insert_number(schema, "maximum", &predicate.argument)?,
-            PredicateOp::MinSize => insert_size(schema, options, "min")?,
-            PredicateOp::MaxSize => insert_size(schema, options, "max")?,
+            PredicateOp::MinSize => insert_size(schema, options, "min", &predicate.argument)?,
+            PredicateOp::MaxSize => insert_size(schema, options, "max", &predicate.argument)?,
             PredicateOp::Size => {
-                insert_size(schema, options, "min")?;
-                insert_size(schema, options, "max")?;
+                insert_size(schema, options, "min", &predicate.argument)?;
+                insert_size(schema, options, "max", &predicate.argument)?;
             }
             PredicateOp::Odd | PredicateOp::Even | PredicateOp::Unsupported => {
                 return Err(format!(
@@ -180,6 +180,7 @@ fn insert_size(
     schema: &mut Map<String, Value>,
     options: &ValidatorOptions,
     bound: &str,
+    argument: &PredicateArg,
 ) -> Result<(), String> {
     let keyword = match (bound, &options.kind) {
         ("min", TypeKind::String | TypeKind::Symbol) => "minLength",
@@ -195,18 +196,7 @@ fn insert_size(
             ))
         }
     };
-    let predicate = options
-        .predicates
-        .iter()
-        .find(|predicate| {
-            matches!(
-                (bound, predicate.op),
-                ("min", PredicateOp::MinSize | PredicateOp::Size)
-                    | ("max", PredicateOp::MaxSize | PredicateOp::Size)
-            )
-        })
-        .expect("size predicate must be present");
-    let PredicateArg::Int(value) = &predicate.argument else {
+    let PredicateArg::Int(value) = argument else {
         return Err(format!("{keyword} requires an integer predicate argument"));
     };
     let value = u64::try_from(*value).map_err(|_| format!("{keyword} must not be negative"))?;
@@ -342,5 +332,39 @@ mod tests {
             to_json_schema(&validators),
             Err("cannot generate JSON Schema for predicate odd".to_owned())
         );
+    }
+
+    #[test]
+    fn combines_minimum_and_exact_size_predicates() {
+        let validators = vec![NativeValidator::compile(
+            FieldPlan {
+                name: Some("name".to_owned()),
+                required: true,
+                nullable: false,
+                filled: false,
+                strict: None,
+                kind: "string".to_owned(),
+                predicates: vec![
+                    PredicatePlan {
+                        name: "min_size".to_owned(),
+                        op: PredicateOp::MinSize,
+                        argument: PredicateArg::Int(2),
+                    },
+                    PredicatePlan {
+                        name: "size".to_owned(),
+                        op: PredicateOp::Size,
+                        argument: PredicateArg::Int(5),
+                    },
+                ],
+                member: None,
+                children: Vec::new(),
+            },
+            crate::plan::Mode::Schema,
+            Strictness::Inherit,
+        )];
+
+        let schema = to_json_schema(&validators).expect("supported schema");
+        assert_eq!(schema["properties"]["name"]["minLength"], 5);
+        assert_eq!(schema["properties"]["name"]["maxLength"], 5);
     }
 }
