@@ -355,7 +355,7 @@ mod tests {
         let key = PlanCache::key_for_plan(br#"{"fields":[]}"#);
         let path = directory.join(&key);
 
-        fs::File::create(&path)
+        fs::File::create(path)
             .expect("oversized cache fixture")
             .set_len(CACHE_MAX_BYTES + 1)
             .expect("oversized cache fixture length");
