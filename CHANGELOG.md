@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Added `Contract.json_schema` for JSON Schema Draft 7 generation from compiled native schemas.
 - Added configurable on-disk caching of compiled native schema plans through
   `Contract.config.plan_cache_dir` and `plan_cache_enabled`.
 - Fixed validation telemetry callbacks to report their registered contract class.

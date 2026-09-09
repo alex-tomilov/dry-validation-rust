@@ -27,6 +27,7 @@ use crate::{
     },
     predicates::apply_predicates,
     ruby_bridge::{RubyCallbackPlugin, RuntimeClasses},
+    schema_gen::to_json_schema,
     SchemaResult,
 };
 
@@ -398,6 +399,12 @@ impl Engine {
         let json = std::str::from_utf8(&bytes)
             .map_err(|error| Error::new(ruby.exception_encoding_error(), error.to_string()))?;
         Ok(ruby.str_new(json))
+    }
+
+    pub(crate) fn json_schema(ruby: &Ruby, this: &Self) -> Result<RHash, Error> {
+        let schema = to_json_schema(&this.validators)
+            .map_err(|message| Error::new(ruby.exception_arg_error(), message))?;
+        json_value_to_ruby(ruby, &schema)
     }
 
     pub(crate) fn call_json(&self, raw: RString) -> Result<Obj<SchemaResult>, Error> {

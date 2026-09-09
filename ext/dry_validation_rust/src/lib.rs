@@ -14,6 +14,7 @@ mod plan;
 pub mod plugin;
 mod predicates;
 mod ruby_bridge;
+mod schema_gen;
 pub mod serializer;
 
 /// Entrypoints used only by the standalone `cargo fuzz` harness.
@@ -264,6 +265,7 @@ fn init(ruby: &Ruby) -> Result<(), Error> {
         method!(Engine::register_contract_plugin, 4),
     )?;
     class.define_method("dump_json", method!(Engine::dump_json, 1))?;
+    class.define_method("json_schema", method!(Engine::json_schema, 0))?;
     class.define_method("field_count", method!(Engine::field_count, 0))?;
     class.define_method("plan_bytes", method!(Engine::plan_bytes, 0))?;
     let result_class = native.define_class("SchemaResult", ruby.class_object())?;

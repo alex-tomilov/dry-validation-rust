@@ -82,6 +82,18 @@ module Dry
             define_schema(:schema, external_schemas, &)
           end
 
+          # Returns a JSON Schema Draft 7 representation of this contract's schema.
+          #
+          # @return [Hash] JSON Schema with symbol keys.
+          # @raise [SchemaMissingError] if no schema has been declared.
+          # @raise [ArgumentError] if the schema uses an unsupported JSON Schema predicate.
+          def json_schema
+            schema = schema_definition
+            raise SchemaMissingError, "#{self} must define a schema before generating JSON Schema" unless schema
+
+            schema.engine.json_schema
+          end
+
           # Registers native validation observability callbacks for this contract.
           # @param name [Symbol, String] plugin identifier included in callback payloads.
           # @param before [#to_proc, nil] callback invoked before schema validation.
