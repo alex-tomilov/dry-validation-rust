@@ -39,6 +39,7 @@ ext/dry_validation_rust/fuzz/.gitignore
 ext/dry_validation_rust/fuzz/Cargo.toml
 ext/dry_validation_rust/fuzz/corpus/parse_plan/basic_params.json
 ext/dry_validation_rust/fuzz/fuzz_targets/parse_plan.rs
+ext/dry_validation_rust/src/cache.rs
 ext/dry_validation_rust/src/coercion.rs
 ext/dry_validation_rust/src/compiled.rs
 ext/dry_validation_rust/src/engine.rs
@@ -51,6 +52,7 @@ ext/dry_validation_rust/src/plan.rs
 ext/dry_validation_rust/src/plugin.rs
 ext/dry_validation_rust/src/predicates.rs
 ext/dry_validation_rust/src/ruby_bridge.rs
+ext/dry_validation_rust/src/schema_gen.rs
 ext/dry_validation_rust/src/serializer.rs
 ext/dry_validation_rust/tests/serializer.rs
 lib/dry-schema.rb

@@ -53,6 +53,10 @@ module Dry
         # @return [Native::Engine] the native engine that executes this schema.
         attr_reader :engine
 
+        # @api private
+        # @return [Boolean] whether this schema has predicates evaluated by Ruby.
+        attr_reader :has_ruby_predicates
+
         # Builds a schema from a DSL block and optional schemas to import.
         #
         # @param mode [Symbol] the input mode, such as `:schema`, `:params`, or `:json`.
@@ -90,9 +94,12 @@ module Dry
         # @param after_hooks [Array<#call>] processors run after native validation.
         # @param validate_keys [Boolean] whether unknown keys are validation errors.
         # @param messages [MessageConfig] validation message configuration.
+        # @param plan_cache_dir [String] directory used for compiled native schema plans.
+        # @param plan_cache_enabled [Boolean] whether to reuse compiled native schema plans.
         # @raise [NativeExtensionError] if the native schema plan cannot be compiled.
+        # rubocop:disable Metrics/ParameterLists
         def initialize(mode:, fields:, before_hooks: [], after_hooks: [], validate_keys: false,
-                       messages: MessageConfig.new)
+                       messages: MessageConfig.new, plan_cache_dir: Dir.tmpdir, plan_cache_enabled: true)
           @mode = mode.to_sym
           @fields = fields.freeze
           @fields_by_name = fields.to_h { |field| [field.name, field] }.freeze
@@ -106,11 +113,17 @@ module Dry
               validate_keys: validate_keys,
               fields: fields.map(&:to_native_h)
             }
-            @engine = Native::Engine.new(JSON.generate(plan, max_nesting: false))
+            plan_json = JSON.generate(plan, max_nesting: false)
+            @engine = if plan_cache_enabled
+                        Native::Engine.new_cached(plan_json, plan_cache_dir.to_s)
+                      else
+                        Native::Engine.new(plan_json)
+                      end
           rescue StandardError => e
             raise NativeExtensionError, "could not compile native schema plan: #{e.message}"
           end
         end
+        # rubocop:enable Metrics/ParameterLists
 
         # Validates and coerces a Hash.
         #

@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- Added `Contract.json_schema` for JSON Schema Draft 7 generation from compiled native schemas.
+- Added configurable on-disk caching of compiled native schema plans through
+  `Contract.config.plan_cache_dir` and `plan_cache_enabled`.
+- Fixed generated JSON Schema size bounds when schemas combine exact and minimum or maximum sizes.
+- Fixed generated JSON Schema to reject unknown keys when `validate_keys` is enabled.
+- Fixed generated JSON Schema to reject Ruby-side predicates without equivalents.
+- Fixed compiled plan cache entries to invalidate after cache-format changes.
+- Limited compiled plan cache storage to 64 MiB by evicting the oldest plans.
+- Fixed plan cache pruning to preserve unrelated files in shared cache directories.
 - Fixed validation telemetry callbacks to report their registered contract class.
 - Added `LocalTelemetryPlugin` for appending native validation outcomes to a
   local JSON Lines file without an OpenTelemetry dependency.

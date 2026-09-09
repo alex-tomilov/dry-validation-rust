@@ -8,12 +8,12 @@ class ApiTest < Minitest::Test
   CONCURRENCY_CALLS_PER_THREAD = 1_000
   SIDE_BY_SIDE_PUBLIC_API = {
     Dry::Validation::Rust::Contract => {
-      class: %i[build config import_predicates_as_macros inherited json macro_registry on_validate option option_definitions own_rules params register_macro rule rules schema schema_definition],
+      class: %i[build json_schema config import_predicates_as_macros inherited json macro_registry on_validate option option_definitions own_rules params register_macro rule rules schema schema_definition],
       instance: %i[[] call call_json default_context inspect macro_registered? resolve_macro]
     },
     Dry::Validation::Rust::Schema => {
       class: %i[JSON Params define],
-      instance: %i[[] call call_json engine fields inspect key_paths mode]
+      instance: %i[[] call has_ruby_predicates call_json engine fields inspect key_paths mode]
     },
     Dry::Validation::Rust::Contract::Result => {
       class: [],
@@ -298,6 +298,18 @@ class ApiTest < Minitest::Test
       { unexpected: ['is not allowed'] },
       child.new.call(name: 'Jane', unexpected: true).errors.to_h
     )
+  end
+
+  def test_plan_cache_configuration_is_inherited
+    parent = build_contract do
+      config.plan_cache_dir = '/tmp/dry-validation-rust-parent-cache'
+      config.plan_cache_enabled = false
+      params { required(:name).value(:string) }
+    end
+    child = Class.new(parent)
+
+    assert_equal '/tmp/dry-validation-rust-parent-cache', child.config.plan_cache_dir
+    refute child.config.plan_cache_enabled
   end
 
   def test_compiled_contract_remains_isolated_during_concurrent_valid_and_invalid_calls

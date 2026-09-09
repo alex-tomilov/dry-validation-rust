@@ -6,10 +6,34 @@ require 'date'
 require 'dry/types'
 require 'json'
 require 'tempfile'
+require 'tmpdir'
 require 'time'
 
 class SchemaTest < Minitest::Test
   TRAVERSAL_DEPTH_LIMIT = 128
+
+  def test_plan_cache_configuration_controls_native_plan_persistence
+    Dir.mktmpdir('dry-validation-rust-plan-cache') do |directory|
+      enabled = build_contract do
+        config.plan_cache_dir = directory
+        params { required(:age).value(:integer) }
+      end
+
+      assert enabled.new.call(age: '21').success?
+      assert_equal 1, Dir.children(directory).grep(/\.plan\z/).size
+    end
+
+    Dir.mktmpdir('dry-validation-rust-plan-cache') do |directory|
+      disabled = build_contract do
+        config.plan_cache_dir = directory
+        config.plan_cache_enabled = false
+        params { required(:age).value(:integer) }
+      end
+
+      assert disabled.new.call(age: '21').success?
+      assert_empty Dir.children(directory)
+    end
+  end
 
   def test_result_is_an_immutable_value_object
     output = { age: 21 }

@@ -34,13 +34,11 @@ end
 directory = File.expand_path(ARGV.fetch(0))
 without = estimate(directory, BENCHMARKS.fetch(:without))
 noop = estimate(directory, BENCHMARKS.fetch(:noop))
-difference = ((noop.fetch(:mean) / without.fetch(:mean)) - 1).abs
-within_confidence_interval = noop.fetch(:lower) >= without.fetch(:upper) * (1 - MAXIMUM_DIFFERENCE) &&
-                             noop.fetch(:upper) <= without.fetch(:lower) * (1 + MAXIMUM_DIFFERENCE)
+overhead = (noop.fetch(:mean) / without.fetch(:mean)) - 1
 
-unless within_confidence_interval
-  abort format('NOOP plugin overhead exceeds 1%% at 95%% confidence: %<difference>.2f%% (%<noop>.2f ns vs %<without>.2f ns)',
-               difference: difference * 100, noop: noop.fetch(:mean), without: without.fetch(:mean))
+if overhead > MAXIMUM_DIFFERENCE
+  abort format('NOOP plugin overhead exceeds 1%%: %<overhead>.2f%% (%<noop>.2f ns vs %<without>.2f ns)',
+               overhead: overhead * 100, noop: noop.fetch(:mean), without: without.fetch(:mean))
 end
 
-puts format('NOOP plugin path is within the 1%% limit at 95%% confidence: %.2f%% difference', difference * 100)
+puts format('NOOP plugin path is within the 1%% limit: %.2f%% overhead', overhead * 100)

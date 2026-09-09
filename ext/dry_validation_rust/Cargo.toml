@@ -18,10 +18,11 @@ crate-type = ["cdylib", "rlib"]
 [dependencies]
 itoa = "1"
 bigdecimal = "0.4"
+postcard = { version = "1.1.3", default-features = false, features = ["alloc"] }
 chrono = { version = "0.4", default-features = false, features = ["alloc", "std"] }
 magnus = { version = "~0.8.2", default-features = false, features = ["rb-sys"] }
 rb-sys = { version = "~0.9.124", default-features = false, features = ["stable-api-compiled-fallback"] }
-serde = { version = "1", features = ["derive"] }
+serde = { version = "1", features = ["derive", "rc"] }
 serde_json = { version = "1", features = ["unbounded_depth"] }
 
 [dev-dependencies]
