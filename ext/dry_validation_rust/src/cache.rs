@@ -67,15 +67,12 @@ impl From<CachedValidator> for NativeValidator {
     }
 }
 
-// The engine starts using this in Phase 7.3; this standalone Phase 7.2 module
-// is exercised directly by its unit tests meanwhile.
-#[allow(dead_code)]
 pub(crate) struct PlanCache {
     cache_dir: PathBuf,
 }
 
-#[allow(dead_code)]
 impl PlanCache {
+    #[allow(dead_code)]
     pub(crate) fn new(cache_dir: PathBuf) -> Self {
         let _ = fs::create_dir_all(&cache_dir);
         Self { cache_dir }
@@ -104,6 +101,7 @@ impl PlanCache {
     }
 
     /// Removes plan files while preserving unrelated files in the cache directory.
+    #[allow(dead_code)]
     pub(crate) fn invalidate(&self) -> Result<(), io::Error> {
         for entry in fs::read_dir(&self.cache_dir)? {
             let entry = entry?;

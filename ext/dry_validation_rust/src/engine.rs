@@ -13,6 +13,7 @@ use magnus::{
 
 use crate::serializer::{serialize_to_json_buffer, NativeSerializer};
 use crate::{
+    cache::PlanCache,
     coercion::{coerce, empty_value, null_if_empty_nullable_param, type_matches},
     compiled::{
         compile_declared_keys, compile_fields, NativeValidator, Strictness, ValidatorOptions,
@@ -192,11 +193,23 @@ enum TypeValidation {
 
 impl Engine {
     pub(crate) fn new(ruby: &Ruby, json: String) -> Result<Self, Error> {
+        Self::new_cached(ruby, json, None)
+    }
+
+    /// Builds an engine from a schema plan, loading its compiled validators
+    /// from `cache` when the raw plan bytes have been seen before.
+    pub(crate) fn new_cached(
+        ruby: &Ruby,
+        json: String,
+        cache: Option<&PlanCache>,
+    ) -> Result<Self, Error> {
         let plan = parse_plan(ruby, &json)?;
         let classes = RuntimeClasses::new(ruby, &plan)?;
         let mode = plan.mode;
         let validate_keys = plan.validate_keys;
-        let validators = compile_fields(plan.fields, mode);
+        let validators = load_or_compile_validators(cache, json.as_bytes(), || {
+            compile_fields(plan.fields, mode)
+        });
         let ruby_validators = validators
             .iter()
             .map(|validator| RubyValidatorCache::compile(ruby, validator))
@@ -449,6 +462,28 @@ impl Engine {
     pub(crate) fn plan_bytes(&self) -> usize {
         self.plan_bytes
     }
+}
+
+fn load_or_compile_validators<F>(
+    cache: Option<&PlanCache>,
+    plan_bytes: &[u8],
+    compile: F,
+) -> Vec<NativeValidator>
+where
+    F: FnOnce() -> Vec<NativeValidator>,
+{
+    let Some(cache) = cache else {
+        return compile();
+    };
+
+    let key = PlanCache::key_for_plan(plan_bytes);
+    if let Some(validators) = cache.get(&key) {
+        return validators;
+    }
+
+    let validators = compile();
+    let _ = cache.put(&key, &validators);
+    validators
 }
 
 fn build_schema_result(
@@ -848,6 +883,12 @@ fn within_depth_limit(depth: u16, path: &[PathPart], errors: &mut Vec<NativeErro
 
 #[cfg(test)]
 mod tests {
+    use std::{
+        fs,
+        path::PathBuf,
+        sync::atomic::{AtomicUsize, Ordering},
+    };
+
     use super::*;
 
     #[test]
@@ -875,6 +916,53 @@ mod tests {
         // SAFETY: same owned, live job and synchronous callback as call_json.
         unsafe { run_fused_job((&mut job as *mut FusedJob).cast()) };
         assert!(matches!(job.result, Some(Err(_))));
+    }
+
+    fn cache_dir() -> PathBuf {
+        static NEXT: AtomicUsize = AtomicUsize::new(0);
+
+        std::env::temp_dir().join(format!(
+            "dry-validation-rust-engine-cache-{}-{}",
+            std::process::id(),
+            NEXT.fetch_add(1, Ordering::Relaxed)
+        ))
+    }
+
+    fn cached_validator() -> Vec<NativeValidator> {
+        vec![NativeValidator::Scalar(crate::compiled::ScalarValidator {
+            options: ValidatorOptions {
+                name: Some(Arc::from("cached")),
+                required: true,
+                nullable: false,
+                filled: false,
+                strict: Strictness::Strict,
+                kind: crate::compiled::TypeKind::Integer,
+                predicates: Vec::new(),
+            },
+        })]
+    }
+
+    #[test]
+    fn cache_hit_skips_validator_compilation() {
+        let directory = cache_dir();
+        let cache = PlanCache::new(directory.clone());
+        let plan_bytes = br#"{"engine_version":1,"fields":[]}"#;
+        let expected = cached_validator();
+        let mut compilation_count = 0;
+
+        let first = load_or_compile_validators(Some(&cache), plan_bytes, || {
+            compilation_count += 1;
+            expected.clone()
+        });
+        let second = load_or_compile_validators(Some(&cache), plan_bytes, || {
+            panic!("a cache hit must not compile validators")
+        });
+
+        assert_eq!(compilation_count, 1);
+        assert_eq!(first, expected);
+        assert_eq!(second, expected);
+
+        fs::remove_dir_all(directory).expect("test cache directory is removable");
     }
 
     #[test]
