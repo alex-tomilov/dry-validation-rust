@@ -53,6 +53,10 @@ module Dry
         # @return [Native::Engine] the native engine that executes this schema.
         attr_reader :engine
 
+        # @api private
+        # @return [Boolean] whether this schema has predicates evaluated by Ruby.
+        attr_reader :has_ruby_predicates
+
         # Builds a schema from a DSL block and optional schemas to import.
         #
         # @param mode [Symbol] the input mode, such as `:schema`, `:params`, or `:json`.

@@ -62,4 +62,16 @@ class JsonSchemaTest < Minitest::Test
     assert_equal false, schema[:additionalProperties]
     assert_equal false, schema[:properties][:profile][:additionalProperties]
   end
+
+  def test_contract_json_schema_rejects_ruby_side_predicates
+    contract = build_contract do
+      params do
+        required(:email).value(:string, format?: /\A[^@]+@[^@]+\z/)
+      end
+    end
+
+    error = assert_raises(ArgumentError) { contract.json_schema }
+
+    assert_equal 'cannot generate JSON Schema for Ruby-side predicates', error.message
+  end
 end

@@ -86,10 +86,11 @@ module Dry
           #
           # @return [Hash] JSON Schema with symbol keys.
           # @raise [SchemaMissingError] if no schema has been declared.
-          # @raise [ArgumentError] if the schema uses an unsupported JSON Schema predicate.
+          # @raise [ArgumentError] if the schema uses a predicate without a JSON Schema equivalent.
           def json_schema
             schema = schema_definition
             raise SchemaMissingError, "#{self} must define a schema before generating JSON Schema" unless schema
+            raise ArgumentError, 'cannot generate JSON Schema for Ruby-side predicates' if schema.has_ruby_predicates
 
             schema.engine.json_schema
           end
