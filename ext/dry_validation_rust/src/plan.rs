@@ -24,11 +24,52 @@ pub(crate) enum PredicateArg {
     List(Vec<PredicateArg>),
 }
 
+#[derive(Deserialize, Serialize)]
+enum BinaryPredicateArg {
+    Bool(bool),
+    Int(i64),
+    Float(f64),
+    Str(String),
+    List(Vec<BinaryPredicateArg>),
+}
+
+impl From<BinaryPredicateArg> for PredicateArg {
+    fn from(value: BinaryPredicateArg) -> Self {
+        match value {
+            BinaryPredicateArg::Bool(value) => Self::Bool(value),
+            BinaryPredicateArg::Int(value) => Self::Int(value),
+            BinaryPredicateArg::Float(value) => Self::Float(value),
+            BinaryPredicateArg::Str(value) => Self::Str(value),
+            BinaryPredicateArg::List(values) => {
+                Self::List(values.into_iter().map(Self::from).collect())
+            }
+        }
+    }
+}
+
+impl PredicateArg {
+    fn binary(&self) -> BinaryPredicateArg {
+        match self {
+            Self::Bool(value) => BinaryPredicateArg::Bool(*value),
+            Self::Int(value) => BinaryPredicateArg::Int(*value),
+            Self::Float(value) => BinaryPredicateArg::Float(*value),
+            Self::Str(value) => BinaryPredicateArg::Str(value.clone()),
+            Self::List(values) => {
+                BinaryPredicateArg::List(values.iter().map(Self::binary).collect())
+            }
+        }
+    }
+}
+
 impl<'de> Deserialize<'de> for PredicateArg {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,
     {
+        if !deserializer.is_human_readable() {
+            return BinaryPredicateArg::deserialize(deserializer).map(Self::from);
+        }
+
         struct PredicateArgVisitor;
 
         impl<'de> Visitor<'de> for PredicateArgVisitor {
@@ -96,6 +137,10 @@ impl Serialize for PredicateArg {
     where
         S: serde::Serializer,
     {
+        if !serializer.is_human_readable() {
+            return self.binary().serialize(serializer);
+        }
+
         match self {
             Self::Bool(value) => serializer.serialize_bool(*value),
             Self::Int(value) => serializer.serialize_i64(*value),

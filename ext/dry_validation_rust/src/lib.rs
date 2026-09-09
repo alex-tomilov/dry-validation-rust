@@ -3,6 +3,7 @@ use magnus::{
     RHash, RModule, Ruby, TypedData,
 };
 
+mod cache;
 mod coercion;
 mod compiled;
 mod engine;
