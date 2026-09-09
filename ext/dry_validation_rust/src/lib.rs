@@ -257,6 +257,10 @@ fn init(ruby: &Ruby) -> Result<(), Error> {
     class.define_method("call", method!(Engine::call, 1))?;
     class.define_method("call_json", method!(Engine::call_json, 1))?;
     class.define_method("register_plugin", method!(Engine::register_plugin, 3))?;
+    class.define_method(
+        "register_contract_plugin",
+        method!(Engine::register_contract_plugin, 4),
+    )?;
     class.define_method("dump_json", method!(Engine::dump_json, 1))?;
     class.define_method("field_count", method!(Engine::field_count, 0))?;
     class.define_method("plan_bytes", method!(Engine::plan_bytes, 0))?;

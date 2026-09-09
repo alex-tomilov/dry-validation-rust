@@ -49,9 +49,12 @@ pub(crate) struct Engine {
     validate_keys: bool,
     plan_bytes: usize,
     field_count: usize,
-    plugin: Mutex<Option<Arc<dyn ValidationPlugin>>>,
-    // The schema is created before a contract can attach a plugin. Until that
-    // boundary supplies its class name, retain an explicit anonymous value.
+    plugin: Mutex<Option<RegisteredPlugin>>,
+}
+
+#[derive(Clone)]
+struct RegisteredPlugin {
+    plugin: Arc<dyn ValidationPlugin>,
     contract_name: String,
 }
 
@@ -169,7 +172,7 @@ impl DataTypeFunctions for Engine {
             validator.mark(marker);
         }
         if let Some(plugin) = self.plugin.lock().expect("plugin lock poisoned").as_ref() {
-            plugin.mark(marker);
+            plugin.plugin.mark(marker);
         }
     }
 }
@@ -212,20 +215,22 @@ impl Engine {
             plan_bytes: json.len(),
             field_count,
             plugin: Mutex::new(None),
-            contract_name: "<anonymous>".to_owned(),
         })
     }
 
     pub(crate) fn call(&self, input: RHash) -> Result<Obj<SchemaResult>, Error> {
         let ruby = Ruby::get_with(input);
         let plugin = self.plugin.lock().expect("plugin lock poisoned").clone();
-        let Some(plugin) = plugin else {
+        let Some(registered_plugin) = plugin else {
             return self.validate_inner(&ruby, input);
         };
 
         let start = Instant::now();
         let input_summary = self.summarize_input(input);
-        if let Err(abort) = plugin.on_before_validate(&self.contract_name, &input_summary) {
+        if let Err(abort) = registered_plugin
+            .plugin
+            .on_before_validate(&registered_plugin.contract_name, &input_summary)
+        {
             return self.handle_plugin_abort(&ruby, input, abort);
         }
 
@@ -238,9 +243,11 @@ impl Engine {
                 // Rule evaluation remains on the Ruby side and is not yet observable.
                 rule_invocation_count: 0,
             };
-            if let Err(abort) =
-                plugin.on_after_validate(&self.contract_name, start.elapsed(), &result_summary)
-            {
+            if let Err(abort) = registered_plugin.plugin.on_after_validate(
+                &registered_plugin.contract_name,
+                start.elapsed(),
+                &result_summary,
+            ) {
                 return Err(Error::new(
                     ruby.exception_runtime_error(),
                     format!("validation plugin after hook failed: {}", abort.reason),
@@ -284,15 +291,34 @@ impl Engine {
         before_proc: Option<Proc>,
         after_proc: Option<Proc>,
     ) -> Result<(), Error> {
+        Self::register_contract_plugin(
+            ruby,
+            this,
+            name,
+            "<anonymous>".to_owned(),
+            before_proc,
+            after_proc,
+        )
+    }
+
+    pub(crate) fn register_contract_plugin(
+        ruby: &Ruby,
+        this: &Self,
+        name: String,
+        contract_name: String,
+        before_proc: Option<Proc>,
+        after_proc: Option<Proc>,
+    ) -> Result<(), Error> {
         if before_proc.is_none() && after_proc.is_none() {
             return Err(Error::new(
                 ruby.exception_arg_error(),
                 "register_plugin requires a before or after Proc",
             ));
         }
-        *this.plugin.lock().expect("plugin lock poisoned") = Some(Arc::new(
-            RubyCallbackPlugin::new(name, before_proc, after_proc),
-        ));
+        *this.plugin.lock().expect("plugin lock poisoned") = Some(RegisteredPlugin {
+            plugin: Arc::new(RubyCallbackPlugin::new(name, before_proc, after_proc)),
+            contract_name,
+        });
         Ok(())
     }
 
@@ -879,7 +905,6 @@ mod tests {
             plan_bytes: json.len(),
             field_count,
             plugin: Mutex::new(None),
-            contract_name: "<anonymous>".to_owned(),
         };
         assert_eq!(engine.field_count(), 2);
         assert_eq!(engine.plan_bytes(), json.len());
@@ -918,7 +943,7 @@ mod tests {
         }
 
         let plugin = Arc::new(RecordingPlugin(Mutex::new(Vec::new())));
-        let engine = Engine {
+        let _engine = Engine {
             serializer: None,
             serialization_buffer: RefCell::default(),
             validators: Vec::new(),
@@ -929,8 +954,10 @@ mod tests {
             validate_keys: false,
             plan_bytes: 0,
             field_count: 0,
-            plugin: Mutex::new(Some(plugin.clone())),
-            contract_name: "SignupContract".to_owned(),
+            plugin: Mutex::new(Some(RegisteredPlugin {
+                plugin: plugin.clone(),
+                contract_name: "SignupContract".to_owned(),
+            })),
         };
         let input = InputSummary {
             top_level_keys: vec!["email".to_owned()],
@@ -944,10 +971,10 @@ mod tests {
         };
 
         plugin
-            .on_before_validate(&engine.contract_name, &input)
+            .on_before_validate("SignupContract", &input)
             .expect("plugin permits validation");
         plugin
-            .on_after_validate(&engine.contract_name, std::time::Duration::ZERO, &result)
+            .on_after_validate("SignupContract", std::time::Duration::ZERO, &result)
             .expect("plugin accepts validation result");
 
         assert_eq!(
