@@ -12,6 +12,9 @@ use crate::compiled::{
     ArrayValidator, HashValidator, NativeValidator, ScalarValidator, ValidatorOptions,
 };
 
+const CACHE_MAGIC: &[u8] = b"DVPC";
+const CACHE_FORMAT_VERSION: u8 = 1;
+
 /// Bincode cannot deserialize Serde's internally tagged enums, so cache entries
 /// use this equivalent externally tagged representation. The public JSON form
 /// of `NativeValidator` remains `{ "type": ..., "config": ... }`.
@@ -88,15 +91,24 @@ impl PlanCache {
     /// Returns `None` for a missing or invalid cache entry so callers can compile normally.
     pub(crate) fn get(&self, key: &str) -> Option<Vec<NativeValidator>> {
         let bytes = fs::read(self.cache_dir.join(key)).ok()?;
-        bincode::deserialize::<Vec<CachedValidator>>(&bytes)
+        let payload = bytes.strip_prefix(CACHE_MAGIC)?;
+        let (version, payload) = payload.split_first()?;
+        if *version != CACHE_FORMAT_VERSION {
+            return None;
+        }
+        bincode::deserialize::<Vec<CachedValidator>>(payload)
             .ok()
             .map(|validators| validators.into_iter().map(NativeValidator::from).collect())
     }
 
     pub(crate) fn put(&self, key: &str, validators: &[NativeValidator]) -> Result<(), io::Error> {
         let validators: Vec<_> = validators.iter().map(CachedValidator::from).collect();
-        let bytes = bincode::serialize(&validators)
+        let payload = bincode::serialize(&validators)
             .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))?;
+        let mut bytes = Vec::with_capacity(CACHE_MAGIC.len() + 1 + payload.len());
+        bytes.extend_from_slice(CACHE_MAGIC);
+        bytes.push(CACHE_FORMAT_VERSION);
+        bytes.extend_from_slice(&payload);
         fs::write(self.cache_dir.join(key), bytes)
     }
 
@@ -130,7 +142,7 @@ mod tests {
         plan::{PredicateArg, PredicateOp, PredicatePlan},
     };
 
-    use super::PlanCache;
+    use super::{CachedValidator, PlanCache};
 
     fn cache_dir() -> PathBuf {
         static NEXT: AtomicUsize = AtomicUsize::new(0);
@@ -184,6 +196,40 @@ mod tests {
 
         cache.put(&key, &expected).expect("cache write succeeds");
         assert_eq!(cache.get(&key), Some(expected));
+
+        fs::remove_dir_all(directory).expect("test cache directory is removable");
+    }
+
+    #[test]
+    fn legacy_entries_without_a_cache_format_header_miss() {
+        let directory = cache_dir();
+        let cache = PlanCache::new(directory.clone());
+        let key = PlanCache::key_for_plan(br#"{"fields":[]}"#);
+        let expected = validators();
+        let legacy: Vec<_> = expected.iter().map(CachedValidator::from).collect();
+        let bytes = bincode::serialize(&legacy).expect("legacy fixture serializes");
+
+        fs::write(directory.join(&key), bytes).expect("legacy cache fixture");
+        assert_eq!(cache.get(&key), None);
+
+        fs::remove_dir_all(directory).expect("test cache directory is removable");
+    }
+
+    #[test]
+    fn entries_with_an_unknown_cache_format_version_miss() {
+        let directory = cache_dir();
+        let cache = PlanCache::new(directory.clone());
+        let key = PlanCache::key_for_plan(br#"{"fields":[]}"#);
+
+        cache
+            .put(&key, &validators())
+            .expect("cache write succeeds");
+        let path = directory.join(&key);
+        let mut bytes = fs::read(&path).expect("cache entry exists");
+        bytes[4] = 2;
+        fs::write(path, bytes).expect("outdated cache fixture");
+
+        assert_eq!(cache.get(&key), None);
 
         fs::remove_dir_all(directory).expect("test cache directory is removable");
     }

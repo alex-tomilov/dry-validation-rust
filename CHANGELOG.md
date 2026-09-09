@@ -8,6 +8,7 @@
 - Fixed generated JSON Schema size bounds when schemas combine exact and minimum or maximum sizes.
 - Fixed generated JSON Schema to reject unknown keys when `validate_keys` is enabled.
 - Fixed generated JSON Schema to reject Ruby-side predicates without equivalents.
+- Fixed compiled plan cache entries to invalidate after cache-format changes.
 - Fixed validation telemetry callbacks to report their registered contract class.
 - Added `LocalTelemetryPlugin` for appending native validation outcomes to a
   local JSON Lines file without an OpenTelemetry dependency.
