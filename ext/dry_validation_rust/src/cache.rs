@@ -4,8 +4,8 @@ use std::{
     collections::hash_map::DefaultHasher,
     fs,
     hash::{Hash, Hasher},
-    io,
-    path::PathBuf,
+    io::{self, Read},
+    path::{Path, PathBuf},
     time::SystemTime,
 };
 
@@ -16,6 +16,7 @@ use crate::compiled::{
 const CACHE_MAGIC: &[u8] = b"DVPC";
 const CACHE_FORMAT_VERSION: u8 = 1;
 const CACHE_MAX_BYTES: u64 = 64 * 1024 * 1024;
+const CACHE_FILE_PREFIX: &str = "dry-validation-rust-";
 
 /// Bincode cannot deserialize Serde's internally tagged enums, so cache entries
 /// use this equivalent externally tagged representation. The public JSON form
@@ -87,7 +88,7 @@ impl PlanCache {
     pub(crate) fn key_for_plan(plan_bytes: &[u8]) -> String {
         let mut hasher = DefaultHasher::new();
         plan_bytes.hash(&mut hasher);
-        format!("{:016x}.plan", hasher.finish())
+        format!("{CACHE_FILE_PREFIX}{:016x}.plan", hasher.finish())
     }
 
     /// Returns `None` for a missing or invalid cache entry so callers can compile normally.
@@ -123,10 +124,7 @@ impl PlanCache {
         for entry in fs::read_dir(&self.cache_dir)? {
             let entry = entry?;
             let path = entry.path();
-            if !path
-                .extension()
-                .is_some_and(|extension| extension == "plan")
-            {
+            if !is_current_cache_entry(&path) {
                 continue;
             }
 
@@ -160,16 +158,41 @@ impl PlanCache {
     pub(crate) fn invalidate(&self) -> Result<(), io::Error> {
         for entry in fs::read_dir(&self.cache_dir)? {
             let entry = entry?;
-            if entry
-                .path()
-                .extension()
-                .is_some_and(|extension| extension == "plan")
-            {
-                fs::remove_file(entry.path())?;
+            let path = entry.path();
+            if is_cache_filename(&path) {
+                fs::remove_file(path)?;
             }
         }
         Ok(())
     }
+}
+
+fn is_current_cache_entry(path: &Path) -> bool {
+    if !is_cache_filename(path) {
+        return false;
+    }
+
+    let Ok(mut file) = fs::File::open(path) else {
+        return false;
+    };
+    let mut header = [0; CACHE_MAGIC.len() + 1];
+    file.read_exact(&mut header).is_ok()
+        && header.starts_with(CACHE_MAGIC)
+        && header[CACHE_MAGIC.len()] == CACHE_FORMAT_VERSION
+}
+
+fn is_cache_filename(path: &Path) -> bool {
+    let Some(filename) = path.file_name().and_then(|filename| filename.to_str()) else {
+        return false;
+    };
+    let Some(digest) = filename
+        .strip_prefix(CACHE_FILE_PREFIX)
+        .and_then(|filename| filename.strip_suffix(".plan"))
+    else {
+        return false;
+    };
+
+    digest.len() == 16 && digest.bytes().all(|byte| byte.is_ascii_hexdigit())
 }
 
 #[cfg(test)]
@@ -185,7 +208,7 @@ mod tests {
         plan::{PredicateArg, PredicateOp, PredicatePlan},
     };
 
-    use super::{CachedValidator, PlanCache};
+    use super::{CachedValidator, PlanCache, CACHE_FILE_PREFIX};
 
     fn cache_dir() -> PathBuf {
         static NEXT: AtomicUsize = AtomicUsize::new(0);
@@ -227,6 +250,7 @@ mod tests {
             PlanCache::key_for_plan(plan),
             PlanCache::key_for_plan(br#"{"engine_version":2}"#)
         );
+        assert!(PlanCache::key_for_plan(plan).starts_with(CACHE_FILE_PREFIX));
         assert!(PlanCache::key_for_plan(plan).ends_with(".plan"));
     }
 
@@ -278,18 +302,18 @@ mod tests {
     }
 
     #[test]
-    fn pruning_evicts_oldest_plan_files_and_keeps_unrelated_files() {
+    fn pruning_evicts_owned_entries_and_keeps_unrelated_plan_files() {
         let directory = cache_dir();
         let cache = PlanCache::new(directory.clone());
-        let oldest = directory.join("a.plan");
-        let newest = directory.join("b.plan");
-        let unrelated = directory.join("keep.txt");
+        let oldest = directory.join("dry-validation-rust-0000000000000001.plan");
+        let newest = directory.join("dry-validation-rust-0000000000000003.plan");
+        let unrelated = directory.join("b.plan");
 
-        fs::write(&oldest, b"aaaa").expect("oldest plan fixture");
-        fs::write(&newest, b"bbbb").expect("newest plan fixture");
-        fs::write(&unrelated, b"keep").expect("unrelated fixture");
+        fs::write(&oldest, b"DVPC\x01aaaa").expect("oldest cache fixture");
+        fs::write(&newest, b"DVPC\x01bbbb").expect("newest cache fixture");
+        fs::write(&unrelated, b"keep").expect("unrelated plan fixture");
 
-        cache.prune_to(4).expect("cache pruning succeeds");
+        cache.prune_to(9).expect("cache pruning succeeds");
 
         assert!(!oldest.exists());
         assert!(newest.exists());
@@ -309,11 +333,14 @@ mod tests {
 
         fs::write(directory.join(&key), b"not a bincode plan").expect("corrupt cache fixture");
         fs::write(directory.join("keep.txt"), b"not a plan").expect("non-plan fixture");
+        fs::write(directory.join("unrelated.plan"), b"not a cache entry")
+            .expect("unrelated plan fixture");
         assert_eq!(cache.get(&key), None);
 
         cache.invalidate().expect("cache invalidation succeeds");
         assert!(!directory.join(key).exists());
         assert!(directory.join("keep.txt").exists());
+        assert!(directory.join("unrelated.plan").exists());
 
         fs::remove_dir_all(directory).expect("test cache directory is removable");
     }

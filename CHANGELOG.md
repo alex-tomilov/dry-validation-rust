@@ -10,6 +10,7 @@
 - Fixed generated JSON Schema to reject Ruby-side predicates without equivalents.
 - Fixed compiled plan cache entries to invalidate after cache-format changes.
 - Limited compiled plan cache storage to 64 MiB by evicting the oldest plans.
+- Fixed plan cache pruning to preserve unrelated files in shared cache directories.
 - Fixed validation telemetry callbacks to report their registered contract class.
 - Added `LocalTelemetryPlugin` for appending native validation outcomes to a
   local JSON Lines file without an OpenTelemetry dependency.
