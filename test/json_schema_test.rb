@@ -45,4 +45,21 @@ class JsonSchemaTest < Minitest::Test
 
     assert_equal "#{contract} must define a schema before generating JSON Schema", error.message
   end
+
+  def test_contract_json_schema_rejects_unknown_keys_when_configured
+    contract = build_contract do
+      config.validate_keys = true
+
+      params do
+        required(:profile).hash do
+          required(:name).filled(:string)
+        end
+      end
+    end
+
+    schema = contract.json_schema
+
+    assert_equal false, schema[:additionalProperties]
+    assert_equal false, schema[:properties][:profile][:additionalProperties]
+  end
 end

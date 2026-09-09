@@ -6,6 +6,7 @@
 - Added configurable on-disk caching of compiled native schema plans through
   `Contract.config.plan_cache_dir` and `plan_cache_enabled`.
 - Fixed generated JSON Schema size bounds when schemas combine exact and minimum or maximum sizes.
+- Fixed generated JSON Schema to reject unknown keys when `validate_keys` is enabled.
 - Fixed validation telemetry callbacks to report their registered contract class.
 - Added `LocalTelemetryPlugin` for appending native validation outcomes to a
   local JSON Lines file without an OpenTelemetry dependency.

@@ -7,8 +7,11 @@ use crate::{
     plan::{PredicateArg, PredicateOp},
 };
 
-pub(crate) fn to_json_schema(validators: &[NativeValidator]) -> Result<Value, String> {
-    let mut schema = object_schema(validators)?;
+pub(crate) fn to_json_schema(
+    validators: &[NativeValidator],
+    validate_keys: bool,
+) -> Result<Value, String> {
+    let mut schema = object_schema(validators, validate_keys)?;
     schema.insert(
         "$schema".to_owned(),
         Value::String("http://json-schema.org/draft-07/schema#".to_owned()),
@@ -16,7 +19,10 @@ pub(crate) fn to_json_schema(validators: &[NativeValidator]) -> Result<Value, St
     Ok(Value::Object(schema))
 }
 
-fn object_schema(validators: &[NativeValidator]) -> Result<Map<String, Value>, String> {
+fn object_schema(
+    validators: &[NativeValidator],
+    validate_keys: bool,
+) -> Result<Map<String, Value>, String> {
     let mut properties = Map::new();
     let mut required = Vec::new();
 
@@ -26,7 +32,7 @@ fn object_schema(validators: &[NativeValidator]) -> Result<Map<String, Value>, S
             .name
             .as_deref()
             .ok_or_else(|| "JSON Schema object fields must be named".to_owned())?;
-        properties.insert(name.to_owned(), validator_schema(validator)?);
+        properties.insert(name.to_owned(), validator_schema(validator, validate_keys)?);
         if options.required {
             required.push(Value::String(name.to_owned()));
         }
@@ -35,22 +41,25 @@ fn object_schema(validators: &[NativeValidator]) -> Result<Map<String, Value>, S
     let mut schema = Map::new();
     schema.insert("type".to_owned(), Value::String("object".to_owned()));
     schema.insert("properties".to_owned(), Value::Object(properties));
+    if validate_keys {
+        schema.insert("additionalProperties".to_owned(), Value::Bool(false));
+    }
     if !required.is_empty() {
         schema.insert("required".to_owned(), Value::Array(required));
     }
     Ok(schema)
 }
 
-fn validator_schema(validator: &NativeValidator) -> Result<Value, String> {
+fn validator_schema(validator: &NativeValidator, validate_keys: bool) -> Result<Value, String> {
     let options = validator.options();
     let mut schema = match validator {
         NativeValidator::Scalar(_) => scalar_schema(&options.kind)?,
-        NativeValidator::Hash(validator) => object_schema(&validator.fields)?,
+        NativeValidator::Hash(validator) => object_schema(&validator.fields, validate_keys)?,
         NativeValidator::Array(validator) => {
             let mut schema = Map::new();
             schema.insert("type".to_owned(), Value::String("array".to_owned()));
             if let Some(member) = validator.member.as_deref() {
-                schema.insert("items".to_owned(), validator_schema(member)?);
+                schema.insert("items".to_owned(), validator_schema(member, validate_keys)?);
             }
             schema
         }
@@ -289,7 +298,7 @@ mod tests {
             Strictness::Inherit,
         )];
 
-        let schema = to_json_schema(&validators).expect("supported schema");
+        let schema = to_json_schema(&validators, false).expect("supported schema");
         assert_eq!(schema["$schema"], "http://json-schema.org/draft-07/schema#");
         assert_eq!(schema["properties"]["profile"]["type"], "object");
         assert_eq!(
@@ -329,7 +338,7 @@ mod tests {
         )];
 
         assert_eq!(
-            to_json_schema(&validators),
+            to_json_schema(&validators, false),
             Err("cannot generate JSON Schema for predicate odd".to_owned())
         );
     }
@@ -363,7 +372,7 @@ mod tests {
             Strictness::Inherit,
         )];
 
-        let schema = to_json_schema(&validators).expect("supported schema");
+        let schema = to_json_schema(&validators, false).expect("supported schema");
         assert_eq!(schema["properties"]["name"]["minLength"], 5);
         assert_eq!(schema["properties"]["name"]["maxLength"], 5);
     }

@@ -402,7 +402,7 @@ impl Engine {
     }
 
     pub(crate) fn json_schema(ruby: &Ruby, this: &Self) -> Result<RHash, Error> {
-        let schema = to_json_schema(&this.validators)
+        let schema = to_json_schema(&this.validators, this.validate_keys)
             .map_err(|message| Error::new(ruby.exception_arg_error(), message))?;
         json_value_to_ruby(ruby, &schema)
     }
