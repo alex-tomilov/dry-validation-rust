@@ -9,6 +9,8 @@ module Dry
           invalid: 'is invalid',
           taken: 'is already taken'
         }.freeze
+        EMPTY_META = {}.freeze
+        EMPTY_ARGS = [].freeze
 
         attr_reader :path, :messages
 
@@ -17,9 +19,13 @@ module Dry
           @messages = []
         end
 
-        def failure(message, tokens = {})
-          text, code, meta = normalize(message, tokens)
-          messages << Message.new(text: text, path: path, code: code, meta: meta, source: :rule)
+        def failure(message, tokens = EMPTY_META)
+          if message.is_a?(String)
+            add_message(interpolate(message, tokens), nil, EMPTY_META)
+          else
+            text, code, meta = normalize(message, tokens)
+            add_message(text, code, meta)
+          end
           self
         end
 
@@ -29,18 +35,33 @@ module Dry
 
         private
 
+        def add_message(text, code, meta)
+          messages << Message.new(
+            text: text,
+            path: path,
+            code: code,
+            meta: meta,
+            source: :rule,
+            args: EMPTY_ARGS
+          )
+        end
+
         def normalize(message, tokens)
           case message
           when String
-            [interpolate(message, tokens), nil, {}]
+            [interpolate(message, tokens), nil, EMPTY_META]
           when Symbol
-            [interpolate(IDENTIFIER_MESSAGES.fetch(message, message.to_s.tr('_', ' ')), tokens), message, {}]
+            [
+              interpolate(IDENTIFIER_MESSAGES.fetch(message, message.to_s.tr('_', ' ')), tokens),
+              message,
+              EMPTY_META
+            ]
           when Hash
             raw_text = message.fetch(:text)
             text, code, = normalize(raw_text, tokens)
             [text, code, message.except(:text)]
           else
-            [message.to_s, nil, {}]
+            [message.to_s, nil, EMPTY_META]
           end
         end
 

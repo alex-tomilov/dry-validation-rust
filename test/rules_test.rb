@@ -186,6 +186,20 @@ class RulesTest < Minitest::Test
     assert_equal({ age: [{ text: 'too young', code: 123 }] }, contract.new.call(age: 10).errors.to_h)
   end
 
+  def test_failure_messages_preserve_text_tokens_and_identifier_codes
+    failures = Dry::Validation::Rust::Failures.new(:name)
+
+    failures.failure('must be %<state>s', state: 'filled')
+    failures.failure(:invalid)
+
+    text, identifier = failures.messages
+    assert_equal 'must be filled', text.text
+    assert_equal({}, text.meta)
+    assert_nil text.code
+    assert_equal 'is invalid', identifier.text
+    assert_equal :invalid, identifier.code
+  end
+
   def test_options_context_and_contract_methods
     repository = Object.new
     def repository.taken?(value) = value == 'used'

@@ -147,7 +147,7 @@ module Dry
         # @example Reject a value in a rule
         #   rule(:age) { key.failure("must be at least 18") if value < 18 }
         def value
-          raw = Path.fetch(values.data, value_path)
+          raw = Path.fetch_normalized(values.data, value_path)
           raw.equal?(Path::Undefined) ? nil : raw
         end
 

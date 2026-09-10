@@ -418,7 +418,7 @@ module Dry
         # @api private
         def execute_each(rule, result, context)
           root = rule.paths.first
-          collection = Path.fetch(result.to_h, root)
+          collection = Path.fetch_normalized(result.to_h, root)
           return if collection.equal?(Path::Undefined) || collection.nil?
           return unless collection.respond_to?(:each_with_index)
 
