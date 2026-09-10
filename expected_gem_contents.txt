@@ -52,6 +52,7 @@ ext/dry_validation_rust/src/plan.rs
 ext/dry_validation_rust/src/plugin.rs
 ext/dry_validation_rust/src/predicates.rs
 ext/dry_validation_rust/src/ruby_bridge.rs
+ext/dry_validation_rust/src/rule_batcher.rs
 ext/dry_validation_rust/src/schema_gen.rs
 ext/dry_validation_rust/src/serializer.rs
 ext/dry_validation_rust/tests/serializer.rs

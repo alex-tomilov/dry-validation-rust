@@ -14,6 +14,8 @@ mod plan;
 pub mod plugin;
 mod predicates;
 mod ruby_bridge;
+#[allow(dead_code)] // Wired into schema traversal in Phase 8.3.
+mod rule_batcher;
 mod schema_gen;
 pub mod serializer;
 
