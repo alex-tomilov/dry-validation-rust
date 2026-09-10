@@ -117,7 +117,7 @@ module Dry
         # @example Add an error at a different path
         #   rule(:password) { key(:password_confirmation).failure("does not match") }
         def key(path = default_path)
-          normalized = Path.parse(path)
+          normalized = path.equal?(default_path) ? path : Path.parse(path)
           (@key_failures ||= {})[normalized] ||= Failures.new(normalized)
         end
 
@@ -241,9 +241,10 @@ module Dry
 
         # @api private
         def execute_block(block, keyword_params, macro: nil)
+          return instance_exec(&block) if keyword_params.empty?
+
           keyword_values = { context: context, index: index, macro: macro }
-          kwargs = keyword_values.slice(*keyword_params)
-          kwargs.empty? ? instance_exec(&block) : instance_exec(**kwargs, &block)
+          instance_exec(**keyword_values.slice(*keyword_params), &block)
         end
 
         # @api private
