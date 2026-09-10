@@ -10,11 +10,11 @@ use std::{
 };
 
 use crate::compiled::{
-    ArrayValidator, HashValidator, NativeValidator, ScalarValidator, ValidatorOptions,
+    ArrayValidator, HashValidator, NativeValidator, RuleBatch, ScalarValidator, ValidatorOptions,
 };
 
 const CACHE_MAGIC: &[u8] = b"DVPC";
-const CACHE_FORMAT_VERSION: u8 = 2;
+const CACHE_FORMAT_VERSION: u8 = 3;
 const CACHE_MAX_BYTES: u64 = 64 * 1024 * 1024;
 const CACHE_FILE_PREFIX: &str = "dry-validation-rust-";
 
@@ -28,6 +28,7 @@ enum CachedValidator {
         options: ValidatorOptions,
         fields: Vec<CachedValidator>,
         declared_keys: Vec<std::sync::Arc<str>>,
+        rule_batches: Vec<RuleBatch>,
     },
     Array {
         options: ValidatorOptions,
@@ -43,6 +44,7 @@ impl From<&NativeValidator> for CachedValidator {
                 options: validator.options.clone(),
                 fields: validator.fields.iter().map(Self::from).collect(),
                 declared_keys: validator.declared_keys.clone(),
+                rule_batches: validator.rule_batches.clone(),
             },
             NativeValidator::Array(validator) => Self::Array {
                 options: validator.options.clone(),
@@ -60,10 +62,12 @@ impl From<CachedValidator> for NativeValidator {
                 options,
                 fields,
                 declared_keys,
+                rule_batches,
             } => Self::Hash(HashValidator {
                 options,
                 fields: fields.into_iter().map(Self::from).collect(),
                 declared_keys,
+                rule_batches,
             }),
             CachedValidator::Array { options, member } => Self::Array(ArrayValidator {
                 options,
@@ -209,7 +213,10 @@ mod tests {
     };
 
     use crate::{
-        compiled::{NativeValidator, ScalarValidator, Strictness, TypeKind, ValidatorOptions},
+        compiled::{
+            HashValidator, NativeValidator, RuleBatch, ScalarValidator, Strictness, TypeKind,
+            ValidatorOptions,
+        },
         plan::{PredicateArg, PredicateOp, PredicatePlan},
     };
 
@@ -273,6 +280,36 @@ mod tests {
     }
 
     #[test]
+    fn stores_and_loads_rule_batch_annotations() {
+        let directory = cache_dir();
+        let cache = PlanCache::new(directory.clone());
+        let key = PlanCache::key_for_plan(br#"{\"fields\":[\"profile\"]}"#);
+        let expected = vec![NativeValidator::Hash(HashValidator {
+            options: ValidatorOptions {
+                name: Some("profile".into()),
+                required: true,
+                nullable: false,
+                filled: false,
+                strict: Strictness::Strict,
+                kind: TypeKind::Hash,
+                predicates: Vec::new(),
+            },
+            fields: Vec::new(),
+            declared_keys: Vec::new(),
+            rule_batches: vec![RuleBatch {
+                rule_names: vec!["check_email".to_owned()],
+                dependency_paths: vec![vec!["email".to_owned()]],
+                deps_satisfied: false,
+            }],
+        })];
+
+        cache.put(&key, &expected).expect("cache write succeeds");
+        assert_eq!(cache.get(&key), Some(expected));
+
+        fs::remove_dir_all(directory).expect("test cache directory is removable");
+    }
+
+    #[test]
     fn entries_from_the_previous_cache_format_miss() {
         let directory = cache_dir();
         let cache = PlanCache::new(directory.clone());
@@ -296,7 +333,7 @@ mod tests {
             .expect("cache write succeeds");
         let path = directory.join(&key);
         let mut bytes = fs::read(&path).expect("cache entry exists");
-        bytes[4] = 3;
+        bytes[4] = 4;
         fs::write(path, bytes).expect("outdated cache fixture");
 
         assert_eq!(cache.get(&key), None);
@@ -312,8 +349,8 @@ mod tests {
         let newest = directory.join("dry-validation-rust-0000000000000003.plan");
         let unrelated = directory.join("b.plan");
 
-        fs::write(&oldest, b"DVPC\x02aaaa").expect("oldest cache fixture");
-        fs::write(&newest, b"DVPC\x02bbbb").expect("newest cache fixture");
+        fs::write(&oldest, b"DVPC\x03aaaa").expect("oldest cache fixture");
+        fs::write(&newest, b"DVPC\x03bbbb").expect("newest cache fixture");
         fs::write(&unrelated, b"keep").expect("unrelated plan fixture");
 
         cache.prune_to(9).expect("cache pruning succeeds");

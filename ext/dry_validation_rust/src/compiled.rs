@@ -116,6 +116,26 @@ pub(crate) struct HashValidator {
     pub(crate) options: ValidatorOptions,
     pub(crate) fields: Vec<NativeValidator>,
     pub(crate) declared_keys: Vec<Arc<str>>,
+    /// Rule groups whose schema dependencies are rooted at this hash.
+    ///
+    /// Schema plans do not carry contract rules yet, so compilation initializes
+    /// this collection empty. Later rule-plan compilation can populate it
+    /// without changing the validation tree shape.
+    pub(crate) rule_batches: Vec<RuleBatch>,
+}
+
+/// A group of Ruby rules that share the same schema dependencies.
+///
+/// Rule execution is intentionally not part of the validator tree: this
+/// annotation describes when a later rule-execution phase may run the group.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub(crate) struct RuleBatch {
+    /// Ruby rule method names in this dependency group.
+    pub(crate) rule_names: Vec<String>,
+    /// Validated-output paths required by every rule in the group.
+    pub(crate) dependency_paths: Vec<Vec<String>>,
+    /// Set by the rule batch collector after schema validation.
+    pub(crate) deps_satisfied: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -161,6 +181,7 @@ impl NativeValidator {
                     options,
                     declared_keys: compile_declared_keys(&fields),
                     fields,
+                    rule_batches: Vec::new(),
                 })
             }
             "array" => Self::Array(ArrayValidator {
@@ -449,6 +470,7 @@ mod tests {
         assert_eq!(hash.options.name.as_deref(), Some("profile"));
         assert_eq!(hash.fields[0].options().name.as_deref(), Some("name"));
         assert_eq!(hash.declared_keys.as_slice(), [Arc::from("name")]);
+        assert!(hash.rule_batches.is_empty());
     }
 
     #[test]
