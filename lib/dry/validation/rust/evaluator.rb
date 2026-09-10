@@ -87,8 +87,8 @@ module Dry
           @context = context
           @index = index
           @failures = []
-          @key_failures = {}
-          @base_failures = Failures.new
+          @key_failures = nil
+          @base = nil
         end
 
         # Executes a rule block and macro calls, then collects their failures.
@@ -118,7 +118,7 @@ module Dry
         #   rule(:password) { key(:password_confirmation).failure("does not match") }
         def key(path = default_path)
           normalized = Path.parse(path)
-          @key_failures[normalized] ||= Failures.new(normalized)
+          (@key_failures ||= {})[normalized] ||= Failures.new(normalized)
         end
 
         # Returns the failure collector for base-level messages.
@@ -127,7 +127,7 @@ module Dry
         # @example Add a contract-wide error
         #   rule { base.failure("cannot be approved") }
         def base
-          @base_failures
+          @base ||= Failures.new
         end
 
         # @api private
@@ -279,8 +279,8 @@ module Dry
 
         # @api private
         def collect_failures
-          failures.concat(base.messages)
-          @key_failures.each_value { |set| failures.concat(set.messages) }
+          failures.concat(@base.messages) if @base
+          @key_failures&.each_value { |set| failures.concat(set.messages) }
         end
 
         # @api private
