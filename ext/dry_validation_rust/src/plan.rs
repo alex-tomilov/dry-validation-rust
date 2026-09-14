@@ -151,7 +151,7 @@ impl Serialize for PredicateArg {
     }
 }
 
-include!("generated_predicates.rs");
+include!(concat!(env!("OUT_DIR"), "/generated_predicates.rs"));
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub(crate) struct PredicatePlan {
