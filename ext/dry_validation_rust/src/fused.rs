@@ -232,7 +232,13 @@ fn predicate_valid(predicate: &PredicatePlan, value: &Value) -> bool {
                 PredicateOp::MinSize => actual >= expected,
                 PredicateOp::MaxSize => actual <= expected,
                 PredicateOp::Size => actual == expected,
-                _ => unreachable!(),
+                PredicateOp::Gt
+                | PredicateOp::Gteq
+                | PredicateOp::Lt
+                | PredicateOp::Lteq
+                | PredicateOp::Odd
+                | PredicateOp::Even
+                | PredicateOp::Unsupported => unreachable!(),
             }
         }
         PredicateOp::Odd => value.as_i64().is_some_and(|number| number % 2 != 0),
@@ -248,11 +254,23 @@ fn compare(op: PredicateOp, value: &Value, argument: &PredicateArg) -> bool {
         PredicateArg::Str(expected) => value.as_str().map(|actual| actual.partial_cmp(expected)),
         PredicateArg::Bool(_) | PredicateArg::List(_) => None,
     };
-    match ordering.flatten() {
-        Some(std::cmp::Ordering::Greater) => matches!(op, PredicateOp::Gt | PredicateOp::Gteq),
-        Some(std::cmp::Ordering::Equal) => matches!(op, PredicateOp::Gteq | PredicateOp::Lteq),
-        Some(std::cmp::Ordering::Less) => matches!(op, PredicateOp::Lt | PredicateOp::Lteq),
-        None => false,
+    match op {
+        PredicateOp::Gt => matches!(ordering.flatten(), Some(std::cmp::Ordering::Greater)),
+        PredicateOp::Gteq => matches!(
+            ordering.flatten(),
+            Some(std::cmp::Ordering::Greater | std::cmp::Ordering::Equal)
+        ),
+        PredicateOp::Lt => matches!(ordering.flatten(), Some(std::cmp::Ordering::Less)),
+        PredicateOp::Lteq => matches!(
+            ordering.flatten(),
+            Some(std::cmp::Ordering::Less | std::cmp::Ordering::Equal)
+        ),
+        PredicateOp::MinSize
+        | PredicateOp::MaxSize
+        | PredicateOp::Size
+        | PredicateOp::Odd
+        | PredicateOp::Even
+        | PredicateOp::Unsupported => false,
     }
 }
 
