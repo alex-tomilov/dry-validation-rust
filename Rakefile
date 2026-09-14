@@ -12,14 +12,14 @@ require 'zlib'
 EXTENSION_DIR = File.expand_path('ext/dry_validation_rust', __dir__)
 GEMSPEC_PATH = File.expand_path('dry-validation-rust.gemspec', __dir__)
 CROSS_COMPILE_PLATFORMS = %w[x86_64-linux aarch64-linux x86_64-darwin arm64-darwin].freeze
-PREDICATE_MANIFEST_PATH = File.expand_path('predicates.yml', __dir__)
+PREDICATE_MANIFEST_PATH = File.join(EXTENSION_DIR, 'predicates.yml')
 GENERATED_RUBY_PREDICATES_PATH = File.expand_path('lib/dry/validation/rust/generated_predicates.rb', __dir__)
 GENERATED_RUST_PREDICATES_PATH = File.expand_path('ext/dry_validation_rust/src/generated_predicates.rs', __dir__)
 PACKAGE_REQUIRED_FILES = %w[
   CHANGELOG.md
   LICENSE
   NOTICE.md
-  predicates.yml
+  ext/dry_validation_rust/predicates.yml
   README.md
   ext/dry_validation_rust/Cargo.lock
   ext/dry_validation_rust/Cargo.toml
