@@ -236,7 +236,9 @@ fn parse_key_value(
                 current.supported_types = Some(Vec::new());
                 *in_block_supported_types = true;
             } else {
-                return Err(format!("supported_types must be an array, found: '{value}'"));
+                return Err(format!(
+                    "supported_types must be an array, found: '{value}'"
+                ));
             }
         }
         other => return Err(format!("unknown key '{other}' in predicate")),
@@ -309,11 +311,7 @@ fn parse_manifest(source: &str) -> Result<PredicateManifest, String> {
     }
 
     if !current.is_empty() {
-        predicates.push(
-            current
-                .finish()
-                .map_err(|e| format!("end of file: {e}"))?,
-        );
+        predicates.push(current.finish().map_err(|e| format!("end of file: {e}"))?);
     }
 
     if !in_predicates {
@@ -467,7 +465,8 @@ predicates:
         let source = include_str!("predicates.yml");
         let manifest = parse_manifest(source).expect("canonical predicates.yml should parse");
         assert_eq!(manifest.predicates.len(), 14);
-        let native = native_predicates(manifest.predicates).expect("canonical predicates should validate");
+        let native =
+            native_predicates(manifest.predicates).expect("canonical predicates should validate");
         assert_eq!(native.len(), 9);
     }
 
