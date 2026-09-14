@@ -42,6 +42,7 @@ class PackageMetadataTest < Minitest::Test
       ext/dry_validation_rust/Cargo.lock
       ext/dry_validation_rust/Cargo.toml
       ext/dry_validation_rust/extconf.rb
+      ext/dry_validation_rust/predicates.yml
       ext/dry_validation_rust/src/lib.rs
       lib/dry/validation/rust.rb
       lib/dry/validation/rust/contract.rb
@@ -51,6 +52,8 @@ class PackageMetadataTest < Minitest::Test
     ]
 
     assert_empty required - spec.files
+    refute_includes spec.files, 'predicates.yml'
+    refute_includes spec.files, 'ext/dry_validation_rust/src/generated_predicates.rs'
   end
 
   def test_source_gem_manifest_excludes_local_and_non_runtime_material

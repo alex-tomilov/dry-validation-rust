@@ -39,6 +39,7 @@ ext/dry_validation_rust/fuzz/.gitignore
 ext/dry_validation_rust/fuzz/Cargo.toml
 ext/dry_validation_rust/fuzz/corpus/parse_plan/basic_params.json
 ext/dry_validation_rust/fuzz/fuzz_targets/parse_plan.rs
+ext/dry_validation_rust/predicates.yml
 ext/dry_validation_rust/src/cache.rs
 ext/dry_validation_rust/src/coercion.rs
 ext/dry_validation_rust/src/compiled.rs
@@ -46,7 +47,6 @@ ext/dry_validation_rust/src/engine.rs
 ext/dry_validation_rust/src/error.rs
 ext/dry_validation_rust/src/extract_primitive.rs
 ext/dry_validation_rust/src/fused.rs
-ext/dry_validation_rust/src/generated_predicates.rs
 ext/dry_validation_rust/src/lib.rs
 ext/dry_validation_rust/src/plan.rs
 ext/dry_validation_rust/src/plugin.rs
@@ -54,6 +54,7 @@ ext/dry_validation_rust/src/predicates.rs
 ext/dry_validation_rust/src/ruby_bridge.rs
 ext/dry_validation_rust/src/schema_gen.rs
 ext/dry_validation_rust/src/serializer.rs
+ext/dry_validation_rust/tests/build_script.rs
 ext/dry_validation_rust/tests/serializer.rs
 lib/dry-schema.rb
 lib/dry-validation.rb
@@ -91,7 +92,6 @@ lib/dry/validation/rust/schema/ruby_type_processor.rb
 lib/dry/validation/rust/values.rb
 lib/dry/validation/rust/version.rb
 lib/dry_validation_rust.rb
-predicates.yml
 rust-toolchain.toml
 supply-chain/audits.toml
 supply-chain/config.toml

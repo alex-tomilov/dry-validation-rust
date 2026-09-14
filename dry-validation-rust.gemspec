@@ -31,9 +31,10 @@ Gem::Specification.new do |spec|
   ].freeze
 
   spec.files = Dir.chdir(__dir__) do
-    `git ls-files -z`.split("\x0").reject do |path|
+    tracked_files = `git ls-files -z`.split("\x0").select { |path| File.file?(path) }
+    (tracked_files + ['ext/dry_validation_rust/predicates.yml']).reject do |path|
       path == 'expected_gem_contents.txt' || path.start_with?(*excluded_package_paths)
-    end.sort
+    end.uniq.sort
   end
   spec.require_paths = ['lib']
   spec.extensions = ['ext/dry_validation_rust/extconf.rb']

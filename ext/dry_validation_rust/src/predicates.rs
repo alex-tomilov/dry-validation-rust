@@ -78,7 +78,12 @@ fn compare<T: PartialOrd>(op: PredicateOp, actual: T, expected: T) -> bool {
         PredicateOp::Gteq => actual >= expected,
         PredicateOp::Lt => actual < expected,
         PredicateOp::Lteq => actual <= expected,
-        _ => false,
+        PredicateOp::MinSize
+        | PredicateOp::MaxSize
+        | PredicateOp::Size
+        | PredicateOp::Odd
+        | PredicateOp::Even
+        | PredicateOp::Unsupported => false,
     }
 }
 
@@ -96,7 +101,14 @@ fn ruby_comparison_predicate_valid(
         PredicateOp::Gteq => ">=",
         PredicateOp::Lt => "<",
         PredicateOp::Lteq => "<=",
-        _ => unreachable!("comparison predicate operation must be recognized"),
+        PredicateOp::MinSize
+        | PredicateOp::MaxSize
+        | PredicateOp::Size
+        | PredicateOp::Odd
+        | PredicateOp::Even
+        | PredicateOp::Unsupported => {
+            unreachable!("comparison predicate operation must be recognized")
+        }
     };
     value.funcall(operator, (argument,))
 }
@@ -123,7 +135,13 @@ fn size_predicate_valid(op: PredicateOp, actual: Option<usize>, argument: &Predi
         PredicateOp::MinSize => actual >= expected,
         PredicateOp::MaxSize => actual <= expected,
         PredicateOp::Size => actual == expected,
-        _ => false,
+        PredicateOp::Gt
+        | PredicateOp::Gteq
+        | PredicateOp::Lt
+        | PredicateOp::Lteq
+        | PredicateOp::Odd
+        | PredicateOp::Even
+        | PredicateOp::Unsupported => false,
     }
 }
 
