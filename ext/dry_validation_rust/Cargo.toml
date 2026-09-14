@@ -25,14 +25,9 @@ rb-sys = { version = "~0.9.124", default-features = false, features = ["stable-a
 serde = { version = "1", features = ["derive", "rc"] }
 serde_json = { version = "1", features = ["unbounded_depth"] }
 
-[build-dependencies]
-serde = { version = "1", features = ["derive"] }
-serde_yaml = "0.9"
-
 [dev-dependencies]
 criterion = "0.5.1"
 magnus = { version = "~0.8.2", default-features = false, features = ["embed"] }
-serde_yaml = "0.9"
 
 [[bench]]
 name = "plan_compile"
