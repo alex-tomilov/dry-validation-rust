@@ -35,8 +35,15 @@ module Dry
         end
 
         def fetch(data, path, undefined = Undefined)
+          fetch_normalized(data, parse(path), undefined)
+        end
+
+        # Fetches a value using a path already normalized by the rule compiler.
+        # Callers must not mutate +path+ while this method is reading it.
+        # @api private
+        def fetch_normalized(data, path, undefined = Undefined)
           current = data
-          parse(path).each do |key|
+          path.each do |key|
             if current.is_a?(Array) && key.is_a?(Integer)
               return undefined unless key >= 0 && key < current.length
 

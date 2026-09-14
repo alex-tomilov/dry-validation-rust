@@ -13,4 +13,13 @@ class PathTest < Minitest::Test
     assert_same fallback, Dry::Validation::Rust::Path.fetch(data, %i[user names] + [-1], fallback)
     assert_same fallback, Dry::Validation::Rust::Path.fetch(data, %i[user names] + [1], fallback)
   end
+
+  def test_fetch_normalized_matches_fetch_for_compiled_paths
+    data = { user: { names: ['Ada'] } }
+    fallback = Object.new
+
+    assert_equal 'Ada', Dry::Validation::Rust::Path.fetch_normalized(data, [:user, :names, 0])
+    assert_same fallback,
+                Dry::Validation::Rust::Path.fetch_normalized(data, [:user, :names, 1], fallback)
+  end
 end

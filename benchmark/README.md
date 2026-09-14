@@ -76,6 +76,21 @@ affect only the text showcase. `MEMORY_PROFILE_N` controls the text showcase
 and opt-in JSON profiler call count. Keep fixed-run settings the same for both
 engines when comparing them.
 
+## Rule evaluation allocations
+
+`benchmark/rule_evaluation.rb` isolates the Ruby-owned rule-evaluator path. It
+measures ten passing and failing simple rules plus passing and failing
+100-member `rule.each` workloads. Each JSON line reports one run's throughput
+and Ruby objects allocated per validation:
+
+```bash
+N=2000 RUNS=5 bundle exec ruby -Ilib benchmark/rule_evaluation.rb
+```
+
+Use all four workloads when evaluating a rule-evaluator optimization. Compare
+allocation counts across runs with identical settings; treat small throughput
+differences as host-sensitive unless repeated measurements are consistent.
+
 ## Comparing with upstream
 
 Use `ENGINE=all` to run both engines against the same selected scenarios and

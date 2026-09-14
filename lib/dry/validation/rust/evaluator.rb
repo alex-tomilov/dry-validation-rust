@@ -87,8 +87,8 @@ module Dry
           @context = context
           @index = index
           @failures = []
-          @key_failures = {}
-          @base_failures = Failures.new
+          @key_failures = nil
+          @base = nil
         end
 
         # Executes a rule block and macro calls, then collects their failures.
@@ -117,8 +117,8 @@ module Dry
         # @example Add an error at a different path
         #   rule(:password) { key(:password_confirmation).failure("does not match") }
         def key(path = default_path)
-          normalized = Path.parse(path)
-          @key_failures[normalized] ||= Failures.new(normalized)
+          normalized = path.equal?(default_path) ? path : Path.parse(path)
+          (@key_failures ||= {})[normalized] ||= Failures.new(normalized)
         end
 
         # Returns the failure collector for base-level messages.
@@ -127,7 +127,7 @@ module Dry
         # @example Add a contract-wide error
         #   rule { base.failure("cannot be approved") }
         def base
-          @base_failures
+          @base ||= Failures.new
         end
 
         # @api private
@@ -147,7 +147,7 @@ module Dry
         # @example Reject a value in a rule
         #   rule(:age) { key.failure("must be at least 18") if value < 18 }
         def value
-          raw = Path.fetch(values.data, value_path)
+          raw = Path.fetch_normalized(values.data, value_path)
           raw.equal?(Path::Undefined) ? nil : raw
         end
 
@@ -241,9 +241,10 @@ module Dry
 
         # @api private
         def execute_block(block, keyword_params, macro: nil)
+          return instance_exec(&block) if keyword_params.empty?
+
           keyword_values = { context: context, index: index, macro: macro }
-          kwargs = keyword_values.slice(*keyword_params)
-          kwargs.empty? ? instance_exec(&block) : instance_exec(**kwargs, &block)
+          instance_exec(**keyword_values.slice(*keyword_params), &block)
         end
 
         # @api private
@@ -279,8 +280,8 @@ module Dry
 
         # @api private
         def collect_failures
-          failures.concat(base.messages)
-          @key_failures.each_value { |set| failures.concat(set.messages) }
+          failures.concat(@base.messages) if @base
+          @key_failures&.each_value { |set| failures.concat(set.messages) }
         end
 
         # @api private

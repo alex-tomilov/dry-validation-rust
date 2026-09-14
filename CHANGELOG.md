@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Improved Ruby contract rule-evaluation allocations for passing and failing rules.
 - Added `Contract.json_schema` for JSON Schema Draft 7 generation from compiled native schemas.
 - Added configurable on-disk caching of compiled native schema plans through
   `Contract.config.plan_cache_dir` and `plan_cache_enabled`.
