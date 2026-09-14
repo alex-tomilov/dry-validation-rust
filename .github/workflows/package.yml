@@ -38,6 +38,9 @@ jobs:
           toolchain: 1.75.0
           cache-workspaces: ext/dry_validation_rust -> target
 
+      - name: Verify Cargo lockfile build
+        run: cargo check --locked --manifest-path ext/dry_validation_rust/Cargo.toml
+
       - name: Audit source package and clean install
         run: bundle exec rake package:audit
 
