@@ -37,8 +37,14 @@ ext/dry_validation_rust/build.rs
 ext/dry_validation_rust/extconf.rb
 ext/dry_validation_rust/fuzz/.gitignore
 ext/dry_validation_rust/fuzz/Cargo.toml
-ext/dry_validation_rust/fuzz/corpus/parse_plan/basic_params.json
-ext/dry_validation_rust/fuzz/fuzz_targets/parse_plan.rs
+ext/dry_validation_rust/fuzz/corpus/fuzz_plan_parser/basic_params.json
+ext/dry_validation_rust/fuzz/corpus/fuzz_validation_engine/basic.json
+ext/dry_validation_rust/fuzz/corpus/fuzz_validator_compiler/basic_params.json
+ext/dry_validation_rust/fuzz/corpus/fuzz_validator_compiler/nested_json.json
+ext/dry_validation_rust/fuzz/corpus/fuzz_validator_compiler/unknown_kind.json
+ext/dry_validation_rust/fuzz/fuzz_targets/fuzz_plan_parser.rs
+ext/dry_validation_rust/fuzz/fuzz_targets/fuzz_validation_engine.rs
+ext/dry_validation_rust/fuzz/fuzz_targets/fuzz_validator_compiler.rs
 ext/dry_validation_rust/predicates.yml
 ext/dry_validation_rust/src/cache.rs
 ext/dry_validation_rust/src/coercion.rs

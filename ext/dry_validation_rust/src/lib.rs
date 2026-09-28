@@ -33,7 +33,12 @@ pub mod fuzzing {
     pub fn compile_plan(json: &str) -> Result<(), String> {
         let plan = plan::deserialize_plan(json)?;
         let validators = compiled::compile_fields(plan.fields, plan.mode);
-        std::hint::black_box(validators);
+        let declared_keys = compiled::compile_declared_keys(&validators);
+        let field_count: usize = validators
+            .iter()
+            .map(compiled::NativeValidator::count_fields)
+            .sum();
+        std::hint::black_box((validators, declared_keys, field_count));
         Ok(())
     }
 
