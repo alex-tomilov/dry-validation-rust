@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Added a crash artifact importer and Rust regression replay for native fuzz targets.
 - Added Cargo fuzz targets for native plan parsing, validator compilation, and JSON validation.
 - Added Cargo build-time generation of native predicate operations from the canonical manifest.
 - Improved Ruby contract rule-evaluation allocations for passing and failing rules.

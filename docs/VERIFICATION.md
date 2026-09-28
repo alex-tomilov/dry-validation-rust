@@ -148,6 +148,13 @@ GitHub Pages source to serve the dashboard.
 | `Record Allocation Baseline` / `Record Criterion Baseline` | Manual                                     | Reviewable benchmark-baseline artifacts without repository writes                                                                                                                                            |
 | `rubygems:push`                                            | Version tags, manual                       | Release-context verification, signed gem artifacts, and trusted publishing after environment approval                                                                                                        |
 
+To keep a native fuzz crash as a regression, run
+`script/import_fuzz_corpus PATH_TO_ARTIFACT TARGET_NAME` from the repository root.
+Use `fuzz_plan_parser`, `fuzz_validator_compiler`, or `fuzz_validation_engine` as
+the target name. Commit the copied file under `test/fixtures/fuzz_corpus/`;
+`cargo test --manifest-path ext/dry_validation_rust/Cargo.toml --test fuzz_regression`
+replays it through the matching fuzz entry point.
+
 ## Claim-to-check map
 
 | Claim                                         | Primary evidence                                                                        |
