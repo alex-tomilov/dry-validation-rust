@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Added Cargo fuzz targets for native plan parsing, validator compilation, and JSON validation.
 - Added Cargo build-time generation of native predicate operations from the canonical manifest.
 - Improved Ruby contract rule-evaluation allocations for passing and failing rules.
 - Added `Contract.json_schema` for JSON Schema Draft 7 generation from compiled native schemas.

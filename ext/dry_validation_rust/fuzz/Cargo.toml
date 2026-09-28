@@ -9,11 +9,28 @@ cargo-fuzz = true
 
 [dependencies]
 libfuzzer-sys = "0.4"
+serde_json = "1"
 native = { package = "dry_validation_rust_native", path = ".." }
 
 [[bin]]
-name = "parse_plan"
-path = "fuzz_targets/parse_plan.rs"
+name = "fuzz_plan_parser"
+path = "fuzz_targets/fuzz_plan_parser.rs"
 test = false
 doc = false
 bench = false
+
+[[bin]]
+name = "fuzz_validator_compiler"
+path = "fuzz_targets/fuzz_validator_compiler.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "fuzz_validation_engine"
+path = "fuzz_targets/fuzz_validation_engine.rs"
+test = false
+doc = false
+bench = false
+
+[workspace]

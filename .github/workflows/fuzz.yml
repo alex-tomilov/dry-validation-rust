@@ -49,7 +49,7 @@ jobs:
 
       - name: Run plan-deserialization fuzz target
         working-directory: ext/dry_validation_rust/fuzz
-        run: cargo fuzz run parse_plan -- -max_total_time=300
+        run: cargo fuzz run fuzz_plan_parser -- -max_total_time=300
 
       - name: Upload fuzz corpus and crashes
         uses: actions/upload-artifact@v7

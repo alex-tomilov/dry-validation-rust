@@ -19,11 +19,52 @@ pub mod serializer;
 
 /// Entrypoints used only by the standalone `cargo fuzz` harness.
 ///
-/// Keeping this module small ensures the fuzzer exercises the same plan parser
-/// that Ruby uses without requiring a Ruby VM for every generated input.
+/// These wrappers exercise production parsing, compilation, and JSON validation
+/// without requiring a Ruby VM for every generated input.
 pub mod fuzzing {
+    use std::sync::OnceLock;
+
+    use crate::{compiled, fused, plan};
+
     pub fn parse_plan(json: &str) -> Result<(), String> {
-        crate::plan::deserialize_plan(json).map(|_| ())
+        plan::deserialize_plan(json).map(|_| ())
+    }
+
+    pub fn compile_plan(json: &str) -> Result<(), String> {
+        let plan = plan::deserialize_plan(json)?;
+        let validators = compiled::compile_fields(plan.fields, plan.mode);
+        std::hint::black_box(validators);
+        Ok(())
+    }
+
+    pub fn validate_json(bytes: &[u8]) {
+        const PLAN: &str = r#"{
+            "engine_version": 1,
+            "mode": "json",
+            "validate_keys": true,
+            "fields": [
+                {"name": "age", "required": true, "nullable": false, "filled": true,
+                 "type": "integer", "predicates": [{"name": "gteq", "argument": 18}]},
+                {"name": "profile", "required": false, "nullable": false, "filled": false,
+                 "type": "hash", "children": [
+                    {"name": "name", "required": true, "nullable": false, "filled": true,
+                     "type": "string"}
+                ]},
+                {"name": "tags", "required": false, "nullable": false, "filled": false,
+                 "type": "array", "member": {"name": null, "required": false,
+                    "nullable": false, "filled": true, "type": "string"}}
+            ]
+        }"#;
+        static VALIDATORS: OnceLock<(Vec<compiled::NativeValidator>, Vec<std::sync::Arc<str>>)> =
+            OnceLock::new();
+        let (validators, declared_keys) = VALIDATORS.get_or_init(|| {
+            let plan = plan::deserialize_plan(PLAN).expect("valid fixed fuzz schema");
+            let validators = compiled::compile_fields(plan.fields, plan.mode);
+            let declared_keys = compiled::compile_declared_keys(&validators);
+            (validators, declared_keys)
+        });
+        let result = fused::validate_json_bytes(bytes, validators, declared_keys, true);
+        std::hint::black_box(result);
     }
 }
 
