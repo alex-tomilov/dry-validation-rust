@@ -42,7 +42,8 @@ pub mod fuzzing {
         Ok(())
     }
 
-    pub fn validate_json(bytes: &[u8]) {
+    /// Returns the number of validation errors for the fixed fuzz schema.
+    pub fn validate_json(bytes: &[u8]) -> usize {
         const PLAN: &str = r#"{
             "engine_version": 1,
             "mode": "json",
@@ -69,7 +70,33 @@ pub mod fuzzing {
             (validators, declared_keys)
         });
         let result = fused::validate_json_bytes(bytes, validators, declared_keys, true);
-        std::hint::black_box(result);
+        std::hint::black_box(&result.output);
+        result.errors.len()
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use super::validate_json;
+
+        #[test]
+        fn fixed_schema_exercises_success_and_validation_errors() {
+            assert_eq!(
+                validate_json(br#"{"age":21,"profile":{"name":"Ada"},"tags":["rust"]}"#),
+                0
+            );
+            assert_eq!(validate_json(br#"{}"#), 1); // required age
+            assert_eq!(validate_json(br#"{"age":17}"#), 1); // age predicate
+            assert_eq!(validate_json(br#"{"age":"21"}"#), 1); // type mismatch
+            assert_eq!(validate_json(br#"{"age":21,"profile":{}}"#), 1); // nested field
+            assert_eq!(validate_json(br#"{"age":21,"tags":[42]}"#), 1); // array member
+            assert_eq!(validate_json(br#"{"age":21,"extra":true}"#), 1); // unknown key
+        }
+
+        #[test]
+        fn fixed_schema_handles_non_object_and_malformed_json() {
+            assert_eq!(validate_json(b"[]"), 1);
+            assert_eq!(validate_json(b"{"), 1);
+        }
     }
 }
 

@@ -9,3 +9,6 @@
 !/corpus/fuzz_validator_compiler/unknown_kind.json
 /corpus/fuzz_validation_engine/*
 !/corpus/fuzz_validation_engine/basic.json
+!/corpus/fuzz_validation_engine/missing_required.json
+!/corpus/fuzz_validation_engine/invalid_nested.json
+!/corpus/fuzz_validation_engine/wrong_root.json

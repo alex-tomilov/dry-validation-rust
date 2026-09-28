@@ -39,6 +39,9 @@ ext/dry_validation_rust/fuzz/.gitignore
 ext/dry_validation_rust/fuzz/Cargo.toml
 ext/dry_validation_rust/fuzz/corpus/fuzz_plan_parser/basic_params.json
 ext/dry_validation_rust/fuzz/corpus/fuzz_validation_engine/basic.json
+ext/dry_validation_rust/fuzz/corpus/fuzz_validation_engine/invalid_nested.json
+ext/dry_validation_rust/fuzz/corpus/fuzz_validation_engine/missing_required.json
+ext/dry_validation_rust/fuzz/corpus/fuzz_validation_engine/wrong_root.json
 ext/dry_validation_rust/fuzz/corpus/fuzz_validator_compiler/basic_params.json
 ext/dry_validation_rust/fuzz/corpus/fuzz_validator_compiler/nested_json.json
 ext/dry_validation_rust/fuzz/corpus/fuzz_validator_compiler/unknown_kind.json
