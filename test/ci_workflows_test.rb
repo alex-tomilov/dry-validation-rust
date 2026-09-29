@@ -216,6 +216,20 @@ class CiWorkflowsTest < Minitest::Test
     assert_equal '1', job.fetch('steps').last.fetch('env').fetch('MEMORY_REGRESSION')
   end
 
+  def test_rust_test_jobs_compile_the_extension_before_running_ruby_subprocesses
+    jobs = workflows.fetch(File.join(WORKFLOW_DIR, 'ci.yml')).fetch('jobs')
+
+    { 'rust-quality' => 'cargo test --locked', 'rust-coverage' => 'cargo tarpaulin' }.each do |job_name, test_command|
+      commands = jobs.fetch(job_name).fetch('steps').filter_map { |step| step['run'] }
+      compile_index = commands.index('bundle exec rake compile')
+      test_index = commands.index { |command| command.start_with?(test_command) }
+
+      refute_nil compile_index, "#{job_name} must compile the native extension"
+      refute_nil test_index, "#{job_name} must run its Rust tests"
+      assert_operator compile_index, :<, test_index, "#{job_name} must compile before Rust tests"
+    end
+  end
+
   def test_ci_validates_source_fallback_on_supported_hosted_runners
     workflow = workflows.fetch(File.join(WORKFLOW_DIR, 'ci.yml'))
     job = workflow.fetch('jobs').fetch('source-fallback')

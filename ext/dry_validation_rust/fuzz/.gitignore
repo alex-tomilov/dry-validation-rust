@@ -1,5 +1,14 @@
 /artifacts/
 /target/
 /Cargo.lock
-/corpus/parse_plan/*
-!/corpus/parse_plan/basic_params.json
+/corpus/fuzz_plan_parser/*
+!/corpus/fuzz_plan_parser/basic_params.json
+/corpus/fuzz_validator_compiler/*
+!/corpus/fuzz_validator_compiler/basic_params.json
+!/corpus/fuzz_validator_compiler/nested_json.json
+!/corpus/fuzz_validator_compiler/unknown_kind.json
+/corpus/fuzz_validation_engine/*
+!/corpus/fuzz_validation_engine/basic.json
+!/corpus/fuzz_validation_engine/missing_required.json
+!/corpus/fuzz_validation_engine/invalid_nested.json
+!/corpus/fuzz_validation_engine/wrong_root.json

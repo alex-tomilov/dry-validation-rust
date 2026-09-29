@@ -19,11 +19,90 @@ pub mod serializer;
 
 /// Entrypoints used only by the standalone `cargo fuzz` harness.
 ///
-/// Keeping this module small ensures the fuzzer exercises the same plan parser
-/// that Ruby uses without requiring a Ruby VM for every generated input.
+/// These wrappers exercise production parsing, compilation, and JSON validation
+/// without requiring a Ruby VM for every generated input.
 pub mod fuzzing {
+    use std::sync::OnceLock;
+
+    use crate::{compiled, fused, plan};
+
     pub fn parse_plan(json: &str) -> Result<(), String> {
-        crate::plan::deserialize_plan(json).map(|_| ())
+        plan::deserialize_plan(json).map(|_| ())
+    }
+
+    pub fn compile_plan(json: &str) -> Result<(), String> {
+        let plan = plan::deserialize_plan(json)?;
+        let validators = compiled::compile_fields(plan.fields, plan.mode);
+        let declared_keys = compiled::compile_declared_keys(&validators);
+        let field_count: usize = validators
+            .iter()
+            .map(compiled::NativeValidator::count_fields)
+            .sum();
+        std::hint::black_box((validators, declared_keys, field_count));
+        Ok(())
+    }
+
+    /// Returns the output and error count for the fixed fuzz schema.
+    pub fn validate_json_result(bytes: &[u8]) -> (serde_json::Value, usize) {
+        const PLAN: &str = r#"{
+            "engine_version": 1,
+            "mode": "json",
+            "validate_keys": true,
+            "fields": [
+                {"name": "age", "required": true, "nullable": false, "filled": true,
+                 "type": "integer", "predicates": [{"name": "gteq", "argument": 18}]},
+                {"name": "profile", "required": false, "nullable": false, "filled": false,
+                 "type": "hash", "children": [
+                    {"name": "name", "required": true, "nullable": false, "filled": true,
+                     "type": "string"}
+                ]},
+                {"name": "tags", "required": false, "nullable": false, "filled": false,
+                 "type": "array", "member": {"name": null, "required": false,
+                    "nullable": false, "filled": false, "type": "string"}}
+            ]
+        }"#;
+        static VALIDATORS: OnceLock<(Vec<compiled::NativeValidator>, Vec<std::sync::Arc<str>>)> =
+            OnceLock::new();
+        let (validators, declared_keys) = VALIDATORS.get_or_init(|| {
+            let plan = plan::deserialize_plan(PLAN).expect("valid fixed fuzz schema");
+            let validators = compiled::compile_fields(plan.fields, plan.mode);
+            let declared_keys = compiled::compile_declared_keys(&validators);
+            (validators, declared_keys)
+        });
+        let result = fused::validate_json_bytes(bytes, validators, declared_keys, true);
+        (result.output, result.errors.len())
+    }
+
+    /// Returns the number of validation errors for the fixed fuzz schema.
+    pub fn validate_json(bytes: &[u8]) -> usize {
+        let (output, error_count) = validate_json_result(bytes);
+        std::hint::black_box(output);
+        error_count
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use super::validate_json;
+
+        #[test]
+        fn fixed_schema_exercises_success_and_validation_errors() {
+            assert_eq!(
+                validate_json(br#"{"age":21,"profile":{"name":"Ada"},"tags":["rust"]}"#),
+                0
+            );
+            assert_eq!(validate_json(br#"{}"#), 1); // required age
+            assert_eq!(validate_json(br#"{"age":17}"#), 1); // age predicate
+            assert_eq!(validate_json(br#"{"age":"21"}"#), 1); // type mismatch
+            assert_eq!(validate_json(br#"{"age":21,"profile":{}}"#), 1); // nested field
+            assert_eq!(validate_json(br#"{"age":21,"tags":[42]}"#), 1); // array member
+            assert_eq!(validate_json(br#"{"age":21,"extra":true}"#), 1); // unknown key
+        }
+
+        #[test]
+        fn fixed_schema_handles_non_object_and_malformed_json() {
+            assert_eq!(validate_json(b"[]"), 1);
+            assert_eq!(validate_json(b"{"), 1);
+        }
     }
 }
 

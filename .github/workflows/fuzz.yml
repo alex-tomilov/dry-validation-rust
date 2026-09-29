@@ -1,8 +1,12 @@
-name: Fuzz
+name: Fuzz & Sanitize
 
 on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
   schedule:
-    - cron: "23 5 * * 0"
+    - cron: "0 3 * * *"
   workflow_dispatch:
 
 permissions:
@@ -13,11 +17,14 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  bounded-preflight:
-    name: Bounded fuzz preflight
+  fuzz:
+    name: Fuzz ${{ matrix.target }}
     runs-on: ubuntu-latest
-    timeout-minutes: 20
-    continue-on-error: true
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [fuzz_plan_parser, fuzz_validation_engine]
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -41,25 +48,79 @@ jobs:
           cache-workspaces: |
             ext/dry_validation_rust -> target
             ext/dry_validation_rust/fuzz -> target
+          cache-key: fuzz-${{ matrix.target }}
 
       - name: Install cargo-fuzz
         uses: taiki-e/install-action@v2
         with:
           tool: cargo-fuzz
 
-      - name: Run plan-deserialization fuzz target
+      - name: Run fuzz target
         working-directory: ext/dry_validation_rust/fuzz
-        run: cargo fuzz run parse_plan -- -max_total_time=300
+        run: cargo fuzz run --target x86_64-unknown-linux-gnu ${{ matrix.target }} -- -max_total_time=300
 
       - name: Upload fuzz corpus and crashes
         uses: actions/upload-artifact@v7
         if: always()
         with:
-          name: fuzz-corpus-and-crashes
+          name: fuzz-${{ matrix.target }}
           path: |
-            ext/dry_validation_rust/fuzz/corpus
-            ext/dry_validation_rust/fuzz/artifacts
+            ext/dry_validation_rust/fuzz/corpus/${{ matrix.target }}
+            ext/dry_validation_rust/fuzz/artifacts/${{ matrix.target }}
           if-no-files-found: warn
+
+  sanitize:
+    name: ${{ matrix.sanitizer }} sanitizer
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        sanitizer: [address, memory]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Install native build prerequisites
+        run: sudo rm -f /etc/apt/sources.list.d/*.list && sudo sed -i 's/azure.archive.ubuntu.com/archive.ubuntu.com/g' /etc/apt/apt-mirrors.txt /etc/apt/sources.list.d/ubuntu.sources /etc/apt/sources.list 2>/dev/null || true && sudo apt-get update -o Acquire::Retries=3 && sudo apt-get install -y --no-install-recommends -o Acquire::Retries=3 clang libclang-dev
+
+      - name: Setup Ruby and Bundler cache
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.3"
+          bundler-cache: true
+
+      - name: Expose Ruby shared library
+        run: echo "LD_LIBRARY_PATH=$(ruby -rrbconfig -e 'print RbConfig::CONFIG.fetch(%q[libdir])')${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" >> "$GITHUB_ENV"
+
+      - name: Setup nightly Rust toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: nightly
+          components: rust-src
+          cache-workspaces: ext/dry_validation_rust -> target
+          cache-key: sanitizer-${{ matrix.sanitizer }}
+
+      - name: Compile native extension for Ruby-backed tests
+        if: matrix.sanitizer == 'address'
+        run: bundle exec rake compile
+
+      - name: Test with AddressSanitizer
+        if: matrix.sanitizer == 'address'
+        working-directory: ext/dry_validation_rust
+        env:
+          RUSTFLAGS: -Zsanitizer=address
+          RUSTDOCFLAGS: -Zsanitizer=address
+          ASAN_OPTIONS: detect_leaks=0
+        run: cargo test -Zbuild-std --locked --target x86_64-unknown-linux-gnu
+
+      - name: Test pure Rust paths with MemorySanitizer
+        if: matrix.sanitizer == 'memory'
+        working-directory: ext/dry_validation_rust
+        env:
+          RUSTFLAGS: -Zsanitizer=memory -Zsanitizer-memory-track-origins
+          RUSTDOCFLAGS: -Zsanitizer=memory -Zsanitizer-memory-track-origins
+        run: cargo test -Zbuild-std --locked --target x86_64-unknown-linux-gnu --test fuzz_regression --test proptest_validation
 
   differential:
     name: Fuzz differential compatibility
@@ -91,3 +152,6 @@ jobs:
 
       - name: Run fuzz differential tests
         run: bundle exec ruby -Itest test/fuzz_engine_test.rb
+
+      - name: Run Rust and pinned Ruby differential property test
+        run: cargo test --locked -p dry_validation_rust_native --test differential_property

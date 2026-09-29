@@ -28,6 +28,7 @@ serde_json = { version = "1", features = ["unbounded_depth"] }
 [dev-dependencies]
 criterion = "0.5.1"
 magnus = { version = "~0.8.2", default-features = false, features = ["embed"] }
+proptest = { version = "=1.4.0", default-features = false, features = ["std"] }
 
 [[bench]]
 name = "plan_compile"

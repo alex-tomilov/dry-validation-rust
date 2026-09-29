@@ -1,0 +1,41 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [[ $# -ne 2 ]]; then
+  printf 'Usage: %s CRASH_FILE TARGET_NAME\n' "$0" >&2
+  exit 2
+fi
+
+crash_file=$1
+target_name=$2
+
+case "$target_name" in
+  fuzz_plan_parser|fuzz_validator_compiler|fuzz_validation_engine) ;;
+  *)
+    printf 'Unknown fuzz target: %s\n' "$target_name" >&2
+    exit 2
+    ;;
+esac
+
+if [[ ! -f "$crash_file" ]]; then
+  printf 'Crash artifact is not a regular file: %s\n' "$crash_file" >&2
+  exit 2
+fi
+
+artifact_name=$(basename -- "$crash_file")
+repo_root=$(cd -- "$(dirname -- "$0")/.." && pwd)
+fixture_dir="$repo_root/test/fixtures/fuzz_corpus/$target_name"
+fixture="$fixture_dir/$artifact_name"
+
+mkdir -p -- "$fixture_dir"
+if [[ -e "$fixture" ]]; then
+  if cmp -s -- "$crash_file" "$fixture"; then
+    printf 'Fixture already imported: %s\n' "$fixture"
+    exit 0
+  fi
+  printf 'Fixture already exists with different bytes: %s\n' "$fixture" >&2
+  exit 1
+fi
+
+cp -- "$crash_file" "$fixture"
+printf 'Imported fixture: %s\n' "$fixture"
