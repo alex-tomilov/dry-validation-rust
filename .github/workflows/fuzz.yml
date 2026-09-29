@@ -83,10 +83,11 @@ jobs:
       - name: Install native build prerequisites
         run: sudo rm -f /etc/apt/sources.list.d/*.list && sudo sed -i 's/azure.archive.ubuntu.com/archive.ubuntu.com/g' /etc/apt/apt-mirrors.txt /etc/apt/sources.list.d/ubuntu.sources /etc/apt/sources.list 2>/dev/null || true && sudo apt-get update -o Acquire::Retries=3 && sudo apt-get install -y --no-install-recommends -o Acquire::Retries=3 clang libclang-dev
 
-      - name: Setup Ruby for rb-sys
+      - name: Setup Ruby and Bundler cache
         uses: ruby/setup-ruby@v1
         with:
           ruby-version: "3.3"
+          bundler-cache: true
 
       - name: Expose Ruby shared library
         run: echo "LD_LIBRARY_PATH=$(ruby -rrbconfig -e 'print RbConfig::CONFIG.fetch(%q[libdir])')${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" >> "$GITHUB_ENV"
@@ -146,3 +147,6 @@ jobs:
 
       - name: Run fuzz differential tests
         run: bundle exec ruby -Itest test/fuzz_engine_test.rb
+
+      - name: Run Rust and pinned Ruby differential property test
+        run: cargo test --locked -p dry_validation_rust_native --test differential_property

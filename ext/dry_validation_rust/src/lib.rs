@@ -42,8 +42,8 @@ pub mod fuzzing {
         Ok(())
     }
 
-    /// Returns the number of validation errors for the fixed fuzz schema.
-    pub fn validate_json(bytes: &[u8]) -> usize {
+    /// Returns the output and error count for the fixed fuzz schema.
+    pub fn validate_json_result(bytes: &[u8]) -> (serde_json::Value, usize) {
         const PLAN: &str = r#"{
             "engine_version": 1,
             "mode": "json",
@@ -58,7 +58,7 @@ pub mod fuzzing {
                 ]},
                 {"name": "tags", "required": false, "nullable": false, "filled": false,
                  "type": "array", "member": {"name": null, "required": false,
-                    "nullable": false, "filled": true, "type": "string"}}
+                    "nullable": false, "filled": false, "type": "string"}}
             ]
         }"#;
         static VALIDATORS: OnceLock<(Vec<compiled::NativeValidator>, Vec<std::sync::Arc<str>>)> =
@@ -70,8 +70,14 @@ pub mod fuzzing {
             (validators, declared_keys)
         });
         let result = fused::validate_json_bytes(bytes, validators, declared_keys, true);
-        std::hint::black_box(&result.output);
-        result.errors.len()
+        (result.output, result.errors.len())
+    }
+
+    /// Returns the number of validation errors for the fixed fuzz schema.
+    pub fn validate_json(bytes: &[u8]) -> usize {
+        let (output, error_count) = validate_json_result(bytes);
+        std::hint::black_box(output);
+        error_count
     }
 
     #[cfg(test)]
