@@ -1,4 +1,68 @@
 
 # cargo-vet audits file
 
-[audits]
+[[audits.getrandom]]
+who = "OpenAI Codex (AI-assisted source review)"
+criteria = "safe-to-run"
+version = "0.2.17"
+notes = "Reviewed platform entropy paths and libc calls. The file fallback reads only OS random devices; no network, process launch, or unrelated filesystem writes were found."
+
+[[audits.ppv-lite86]]
+who = "OpenAI Codex (AI-assisted source review)"
+criteria = "safe-to-run"
+version = "0.2.21"
+notes = "Reviewed SIMD vector implementation and crate entry points. Operations are in-memory arithmetic with no filesystem, network, or process capabilities."
+
+[[audits.proptest]]
+who = "OpenAI Codex (AI-assisted source review)"
+criteria = "safe-to-run"
+version = "1.4.0"
+notes = "Reviewed test-runner configuration and effectful paths. It reads PROPTEST_* settings and stores failing seeds in documented regression files. The optional fork feature launches test subprocesses only when selected; this project enables std without fork. No unrelated filesystem or network activity was found."
+
+[[audits.rand]]
+who = "OpenAI Codex (AI-assisted source review)"
+criteria = "safe-to-run"
+version = "0.8.8"
+notes = "Reviewed RNG entry points and platform hooks. Random generation is in memory; entropy comes from rand_core/getrandom. Thread RNG registers a post-fork reseed hook; no process launch, network, or unrelated file access was found."
+
+[[audits.rand_chacha]]
+who = "OpenAI Codex (AI-assisted source review)"
+criteria = "safe-to-run"
+version = "0.3.1"
+notes = "Reviewed ChaCha RNG implementation and dependencies. It transforms caller-held seed and output buffers in memory; no external I/O or process hooks were found."
+
+[[audits.rand_core]]
+who = "OpenAI Codex (AI-assisted source review)"
+criteria = "safe-to-run"
+version = "0.6.4"
+notes = "Reviewed RNG traits and OS entropy adapter. The only external effect is delegated to getrandom; no independent file, network, or process operation was found."
+
+[[audits.rand_xorshift]]
+who = "OpenAI Codex (AI-assisted source review)"
+criteria = "safe-to-run"
+version = "0.3.0"
+notes = "Reviewed the complete small XorShift implementation. It updates caller-supplied RNG state in memory without external effects."
+
+[[audits.unarray]]
+who = "OpenAI Codex (AI-assisted source review)"
+criteria = "safe-to-run"
+version = "0.1.4"
+notes = "Reviewed array construction and initialization paths. Work is confined to process memory; no external I/O or process operations were found."
+
+[[audits.wasi]]
+who = "OpenAI Codex (AI-assisted source review)"
+criteria = "safe-to-run"
+version = "0.11.1+wasi-snapshot-preview1"
+notes = "Reviewed generated WASI bindings. They expose host-call wrappers but perform no host calls at initialization; this project reaches the crate only through getrandom's WASI target path."
+
+[[audits.zerocopy]]
+who = "OpenAI Codex (AI-assisted source review)"
+criteria = "safe-to-run"
+version = "0.8.59"
+notes = "Reviewed crate effects and build script. Runtime code works on supplied memory. The build script reads its own Cargo.toml and invokes the configured rustc with --version; no network or unrelated file writes were found."
+
+[[audits.zerocopy-derive]]
+who = "OpenAI Codex (AI-assisted source review)"
+criteria = "safe-to-run"
+version = "0.8.59"
+notes = "Reviewed procedural-macro entry points and effectful calls. Normal compilation parses and emits tokens without filesystem, network, or process operations. The snapshot-writing helper is test-only and requires ZEROCOPY_BLESS."
