@@ -1,8 +1,12 @@
-name: Fuzz
+name: Fuzz & Sanitize
 
 on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
   schedule:
-    - cron: "23 5 * * 0"
+    - cron: "0 3 * * *"
   workflow_dispatch:
 
 permissions:
@@ -13,11 +17,10 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  bounded-preflight:
-    name: Bounded fuzz preflight
+  fuzz:
+    name: Fuzz parser and validation engine
     runs-on: ubuntu-latest
-    timeout-minutes: 20
-    continue-on-error: true
+    timeout-minutes: 30
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -51,6 +54,10 @@ jobs:
         working-directory: ext/dry_validation_rust/fuzz
         run: cargo fuzz run fuzz_plan_parser -- -max_total_time=300
 
+      - name: Run validation-engine fuzz target
+        working-directory: ext/dry_validation_rust/fuzz
+        run: cargo fuzz run fuzz_validation_engine -- -max_total_time=300
+
       - name: Upload fuzz corpus and crashes
         uses: actions/upload-artifact@v7
         if: always()
@@ -60,6 +67,54 @@ jobs:
             ext/dry_validation_rust/fuzz/corpus
             ext/dry_validation_rust/fuzz/artifacts
           if-no-files-found: warn
+
+  sanitize:
+    name: ${{ matrix.sanitizer }} sanitizer
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        sanitizer: [address, memory]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Install native build prerequisites
+        run: sudo rm -f /etc/apt/sources.list.d/*.list && sudo sed -i 's/azure.archive.ubuntu.com/archive.ubuntu.com/g' /etc/apt/apt-mirrors.txt /etc/apt/sources.list.d/ubuntu.sources /etc/apt/sources.list 2>/dev/null || true && sudo apt-get update -o Acquire::Retries=3 && sudo apt-get install -y --no-install-recommends -o Acquire::Retries=3 clang libclang-dev
+
+      - name: Setup Ruby for rb-sys
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.3"
+
+      - name: Expose Ruby shared library
+        run: echo "LD_LIBRARY_PATH=$(ruby -rrbconfig -e 'print RbConfig::CONFIG.fetch(%q[libdir])')${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" >> "$GITHUB_ENV"
+
+      - name: Setup nightly Rust toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: nightly
+          components: rust-src
+          cache-workspaces: ext/dry_validation_rust -> target
+          cache-key: sanitizer-${{ matrix.sanitizer }}
+
+      - name: Test with AddressSanitizer
+        if: matrix.sanitizer == 'address'
+        working-directory: ext/dry_validation_rust
+        env:
+          RUSTFLAGS: -Zsanitizer=address
+          RUSTDOCFLAGS: -Zsanitizer=address
+          ASAN_OPTIONS: detect_leaks=0
+        run: cargo test -Zbuild-std --locked --target x86_64-unknown-linux-gnu
+
+      - name: Test pure Rust paths with MemorySanitizer
+        if: matrix.sanitizer == 'memory'
+        working-directory: ext/dry_validation_rust
+        env:
+          RUSTFLAGS: -Zsanitizer=memory -Zsanitizer-memory-track-origins
+          RUSTDOCFLAGS: -Zsanitizer=memory -Zsanitizer-memory-track-origins
+        run: cargo test -Zbuild-std --locked --target x86_64-unknown-linux-gnu --test fuzz_regression --test proptest_validation
 
   differential:
     name: Fuzz differential compatibility
