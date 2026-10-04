@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Changed native `call_json` validation to parse declared fields and array members
+  with schema-guided streaming visitors, skipping undeclared values without
+  building their value trees. Skipped values receive JSON syntax checks only.
+
 - Added pull-request and nightly native fuzzing plus AddressSanitizer and
   MemorySanitizer checks in GitHub Actions.
 - Added a crash artifact importer and Rust regression replay for native fuzz targets.

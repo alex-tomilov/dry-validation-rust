@@ -16,6 +16,7 @@ mod predicates;
 mod ruby_bridge;
 mod schema_gen;
 pub mod serializer;
+mod streaming;
 
 /// Entrypoints used only by the standalone `cargo fuzz` harness.
 ///

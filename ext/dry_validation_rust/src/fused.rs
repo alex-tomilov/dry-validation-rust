@@ -6,7 +6,9 @@
 
 use std::sync::Arc;
 
-use serde_json::{Map, Value};
+#[cfg(test)]
+use serde_json::Map;
+use serde_json::Value;
 
 use crate::{
     compiled::{NativeValidator, TypeKind},
@@ -14,6 +16,7 @@ use crate::{
     plan::{PredicateArg, PredicateOp, PredicatePlan},
 };
 
+#[cfg(test)]
 const MAX_TRAVERSAL_DEPTH: u16 = 128;
 
 pub(crate) struct FusedResult {
@@ -27,29 +30,21 @@ pub(crate) fn validate_json_bytes(
     declared_keys: &[Arc<str>],
     validate_keys: bool,
 ) -> FusedResult {
-    let parsed = match serde_json::from_slice(bytes) {
-        Ok(parsed) => parsed,
-        Err(error) => {
-            return FusedResult {
-                output: Value::Object(Map::new()),
-                errors: vec![NativeError::parse_error(error.to_string())],
-            }
-        }
-    };
-    let Value::Object(input) = parsed else {
-        return FusedResult {
-            output: Value::Object(Map::new()),
-            errors: vec![NativeError::parse_error(
-                "JSON input must be an object".to_owned(),
-            )],
-        };
-    };
+    crate::streaming::validate_json_bytes(bytes, validators, declared_keys, validate_keys)
+}
 
+#[cfg(test)]
+pub(crate) fn validate_parsed(
+    input: &Map<String, Value>,
+    validators: &[NativeValidator],
+    declared_keys: &[Arc<str>],
+    validate_keys: bool,
+) -> FusedResult {
     let mut errors = Vec::new();
     let output = process_hash(
         validators,
         declared_keys,
-        &input,
+        input,
         validate_keys,
         &mut Vec::new(),
         0,
@@ -58,6 +53,7 @@ pub(crate) fn validate_json_bytes(
     FusedResult { output, errors }
 }
 
+#[cfg(test)]
 fn process_hash(
     fields: &[NativeValidator],
     declared_keys: &[Arc<str>],
@@ -100,7 +96,8 @@ fn process_hash(
     Value::Object(output)
 }
 
-fn process_value(
+#[cfg(test)]
+pub(crate) fn process_value(
     field: &NativeValidator,
     raw: &Value,
     path: &mut Vec<PathPart>,
@@ -111,23 +108,10 @@ fn process_value(
     if !within_depth_limit(depth, path, errors) {
         return raw.clone();
     }
+    if !validate_type(field, raw, path, errors) {
+        return raw.clone();
+    }
     let options = field.options();
-    if raw.is_null() {
-        if options.filled && matches!(options.kind, TypeKind::Nil | TypeKind::Any) {
-            errors.push(NativeError::filled(path));
-        } else if !options.nullable && !matches!(options.kind, TypeKind::Nil | TypeKind::Any) {
-            errors.push(NativeError::type_mismatch(path, options.kind.clone()));
-        }
-        return raw.clone();
-    }
-    if !type_matches(&options.kind, raw) {
-        errors.push(NativeError::type_mismatch(path, options.kind.clone()));
-        return raw.clone();
-    }
-    if options.filled && empty(raw) {
-        errors.push(NativeError::filled(path));
-        return raw.clone();
-    }
 
     let value = match (field, raw) {
         (NativeValidator::Hash(validator), Value::Object(input))
@@ -170,6 +154,47 @@ fn process_value(
     value
 }
 
+/// Validate a scalar or an unstructured value in place. Structured streaming
+/// containers are handled by their visitors, so no input clone is needed here.
+pub(crate) fn validate_raw_value(
+    field: &NativeValidator,
+    raw: Value,
+    path: &[PathPart],
+    errors: &mut Vec<NativeError>,
+) -> Value {
+    if validate_type(field, &raw, path, errors) {
+        apply_predicates(&field.options().predicates, &raw, path, errors);
+    }
+    raw
+}
+
+fn validate_type(
+    field: &NativeValidator,
+    raw: &Value,
+    path: &[PathPart],
+    errors: &mut Vec<NativeError>,
+) -> bool {
+    let options = field.options();
+    if raw.is_null() {
+        if options.filled && matches!(options.kind, TypeKind::Nil | TypeKind::Any) {
+            errors.push(NativeError::filled(path));
+        } else if !options.nullable && !matches!(options.kind, TypeKind::Nil | TypeKind::Any) {
+            errors.push(NativeError::type_mismatch(path, options.kind.clone()));
+        }
+        return false;
+    }
+    if !type_matches(&options.kind, raw) {
+        errors.push(NativeError::type_mismatch(path, options.kind.clone()));
+        return false;
+    }
+    if options.filled && empty(raw) {
+        errors.push(NativeError::filled(path));
+        return false;
+    }
+
+    true
+}
+
 fn type_matches(kind: &TypeKind, value: &Value) -> bool {
     match kind {
         TypeKind::Any => true,
@@ -200,7 +225,7 @@ fn empty(value: &Value) -> bool {
         || matches!(value, Value::Object(value) if value.is_empty())
 }
 
-fn apply_predicates(
+pub(crate) fn apply_predicates(
     predicates: &[PredicatePlan],
     value: &Value,
     path: &[PathPart],
@@ -283,6 +308,7 @@ fn value_size(value: &Value) -> Option<usize> {
     }
 }
 
+#[cfg(test)]
 fn within_depth_limit(depth: u16, path: &[PathPart], errors: &mut Vec<NativeError>) -> bool {
     if depth <= MAX_TRAVERSAL_DEPTH {
         true

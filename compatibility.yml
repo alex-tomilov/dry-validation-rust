@@ -440,7 +440,14 @@ blocks:
       - "✅ `call_json` native phase; `call` holds GVL"
 - markdown: |-
     `call_json` copies input bytes before releasing the GVL and constructs Ruby
-    results after reacquiring it. Contract rules still execute with the GVL held.
+    results after reacquiring it. Its native JSON path validates declared hash fields
+    and array members during parsing, without building a complete input value tree.
+    Undeclared values are skipped with Serde's `IgnoredAny`; `validate_keys` still
+    reports their key paths. Skipped values must have valid JSON syntax but are not
+    decoded into Rust values: numeric range, Unicode surrogate decoding, and the
+    retained-value parser nesting limit do not apply to them. Unstructured hashes,
+    arrays without member schemas, and `any` values retain their full contents.
+    Contract rules still execute with the GVL held.
     Thread interrupts wait for the current native parsing/validation pass to finish;
     there is no cooperative cancellation within that pass. Ruby result allocations
     and native heap allocations still occur. Run
