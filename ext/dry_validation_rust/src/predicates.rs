@@ -194,6 +194,7 @@ pub(crate) mod tests {
     use super::*;
     use crate::plan::FieldPlan;
     use magnus::{Exception, ExceptionClass};
+    use proptest::prelude::*;
 
     // Magnus permits one embedded Ruby VM per test process. Keep native Ruby
     // callback coverage in this single test so Cargo's parallel test runner
@@ -420,6 +421,25 @@ pub(crate) mod tests {
             predicate_message(&predicate),
             "length must be [true,\"two\"]"
         );
+    }
+
+    proptest! {
+        #[test]
+        fn integer_comparisons_match_rust_ordering(actual in any::<i64>(), expected in any::<i64>()) {
+            prop_assert_eq!(compare(PredicateOp::Gt, actual, expected), actual > expected);
+            prop_assert_eq!(compare(PredicateOp::Gteq, actual, expected), actual >= expected);
+            prop_assert_eq!(compare(PredicateOp::Lt, actual, expected), actual < expected);
+            prop_assert_eq!(compare(PredicateOp::Lteq, actual, expected), actual <= expected);
+        }
+
+        #[test]
+        fn size_predicates_match_length_ordering(actual in 0usize..1000, expected in 0i64..1000) {
+            let argument = PredicateArg::Int(expected);
+            let expected = expected as usize;
+            prop_assert_eq!(size_predicate_valid(PredicateOp::MinSize, Some(actual), &argument), actual >= expected);
+            prop_assert_eq!(size_predicate_valid(PredicateOp::MaxSize, Some(actual), &argument), actual <= expected);
+            prop_assert_eq!(size_predicate_valid(PredicateOp::Size, Some(actual), &argument), actual == expected);
+        }
     }
 
     #[test]

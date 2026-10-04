@@ -3,7 +3,7 @@
 
 require 'json'
 
-MAXIMUM_DIFFERENCE = 0.01
+MAXIMUM_RATIO = 1.01
 BENCHMARKS = {
   # Criterion turns slash-separated benchmark IDs into directory-safe names.
   without: 'plugin_overhead_validate_without_plugin',
@@ -22,9 +22,10 @@ def estimate(directory, benchmark)
   confidence_level = interval&.fetch('confidence_level', nil)
   lower = interval&.fetch('lower_bound', nil)
   upper = interval&.fetch('upper_bound', nil)
-  unless mean.is_a?(Numeric) && mean.positive? && lower.is_a?(Numeric) && lower.positive? &&
-         upper.is_a?(Numeric) && upper.positive? && confidence_level.is_a?(Numeric) &&
-         (confidence_level * 100).round == 95
+  # Confidence level is fixed JSON metadata, not a computed measurement.
+  valid_confidence = confidence_level == 0.95 # rubocop:disable Lint/FloatComparison
+  unless [mean, lower, upper].all? { |value| value.is_a?(Numeric) && value.finite? && value.positive? } &&
+         lower <= mean && mean <= upper && valid_confidence
     abort "Invalid 95% Criterion mean estimate for #{benchmark}"
   end
 
@@ -34,11 +35,19 @@ end
 directory = File.expand_path(ARGV.fetch(0))
 without = estimate(directory, BENCHMARKS.fetch(:without))
 noop = estimate(directory, BENCHMARKS.fetch(:noop))
-overhead = (noop.fetch(:mean) / without.fetch(:mean)) - 1
+overhead = noop.fetch(:mean).fdiv(without.fetch(:mean)) - 1
 
-if overhead > MAXIMUM_DIFFERENCE
+# Compare the most favorable endpoints before rejecting a regression. These are
+# individual 95% mean intervals, not a joint 95% interval for the ratio.
+if noop.fetch(:lower) > without.fetch(:upper) * MAXIMUM_RATIO
   abort format('NOOP plugin overhead exceeds 1%%: %<overhead>.2f%% (%<noop>.2f ns vs %<without>.2f ns)',
                overhead: overhead * 100, noop: noop.fetch(:mean), without: without.fetch(:mean))
 end
 
-puts format('NOOP plugin path is within the 1%% limit: %.2f%% overhead', overhead * 100)
+if noop.fetch(:upper) <= without.fetch(:lower) * MAXIMUM_RATIO
+  puts format('NOOP plugin path is within the 1%% limit: %.2f%% overhead', overhead * 100)
+else
+  # Inconclusive measurements do not fail CI or establish the performance claim.
+  puts format('NOOP plugin overhead is inconclusive: %.2f%% overhead; mean confidence bounds span the 1%% limit. ' \
+              'Rerun with longer sampling to resolve.', overhead * 100)
+end

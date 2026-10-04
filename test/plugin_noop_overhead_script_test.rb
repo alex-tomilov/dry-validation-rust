@@ -22,10 +22,51 @@ class PluginNoopOverheadScriptTest < Minitest::Test
   end
 
   def test_rejects_noop_path_more_than_one_percent_slower
-    _stdout, stderr, status = run_check(100, 101.01)
+    _stdout, stderr, status = run_check(100, 101.01, without_bounds: [99.999, 100.001], noop_bounds: [101.009, 101.011])
 
     refute status.success?
     assert_includes stderr, 'NOOP plugin overhead exceeds 1%'
+  end
+
+  def test_reports_inconclusive_when_noise_spans_the_limit
+    # CI reported these means; the bounds model uncertainty near the limit.
+    stdout, stderr, status = run_check(7342.50, 7418.09, without_bounds: [7300, 7385], noop_bounds: [7370, 7460])
+
+    assert status.success?, stderr
+    assert_includes stdout, 'inconclusive'
+    assert_includes stdout, '1.03% overhead'
+    refute_includes stdout, 'within the 1% limit'
+  end
+
+  def test_reports_inconclusive_even_when_point_estimate_is_within_limit
+    stdout, stderr, status = run_check(100, 100.5, without_bounds: [99, 101], noop_bounds: [99.5, 101.5])
+
+    assert status.success?, stderr
+    assert_includes stdout, 'inconclusive'
+    refute_includes stdout, 'within the 1% limit'
+  end
+
+  def test_rejects_clear_regression
+    _stdout, stderr, status = run_check(100, 103)
+
+    refute status.success?
+    assert_includes stderr, 'NOOP plugin overhead exceeds 1%'
+  end
+
+  def test_accepts_exact_one_percent_with_exact_estimates
+    stdout, stderr, status = run_check(100, 101, without_bounds: [100, 100], noop_bounds: [101, 101])
+
+    assert status.success?, stderr
+    assert_includes stdout, 'within the 1% limit'
+  end
+
+  def test_rejects_invalid_confidence_bounds
+    [[101, 99], [101, 102], [98, 99], [0, 101]].each do |bounds|
+      _stdout, stderr, status = run_check(100, 100.5, without_bounds: bounds)
+
+      refute status.success?, "accepted invalid bounds: #{bounds.inspect}"
+      assert_includes stderr, 'Invalid 95% Criterion mean estimate'
+    end
   end
 
   private

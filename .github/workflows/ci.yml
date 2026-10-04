@@ -491,10 +491,11 @@ jobs:
       - name: Install native build prerequisites
         run: sudo rm -f /etc/apt/sources.list.d/*.list && sudo sed -i 's/azure.archive.ubuntu.com/archive.ubuntu.com/g' /etc/apt/apt-mirrors.txt /etc/apt/sources.list.d/ubuntu.sources /etc/apt/sources.list 2>/dev/null || true && sudo apt-get update -o Acquire::Retries=3 && sudo apt-get install -y --no-install-recommends -o Acquire::Retries=3 clang libclang-dev
 
-      - name: Setup Ruby for rb-sys
+      - name: Setup Ruby and Bundler cache
         uses: ruby/setup-ruby@v1
         with:
           ruby-version: "3.3"
+          bundler-cache: true
 
       - name: Expose Ruby shared library
         run: echo "LD_LIBRARY_PATH=$(ruby -rrbconfig -e 'print RbConfig::CONFIG.fetch(%q[libdir])')${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" >> "$GITHUB_ENV"
@@ -504,6 +505,9 @@ jobs:
         with:
           toolchain: ${{ matrix.rust }}
           cache-workspaces: ext/dry_validation_rust -> target
+
+      - name: Compile native extension
+        run: bundle exec rake compile
 
       - name: Run Rust tests
         run: cargo test --locked --manifest-path ext/dry_validation_rust/Cargo.toml
@@ -518,10 +522,11 @@ jobs:
       - name: Install native build prerequisites
         run: sudo rm -f /etc/apt/sources.list.d/*.list && sudo sed -i 's/azure.archive.ubuntu.com/archive.ubuntu.com/g' /etc/apt/apt-mirrors.txt /etc/apt/sources.list.d/ubuntu.sources /etc/apt/sources.list 2>/dev/null || true && sudo apt-get update -o Acquire::Retries=3 && sudo apt-get install -y --no-install-recommends -o Acquire::Retries=3 clang libclang-dev
 
-      - name: Setup Ruby for rb-sys
+      - name: Setup Ruby and Bundler cache
         uses: ruby/setup-ruby@v1
         with:
           ruby-version: "3.3"
+          bundler-cache: true
 
       - name: Expose Ruby shared library
         run: echo "LD_LIBRARY_PATH=$(ruby -rrbconfig -e 'print RbConfig::CONFIG.fetch(%q[libdir])')${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" >> "$GITHUB_ENV"
@@ -534,6 +539,9 @@ jobs:
 
       - name: Install cargo-tarpaulin
         run: cargo install cargo-tarpaulin --locked
+
+      - name: Compile native extension
+        run: bundle exec rake compile
 
       - name: Generate Rust coverage report
         run: cargo tarpaulin --manifest-path ext/dry_validation_rust/Cargo.toml --out Lcov

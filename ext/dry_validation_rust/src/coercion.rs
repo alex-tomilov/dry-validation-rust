@@ -376,6 +376,7 @@ pub(crate) mod tests {
     use super::*;
     use crate::plan::Mode;
     use magnus::Error;
+    use proptest::prelude::*;
 
     fn runtime_classes(ruby: &Ruby) -> Result<RuntimeClasses, Error> {
         ruby.eval::<Value>("require 'date'; require 'bigdecimal'")?;
@@ -425,10 +426,64 @@ pub(crate) mod tests {
         }
     }
 
+    proptest! {
+        #[test]
+        fn decimal_integer_normalization_roundtrips(n in any::<i64>()) {
+            let source = n.to_string();
+            let (negative, digits) = split_sign(&source).unwrap();
+            let magnitude = normalized_digits(digits, 10).unwrap().parse::<u64>().unwrap();
+            prop_assert_eq!(negative, n < 0);
+            prop_assert_eq!(magnitude, n.unsigned_abs());
+        }
+
+        #[test]
+        fn decimal_float_normalization_preserves_finite_values(n in any::<f64>().prop_filter("finite", |n| n.is_finite())) {
+            let source = n.to_string();
+            let parsed = fast_float(&source).unwrap();
+            prop_assert_eq!(parsed.to_bits(), n.to_bits());
+        }
+
+        #[test]
+        fn alphabetic_strings_are_not_boolean_tokens(s in "[a-zA-Z]{7,20}") {
+            prop_assert_eq!(params_boolean(&s), None);
+        }
+
+        #[test]
+        fn invalid_digit_separators_are_rejected(left in "[0-9]{1,10}", right in "[0-9]{1,10}") {
+            let source = format!("{left}__{right}");
+            prop_assert_eq!(normalized_digits(&source, 10), None);
+            prop_assert_eq!(fast_float(&source), None);
+        }
+    }
+
     pub(crate) fn params_coercion_handles_native_boundary_edge_cases(
         ruby: &Ruby,
     ) -> Result<(), Error> {
         let classes = runtime_classes(ruby)?;
+
+        let mut runner = proptest::test_runner::TestRunner::default();
+        runner
+            .run(&any::<i64>(), |number| {
+                let original = ruby.integer_from_i64(number).as_value();
+                let strict = coerce(ruby, &classes, true, &TypeKind::Integer, original)
+                    .unwrap()
+                    .unwrap();
+                prop_assert_eq!(
+                    Integer::from_value(strict).unwrap().to_i64().unwrap(),
+                    number
+                );
+
+                let literal = ruby.str_new(&number.to_string()).as_value();
+                prop_assert!(coerce(ruby, &classes, true, &TypeKind::Integer, literal)
+                    .unwrap()
+                    .is_none());
+                let lax = coerce(ruby, &classes, false, &TypeKind::Integer, literal)
+                    .unwrap()
+                    .unwrap();
+                prop_assert_eq!(Integer::from_value(lax).unwrap().to_i64().unwrap(), number);
+                Ok(())
+            })
+            .expect("integer coercion properties should hold");
 
         for (source, expected) in [
             ("42", 42),

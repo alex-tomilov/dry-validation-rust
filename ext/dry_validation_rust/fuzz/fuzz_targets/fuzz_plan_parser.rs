@@ -4,6 +4,6 @@ use libfuzzer_sys::fuzz_target;
 
 fuzz_target!(|data: &[u8]| {
     if let Ok(json) = std::str::from_utf8(data) {
-        native::fuzzing::parse_plan(json);
+        let _ = native::fuzzing::parse_plan(json);
     }
 });
