@@ -30,6 +30,7 @@ ext/dry_validation_rust/Cargo.lock
 ext/dry_validation_rust/Cargo.toml
 ext/dry_validation_rust/benches/coercion.rs
 ext/dry_validation_rust/benches/full_schema.rs
+ext/dry_validation_rust/benches/json_streaming.rs
 ext/dry_validation_rust/benches/plan_compile.rs
 ext/dry_validation_rust/benches/plugin_overhead.rs
 ext/dry_validation_rust/benches/predicates.rs

@@ -49,3 +49,7 @@ harness = false
 [[bench]]
 name = "plugin_overhead"
 harness = false
+
+[[bench]]
+name = "json_streaming"
+harness = false

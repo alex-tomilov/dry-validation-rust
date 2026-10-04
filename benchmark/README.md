@@ -7,6 +7,29 @@ publication-quality evidence, use `script/benchmark-publication` instead; its
 repeated, calibrated protocol is documented in
 [`docs/BENCHMARKING.md`](../docs/BENCHMARKING.md).
 
+## Streaming versus standard JSON
+
+```bash
+cargo bench --locked --bench json_streaming
+```
+
+This Criterion benchmark embeds Ruby and compares `JSON.parse` followed by
+native `Engine#call` with native `Engine#call_json`, including Ruby result
+construction in both paths. It prepares the schema and raw JSON string outside
+timing and verifies that both paths return the expected successful output.
+It covers a simple two-field JSON-mode schema and the same schema with 1,000
+undeclared strings, which the streaming parser skips. GC remains enabled.
+Ruby objects per call are measured separately from timing and include result
+objects; native heap allocations are not counted. This does not measure the
+public Contract wrapper or Params-mode fallback/coercion. A 2× speedup is a
+target to evaluate, not a guaranteed result or enforced timing threshold.
+
+For a quick correctness check without collecting timing samples:
+
+```bash
+cargo bench --locked --bench json_streaming -- --test
+```
+
 ## Prerequisites
 
 - Ruby 3.3 or a supported project runtime;

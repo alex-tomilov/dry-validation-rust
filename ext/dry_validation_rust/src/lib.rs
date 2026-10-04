@@ -171,6 +171,70 @@ pub mod benchmark {
         }
     }
 
+    /// Raw-JSON comparison including Ruby parsing and native result construction.
+    pub struct JsonStreamingRuntime {
+        engine: super::Engine,
+        json: magnus::RModule,
+    }
+
+    impl JsonStreamingRuntime {
+        pub fn new(ruby: &Ruby, plan_json: String) -> Result<Self, Error> {
+            ruby.eval::<Value>("require 'json'")?;
+            let json = ruby.eval("JSON")?;
+            magnus::gc::register_mark_object(json);
+            let engine = super::Engine::new(ruby, plan_json)?;
+            if !engine.can_stream() {
+                return Err(Error::new(
+                    ruby.exception_arg_error(),
+                    "JSON benchmark requires a streamable JSON-mode schema",
+                ));
+            }
+            Ok(Self { engine, json })
+        }
+
+        fn standard_result(
+            &self,
+            raw: magnus::RString,
+        ) -> Result<magnus::typed_data::Obj<super::SchemaResult>, Error> {
+            let input: RHash = self.json.funcall("parse", (raw,))?;
+            self.engine.call(input)
+        }
+
+        pub fn call_standard(&self, raw: magnus::RString) -> Result<(), Error> {
+            self.standard_result(raw).map(|_| ())
+        }
+
+        pub fn call_streaming(&self, raw: magnus::RString) -> Result<(), Error> {
+            self.engine.call_json(raw).map(|_| ())
+        }
+
+        /// Correctness oracle, deliberately outside the measured loop.
+        pub fn verify(
+            &self,
+            ruby: &Ruby,
+            raw: magnus::RString,
+            expected: RHash,
+        ) -> Result<(), Error> {
+            for streaming in [false, true] {
+                let result = if streaming {
+                    self.engine.call_json(raw)?
+                } else {
+                    self.standard_result(raw)?
+                };
+                let output = super::SchemaResult::output(ruby, &result);
+                if !super::SchemaResult::errors(ruby, &result).is_empty()
+                    || !output.funcall::<_, _, bool>("==", (expected,))?
+                {
+                    return Err(Error::new(
+                        ruby.exception_runtime_error(),
+                        "JSON benchmark validation did not produce the expected successful output",
+                    ));
+                }
+            }
+            Ok(())
+        }
+    }
+
     /// Prepared engines for verifying that an absent plugin adds no measurable
     /// cost to a representative native validation call.
     pub struct PluginOverheadRuntime {

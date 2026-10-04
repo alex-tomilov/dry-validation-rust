@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Added a `json_streaming` Criterion benchmark comparing Ruby JSON parsing plus
+  native validation with streaming validation, including Ruby allocation counts.
+
 - Added automatic `call_json` fallback to JSON parsing and normal validation for
   contracts with rules (including `each`), hooks, Ruby predicates, or lax nodes.
 
