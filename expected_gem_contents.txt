@@ -101,6 +101,7 @@ lib/dry/validation/rust/schema/field_definition.rb
 lib/dry/validation/rust/schema/predicate_block.rb
 lib/dry/validation/rust/schema/processor_hooks.rb
 lib/dry/validation/rust/schema/result.rb
+lib/dry/validation/rust/schema/ruby_predicates.rb
 lib/dry/validation/rust/schema/ruby_type_processor.rb
 lib/dry/validation/rust/values.rb
 lib/dry/validation/rust/version.rb

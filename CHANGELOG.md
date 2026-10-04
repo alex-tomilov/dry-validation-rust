@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Added Params-mode support to `call_json`, using JSON parsing followed by normal
+  coercion, hooks, predicates, and contract rules. JSON-mode native streaming is unchanged.
+
 - Changed native `call_json` validation to parse declared fields and array members
   with schema-guided streaming visitors, skipping undeclared values without
   building their value trees. Skipped values receive JSON syntax checks only.

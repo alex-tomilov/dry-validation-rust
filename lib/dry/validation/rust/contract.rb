@@ -309,12 +309,20 @@ module Dry
           finalize_schema_result(schema.call(input), context)
         end
 
-        # Parses and validates JSON through the fused native validator, releasing MRI's GVL.
-        # @param raw_json [String] a JSON object accepted by the declared JSON schema
+        # Parses and validates JSON, then evaluates contract rules with merged context.
+        #
+        # JSON-mode schemas use fused native validation with MRI's GVL released.
+        # Params-mode schemas parse into a Ruby Hash and apply normal Params coercion.
+        #
+        # @example Validating raw JSON with a params schema
+        #   contract = Contract.build { params { required(:age).filled(:integer) } }
+        #   contract.call_json('{"age":"25"}').to_h # => { age: 25 }
+        #
+        # @param raw_json [String] a JSON object accepted by the declared schema
         # @param context [Hash] context available to rule evaluators for this call
         # @return [Result] finalized schema and rule validation result
         # @raise [SchemaMissingError] if this contract has no schema
-        # @raise [ArgumentError] if the schema cannot use fused JSON validation
+        # @raise [ArgumentError] if input is not a String or the schema mode/features are unsupported
         def call_json(raw_json, context = {})
           schema = self.class.schema_definition
           raise SchemaMissingError, "#{self.class} must define a schema" unless schema
