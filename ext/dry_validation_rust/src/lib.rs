@@ -339,6 +339,7 @@ fn init(ruby: &Ruby) -> Result<(), Error> {
     class.define_singleton_method("new_cached", function!(Engine::new_cached, 2))?;
     class.define_method("call", method!(Engine::call, 1))?;
     class.define_method("call_json", method!(Engine::call_json, 1))?;
+    class.define_method("can_stream", method!(Engine::can_stream, 0))?;
     class.define_method("register_plugin", method!(Engine::register_plugin, 3))?;
     class.define_method(
         "register_contract_plugin",

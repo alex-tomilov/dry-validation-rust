@@ -407,6 +407,11 @@ impl Engine {
         json_value_to_ruby(ruby, &schema)
     }
 
+    // Ruby-owned rules and predicates are checked by the public Ruby entrypoint.
+    pub(crate) fn can_stream(&self) -> bool {
+        self.mode == Mode::Json && self.validators.iter().all(NativeValidator::is_streamable)
+    }
+
     pub(crate) fn call_json(&self, raw: RString) -> Result<Obj<SchemaResult>, Error> {
         let ruby = Ruby::get_with(raw);
         if self.mode != Mode::Json {
@@ -415,11 +420,7 @@ impl Engine {
                 "call_json requires a json schema",
             ));
         }
-        if !self
-            .validators
-            .iter()
-            .all(NativeValidator::supports_json_validation)
-        {
+        if !self.can_stream() {
             return Err(Error::new(
                 ruby.exception_arg_error(),
                 "call_json does not support lax coercion; use call instead",

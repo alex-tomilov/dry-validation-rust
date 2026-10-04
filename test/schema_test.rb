@@ -468,23 +468,26 @@ class SchemaTest < Minitest::Test
     assert_includes result.messages.first.text, 'EOF'
   end
 
-  def test_schema_call_json_rejects_ruby_dependent_schema_features
+  def test_schema_call_json_falls_back_for_ruby_dependent_schema_features
     schema = Dry::Validation::Rust::Schema.JSON do
       before(:value_coercer) { |input| input }
       required(:name).value(:string, format?: /\\A[a-z]+\\z/)
     end
 
-    error = assert_raises(ArgumentError) { schema.call_json('{"name":"Ada"}') }
+    result = schema.call_json('{"name":"Ada"}')
 
-    assert_equal 'call_json does not support processor hooks or Ruby predicates; use call instead', error.message
+    assert_equal schema.call('name' => 'Ada').to_h, result.to_h
+    assert_equal schema.call('name' => 'Ada').errors.to_h, result.errors.to_h
   end
 
-  def test_schema_call_json_rejects_lax_coercion
+  def test_schema_call_json_falls_back_for_lax_coercion
     schema = Dry::Validation::Rust::Schema.JSON { required(:age).lax(:integer) }
 
-    error = assert_raises(ArgumentError) { schema.call_json('{"age":"21"}') }
+    refute schema.engine.can_stream
+    result = schema.call_json('{"age":"21"}')
 
-    assert_equal 'call_json does not support lax coercion; use call instead', error.message
+    assert result.success?
+    assert_equal({ age: 21 }, result.to_h)
   end
 
   def test_native_engine_supplies_the_unexpected_key_error_text

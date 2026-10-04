@@ -180,17 +180,15 @@ impl NativeValidator {
         }
     }
 
-    pub(crate) fn supports_json_validation(&self) -> bool {
+    pub(crate) fn is_streamable(&self) -> bool {
         self.options().strict != Strictness::Lax
             && match self {
                 Self::Scalar(_) => true,
-                Self::Hash(validator) => {
-                    validator.fields.iter().all(Self::supports_json_validation)
-                }
+                Self::Hash(validator) => validator.fields.iter().all(Self::is_streamable),
                 Self::Array(validator) => validator
                     .member
                     .as_deref()
-                    .map_or(true, Self::supports_json_validation),
+                    .map_or(true, Self::is_streamable),
             }
     }
 
@@ -373,8 +371,8 @@ mod tests {
             Strictness::Inherit,
         );
 
-        assert!(no_member.supports_json_validation());
-        assert!(!lax_member.supports_json_validation());
+        assert!(no_member.is_streamable());
+        assert!(!lax_member.is_streamable());
     }
 
     #[test]

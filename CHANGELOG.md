@@ -2,8 +2,11 @@
 
 ## Unreleased
 
+- Added automatic `call_json` fallback to JSON parsing and normal validation for
+  contracts with rules (including `each`), hooks, Ruby predicates, or lax nodes.
+
 - Added Params-mode support to `call_json`, using JSON parsing followed by normal
-  coercion, hooks, predicates, and contract rules. JSON-mode native streaming is unchanged.
+  coercion, hooks, predicates, and contract rules. Simple JSON-mode schemas retain native streaming.
 
 - Changed native `call_json` validation to parse declared fields and array members
   with schema-guided streaming visitors, skipping undeclared values without

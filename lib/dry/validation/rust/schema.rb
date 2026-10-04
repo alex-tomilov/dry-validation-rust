@@ -144,29 +144,27 @@ module Dry
 
         # Parses and validates a raw JSON object in the declared schema mode.
         #
-        # JSON-mode parsing and native validation run with MRI's GVL released,
-        # without allocating an input Ruby Hash.
-        # Params-mode schemas use JSON.parse followed by {#call}, preserving coercion and hooks.
-        # JSON-mode processor hooks, Ruby-owned predicates, and lax coercion remain unsupported.
+        # Streamable JSON-mode schemas run parsing and native validation with MRI's GVL released.
+        # Params mode, processor hooks, Ruby-owned predicates, and lax nodes use
+        # JSON.parse followed by {#call}, preserving normal validation behavior.
         #
         # @param raw_json [String] a JSON object to validate.
+        # @param stream [Boolean] allow native streaming; contracts with rules disable it.
         # @return [Result] the output and validation messages.
-        # @raise [ArgumentError] if input is not a String or the schema mode/features are unsupported.
-        def call_json(raw_json)
+        # @raise [ArgumentError] if input is not a String or the schema mode is unsupported.
+        def call_json(raw_json, stream: true)
           raise ArgumentError, "JSON input must be a String. #{raw_json.class} was given." unless raw_json.is_a?(String)
-          return call_params_json(raw_json) if mode == :params
+          raise ArgumentError, 'call_json requires a params or json schema' unless %i[params json].include?(mode)
 
-          raise ArgumentError, 'call_json requires a params or json schema' unless mode == :json
-          unless before_hooks.empty? && after_hooks.empty? && !@has_ruby_predicates
-            raise ArgumentError, 'call_json does not support processor hooks or Ruby predicates; use call instead'
-          end
+          streamable = stream && before_hooks.empty? && after_hooks.empty? && !@has_ruby_predicates && engine.can_stream
+          return call_standard_json(raw_json) unless streamable
 
           build_result(engine.call_json(raw_json), apply_after_hooks: false)
         end
 
         private
 
-        def call_params_json(raw_json)
+        def call_standard_json(raw_json)
           begin
             input = JSON.parse(raw_json)
           rescue JSON::ParserError => e

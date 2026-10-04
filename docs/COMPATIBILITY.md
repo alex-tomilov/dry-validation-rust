@@ -210,12 +210,15 @@ validation, so `params { required(:age).filled(:integer) }` accepts
 `call_json('{"age":"25"}')` and returns `{ age: 25 }`. This Params path allocates
 an input Ruby Hash and holds the GVL during native validation. Malformed JSON and
 non-object roots return root-level schema messages with code `:json` and empty output.
-Schema mode remains unsupported; JSON-mode hooks, Ruby predicates, and lax coercion
-raise `ArgumentError` rather than falling back automatically.
+JSON-mode contracts with rules (including `each`), processor hooks, Ruby-owned
+predicates, or lax nodes also use this standard parsing path. Nested hash fields
+and array members are checked for streaming eligibility. Output, schema errors,
+rule execution, and context follow ordinary `call` behavior. Fallback parses all
+input values using Ruby's JSON parser, including undeclared values; parser limits
+and errors can therefore differ from the streaming path. Schema mode remains unsupported.
 
-For supported JSON-mode schemas, `call_json` copies input bytes before releasing
-the GVL and constructs Ruby
-results after reacquiring it. Its native JSON path validates declared hash fields
+For simple JSON-mode schemas without these fallback features, `call_json` copies
+input bytes before releasing the GVL and constructs Ruby results after reacquiring it. Its native JSON path validates declared hash fields
 and array members during parsing, without building a complete input value tree.
 Undeclared values are skipped with Serde's `IgnoredAny`; `validate_keys` still
 reports their key paths. Skipped values must have valid JSON syntax but are not
